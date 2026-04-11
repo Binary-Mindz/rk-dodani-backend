@@ -50,4 +50,5 @@ model User {
   updatedSettings        AppSetting[]
   emailLogs              EmailLog[]
   auditLogs              AuditLog[]
+  otps                   UserOtp[]
 }

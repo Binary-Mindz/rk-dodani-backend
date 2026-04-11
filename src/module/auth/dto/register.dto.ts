@@ -3,8 +3,8 @@ import {
   IsEmail,
   IsOptional,
   IsString,
-  MinLength,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -29,12 +29,6 @@ export class RegisterDto {
   @IsString()
   @MaxLength(120)
   lastName?: string;
-
-  @ApiPropertyOptional({ example: 'AgentArum Ltd' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  companyName?: string;
 
   @ApiPropertyOptional({ example: '+8801XXXXXXXXX' })
   @IsOptional()

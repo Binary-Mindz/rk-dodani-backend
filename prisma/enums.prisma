@@ -218,3 +218,8 @@ enum AuditAction {
   GRANT
   REVOKE
 }
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}

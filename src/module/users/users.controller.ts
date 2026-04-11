@@ -26,14 +26,4 @@ export class UsersController {
     };
   }
 
-  @Get('admin-only')
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.ADMIN, UserRoleCode.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Admin only test endpoint' })
-  async adminOnly() {
-    return {
-      message: 'You are authorized as admin',
-    };
-  }
 }
