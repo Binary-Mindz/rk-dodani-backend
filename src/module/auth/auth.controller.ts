@@ -58,14 +58,5 @@ export class AuthController {
     return this.authService.resetPassword(dto.email, dto.otp, dto.newPassword);
   }
 
-  @Post('logout')
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Logout current user' })
-  async logout(
-    @CurrentUser() user: { userId: string },
-    @Body() dto: Partial<RefreshTokenDto>,
-  ) {
-    return this.authService.logout(user, dto?.refreshToken);
-  }
+
 }

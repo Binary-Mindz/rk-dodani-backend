@@ -5,7 +5,7 @@ import { HealthModule } from 'module/health/health.module';
 import { RolesModule } from 'module/roles/roles.module';
 import { AuthModule } from 'module/auth/auth.module';
 import { UsersModule } from 'module/users/users.module';
-import { MailModule } from 'module/mail/mail.module';
+import { MailModule } from 'common/mail/mail.module';
 
 @Module({
   imports: [

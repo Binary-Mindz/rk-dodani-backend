@@ -14,7 +14,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RolesService } from '../roles/roles.service';
-import { MailService } from '../mail/mail.service';
+import { MailService } from '../../common/mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { PrismaService } from 'prisma/prisma.service';
@@ -274,44 +274,6 @@ export class AuthService {
       message: 'Token refreshed successfully',
       data: tokens,
     };
-  }
-
-  async logout(currentUser: { userId: string }, refreshToken?: string) {
-    const sessions = await this.prisma.userSession.findMany({
-      where: {
-        userId: currentUser.userId,
-        revokedAt: null,
-      },
-    });
-
-    if (refreshToken) {
-      for (const session of sessions) {
-        const matched = await bcrypt
-          .compare(refreshToken, session.refreshTokenHash)
-          .catch(() => false);
-
-        if (matched) {
-          await this.prisma.userSession.update({
-            where: { id: session.id },
-            data: { revokedAt: new Date() },
-          });
-
-          return { message: 'Logout successful' };
-        }
-      }
-    }
-
-    await this.prisma.userSession.updateMany({
-      where: {
-        userId: currentUser.userId,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
-
-    return { message: 'Logout successful' };
   }
 
   async forgotPassword(email: string) {

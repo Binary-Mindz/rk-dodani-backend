@@ -1,0 +1,10 @@
+docker compose up -d
+
+@CurrentUser() user: CurrentUserData -- full user
+
+@CurrentUser('id') userId: string -- only id
+
+@CurrentUser('email') email: string -- only email
+
+@CurrentUser('roles') roles: UserRoleCode[] -- roles
+

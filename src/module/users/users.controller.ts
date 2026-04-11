@@ -9,21 +9,20 @@ import { UserRoleCode } from '@prisma/client';
 import { Roles } from 'common/decorators/roles.decorator';
 
 @ApiTags('Users')
-@ApiBearerAuth('JWT-auth')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
- @Get('me')
-  @ApiBearerAuth('JWT-auth')
+  @Get('me')
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get current user profile' })
-  async getMe(@CurrentUser() user: { userId: string }) {
+  async getMe(@CurrentUser('id') userId: string) {
     return {
       message: 'Current user profile retrieved successfully',
-      data: await this.usersService.getProfile(user.userId),
+      data: await this.usersService.getProfile(userId),
     };
   }
-
 }
