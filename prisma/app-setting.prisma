@@ -1,0 +1,16 @@
+model AppSetting {
+  id          String   @id @default(uuid())
+  groupName   String
+  key         String
+  value       Json
+  isPublic    Boolean  @default(false)
+  description String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([groupName, key])
+  @@index([groupName])
+}

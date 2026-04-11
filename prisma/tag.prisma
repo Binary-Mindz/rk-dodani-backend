@@ -1,0 +1,14 @@
+model Tag {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contentItems ContentTag[]
+
+  @@index([isActive])
+}

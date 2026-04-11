@@ -1,0 +1,18 @@
+model WebhookLog {
+  id               String                  @id @default(uuid())
+  provider         WebhookProvider
+  eventId          String?
+  eventType        String?
+  signatureHeader  String?
+  requestHeaders   Json?
+  requestBody      Json?
+  responseStatus   Int?
+  processingStatus WebhookProcessingStatus @default(RECEIVED)
+  errorMessage     String?
+  processedAt      DateTime?
+  createdAt        DateTime                @default(now())
+
+  @@index([provider])
+  @@index([eventId])
+  @@index([processingStatus])
+}

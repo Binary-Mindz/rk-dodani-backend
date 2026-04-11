@@ -1,0 +1,220 @@
+enum UserStatus {
+  ACTIVE
+  PENDING_VERIFICATION
+  INACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum UserRoleCode {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  SUPPORT
+  USER
+  SUBSCRIBER
+}
+
+enum AuthProviderType {
+  LOCAL
+  GOOGLE
+  PATREON
+}
+
+enum PageType {
+  HOME
+  ABOUT
+  SERVICES
+  CONTACT
+  CUSTOM
+}
+
+enum PublishStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentTypeCode {
+  ARTICLE
+  WHITE_PAPER
+  CASE_STUDY
+  REPORT
+  PODCAST
+  VIDEO
+  RESEARCH_NOTE
+  MEDIA_POST
+}
+
+enum ContentVisibility {
+  PUBLIC
+  AUTHENTICATED
+  GATED
+}
+
+enum ContentAccessModel {
+  PUBLIC
+  AUTHENTICATED
+  PREMIUM
+  PATREON
+  TIER_BASED
+  CUSTOM
+}
+
+enum StoredFileKind {
+  IMAGE
+  PDF
+  DOCUMENT
+  PRESENTATION
+  AUDIO
+  VIDEO
+  ARCHIVE
+  OTHER
+}
+
+enum StoredFileAccessLevel {
+  PRIVATE
+  PUBLIC
+  SIGNED_URL
+}
+
+enum ContentAssetRole {
+  COVER_IMAGE
+  THUMBNAIL
+  PRIMARY_DOCUMENT
+  ATTACHMENT
+  AUDIO_SOURCE
+  VIDEO_SOURCE
+  TRANSCRIPT
+  PREVIEW_FILE
+}
+
+enum BillingProvider {
+  STRIPE
+  PATREON
+  INTERNAL
+  ADMIN
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  EXPIRED
+}
+
+enum EntitlementSourceType {
+  SUBSCRIPTION
+  PATREON
+  ADMIN_GRANT
+  PROMOTION
+  MANUAL
+}
+
+enum EntitlementType {
+  PREMIUM_ACCESS
+  PLAN_ACCESS
+  CONTENT_ACCESS
+  DOWNLOAD_ACCESS
+}
+
+enum EntitlementStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum InquiryType {
+  GENERAL
+  CONSULTING
+  PARTNERSHIP
+  SUPPORT
+  PRICING
+  MEDIA
+}
+
+enum InquiryStatus {
+  NEW
+  REVIEWED
+  CONTACTED
+  QUALIFIED
+  CLOSED
+  SPAM
+}
+
+enum InquiryPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InquiryActivityType {
+  CREATED
+  ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  RESPONDED
+  CLOSED
+}
+
+enum AccessRuleType {
+  ROLE
+  PLAN
+  SUBSCRIPTION_STATUS
+  PATREON_TIER
+  COUNTRY
+  CUSTOM
+}
+
+enum AccessRuleOperator {
+  EQUALS
+  NOT_EQUALS
+  IN
+  NOT_IN
+  EXISTS
+}
+
+enum WebhookProvider {
+  STRIPE
+  PATREON
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  VERIFIED
+  FAILED
+  PROCESSED
+  DUPLICATE
+}
+
+enum EmailDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PUBLISH
+  ARCHIVE
+  ASSIGN
+  GRANT
+  REVOKE
+}

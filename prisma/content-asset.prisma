@@ -1,0 +1,20 @@
+model ContentAsset {
+  id             String              @id @default(uuid())
+  contentItemId  String
+  storedFileId   String
+  assetRole      ContentAssetRole
+  title          String?
+  description    String?
+  displayOrder   Int                 @default(0)
+  isDownloadable Boolean             @default(true)
+  isPreviewOnly  Boolean             @default(false)
+  accessOverride ContentAccessModel?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  storedFile  StoredFile  @relation(fields: [storedFileId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId])
+  @@index([storedFileId])
+}

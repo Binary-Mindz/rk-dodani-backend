@@ -1,0 +1,16 @@
+model InquiryActivity {
+  id            String              @id @default(uuid())
+  inquiryId     String
+  actionType    InquiryActivityType
+  oldValue      Json?
+  newValue      Json?
+  note          String?
+  performedById String?
+  createdAt     DateTime            @default(now())
+
+  inquiry     ContactInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  performedBy User?          @relation(fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId])
+  @@index([performedById])
+}

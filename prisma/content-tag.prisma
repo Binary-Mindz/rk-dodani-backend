@@ -1,0 +1,13 @@
+model ContentTag {
+  id            String   @id @default(uuid())
+  contentItemId String
+  tagId         String
+  createdAt     DateTime @default(now())
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, tagId])
+  @@index([contentItemId])
+  @@index([tagId])
+}

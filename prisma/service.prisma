@@ -1,0 +1,30 @@
+model Service {
+  id               String        @id @default(uuid())
+  slug             String        @unique
+  title            String
+  shortDescription String?
+  description      String?
+  iconFileId       String?
+  coverImageFileId String?
+  displayOrder     Int           @default(0)
+  isFeatured       Boolean       @default(false)
+  status           PublishStatus @default(DRAFT)
+  ctaLabel         String?
+  ctaUrl           String?
+  seoTitle         String?
+  seoDescription   String?
+  publishedAt      DateTime?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  icon       StoredFile? @relation("ServiceIcon", fields: [iconFileId], references: [id], onDelete: SetNull)
+  coverImage StoredFile? @relation("ServiceCoverImage", fields: [coverImageFileId], references: [id], onDelete: SetNull)
+  createdBy  User?       @relation("ServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy  User?       @relation("ServiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([isFeatured])
+  @@index([displayOrder])
+}

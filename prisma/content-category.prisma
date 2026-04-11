@@ -1,0 +1,13 @@
+model ContentCategory {
+  id            String   @id @default(uuid())
+  contentItemId String
+  categoryId    String
+  createdAt     DateTime @default(now())
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, categoryId])
+  @@index([contentItemId])
+  @@index([categoryId])
+}

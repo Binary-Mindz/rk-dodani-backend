@@ -1,0 +1,10 @@
+model ContentType {
+  id          String          @id @default(uuid())
+  code        ContentTypeCode @unique
+  name        String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  contentItems ContentItem[]
+}

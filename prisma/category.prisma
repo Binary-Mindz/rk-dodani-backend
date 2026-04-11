@@ -1,0 +1,18 @@
+model Category {
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  description      String?
+  parentCategoryId String?
+  displayOrder     Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  parentCategory  Category?         @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id], onDelete: SetNull)
+  childCategories Category[]        @relation("CategoryHierarchy")
+  contentItems    ContentCategory[]
+
+  @@index([parentCategoryId])
+  @@index([isActive])
+}

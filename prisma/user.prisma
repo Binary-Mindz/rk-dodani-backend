@@ -1,0 +1,53 @@
+model User {
+  id                String           @id @default(uuid())
+  email             String           @unique
+  emailVerified     Boolean          @default(false)
+  emailVerifiedAt   DateTime?
+  passwordHash      String?
+  firstName         String?
+  lastName          String?
+  fullName          String?
+  avatarFileId      String?
+  phone             String?
+  companyName       String?
+  jobTitle          String?
+  country           String?
+  timezone          String?
+  preferredLanguage String?          @default("en")
+  status            UserStatus       @default(PENDING_VERIFICATION)
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  signupSource      AuthProviderType @default(LOCAL)
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deletedAt         DateTime?
+
+  avatarFile StoredFile? @relation("UserAvatar", fields: [avatarFileId], references: [id])
+
+  roles                  UserRole[]
+  authProviders          AuthProvider[]
+  sessions               UserSession[]
+  passwordResetTokens    PasswordResetToken[]
+  subscriptions          Subscription[]
+  subscriptionEvents     SubscriptionEvent[]
+  entitlements           Entitlement[]
+  patreonConnection      PatreonConnection?
+  assignedInquiries      ContactInquiry[]     @relation("InquiryAssignedTo")
+  relatedInquiries       ContactInquiry[]     @relation("InquiryRelatedUser")
+  inquiryActivities      InquiryActivity[]
+  uploadedFiles          StoredFile[]         @relation("FileUploadedBy")
+  createdPages           Page[]               @relation("PageCreatedBy")
+  updatedPages           Page[]               @relation("PageUpdatedBy")
+  createdServices        Service[]            @relation("ServiceCreatedBy")
+  updatedServices        Service[]            @relation("ServiceUpdatedBy")
+  primaryAuthoredContent ContentItem[]        @relation("ContentPrimaryAuthor")
+  createdContent         ContentItem[]        @relation("ContentCreatedBy")
+  updatedContent         ContentItem[]        @relation("ContentUpdatedBy")
+  publishedContent       ContentItem[]        @relation("ContentPublishedBy")
+  grantedEntitlements    Entitlement[]        @relation("EntitlementGrantedBy")
+  revokedEntitlements    Entitlement[]        @relation("EntitlementRevokedBy")
+  updatedSettings        AppSetting[]
+  emailLogs              EmailLog[]
+  auditLogs              AuditLog[]
+}

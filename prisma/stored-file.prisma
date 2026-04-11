@@ -1,0 +1,48 @@
+model StoredFile {
+  id                        String                @id @default(uuid())
+  storageProvider           String
+  bucketName                String
+  objectKey                 String
+  originalFileName          String
+  storedFileName            String?
+  fileExtension             String?
+  mimeType                  String
+  fileSizeBytes             BigInt
+  checksumSha256            String?
+  etag                      String?
+  fileKind                  StoredFileKind
+  accessLevel               StoredFileAccessLevel @default(PRIVATE)
+  isPublic                  Boolean               @default(false)
+  publicUrl                 String?
+  cdnUrl                    String?
+  signedUrlExpiresInSeconds Int?
+  imageWidth                Int?
+  imageHeight               Int?
+  durationSeconds           Int?
+  pageCount                 Int?
+  altText                   String?
+  metadata                  Json?
+  uploadedById              String?
+  uploadSource              String?
+  virusScanStatus           String?               @default("PENDING")
+  virusScanResult           String?
+  processedAt               DateTime?
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+  deletedAt                 DateTime?
+
+  uploadedBy         User?          @relation("FileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  usedAsAvatarBy     User[]         @relation("UserAvatar")
+  pageHeroImages     Page[]         @relation("PageHeroImage")
+  pageOgImages       Page[]         @relation("PageOgImage")
+  serviceIcons       Service[]      @relation("ServiceIcon")
+  serviceCoverImages Service[]      @relation("ServiceCoverImage")
+  contentCoverImages ContentItem[]  @relation("ContentCoverImage")
+  contentThumbnails  ContentItem[]  @relation("ContentThumbnail")
+  contentOgImages    ContentItem[]  @relation("ContentOgImage")
+  contentAssets      ContentAsset[]
+
+  @@index([uploadedById])
+  @@index([fileKind])
+  @@index([accessLevel])
+}
