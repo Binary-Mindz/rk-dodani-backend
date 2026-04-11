@@ -20,11 +20,10 @@ import { LoginDto } from './dto/login.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 
-
 @Injectable()
 export class AuthService {
   private readonly saltRounds = 10;
-  private readonly otpExpiryMinutes = 10;
+  private readonly otpExpiryMinutes = 5;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,12 +41,33 @@ export class AuthService {
     });
 
     if (existingUser) {
+      if (!existingUser.emailVerified) {
+        await this.createAndSendOtp(
+          existingUser.id,
+          existingUser.email,
+          OtpPurpose.EMAIL_VERIFICATION,
+        );
+
+        return {
+          message:
+            'This email is already registered but not verified. A new verification OTP has been sent.',
+          data: {
+            userId: existingUser.id,
+            email: existingUser.email,
+            status: existingUser.status,
+          },
+        };
+      }
+
       throw new BadRequestException('Email already exists');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
-    const defaultRole = await this.rolesService.getRoleByCode(UserRoleCode.USER);
-    const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
+    const defaultRole = await this.rolesService.getRoleByCode(
+      UserRoleCode.USER,
+    );
+    const fullName =
+      [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
 
     const user = await this.prisma.user.create({
       data: {
@@ -68,7 +88,11 @@ export class AuthService {
       },
     });
 
-    await this.createAndSendOtp(user.id, user.email, OtpPurpose.EMAIL_VERIFICATION);
+    await this.createAndSendOtp(
+      user.id,
+      user.email,
+      OtpPurpose.EMAIL_VERIFICATION,
+    );
 
     return {
       message: 'Registration successful. Verification OTP sent to your email.',
@@ -79,7 +103,6 @@ export class AuthService {
       },
     };
   }
-
   async verifyEmailOtp(email: string, otp: string) {
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -91,7 +114,11 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    const otpRecord = await this.getLatestValidOtp(user.id, normalizedEmail, OtpPurpose.EMAIL_VERIFICATION);
+    const otpRecord = await this.getLatestValidOtp(
+      user.id,
+      normalizedEmail,
+      OtpPurpose.EMAIL_VERIFICATION,
+    );
 
     const matched = await bcrypt.compare(otp, otpRecord.otpCodeHash);
 
@@ -123,28 +150,6 @@ export class AuthService {
     };
   }
 
-  async resendEmailVerificationOtp(email: string) {
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    if (user.emailVerified) {
-      throw new BadRequestException('Email already verified');
-    }
-
-    await this.createAndSendOtp(user.id, normalizedEmail, OtpPurpose.EMAIL_VERIFICATION);
-
-    return {
-      message: 'Verification OTP sent successfully',
-    };
-  }
-
   async login(dto: LoginDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
 
@@ -168,7 +173,10 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email before login');
     }
 
-    const passwordMatched = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatched = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
 
     if (!passwordMatched) {
       throw new UnauthorizedException('Invalid email or password');
@@ -221,7 +229,9 @@ export class AuthService {
     let matchedSession: { id: string } | null = null;
 
     for (const session of sessions) {
-      const matched = await bcrypt.compare(refreshToken, session.refreshTokenHash).catch(() => false);
+      const matched = await bcrypt
+        .compare(refreshToken, session.refreshTokenHash)
+        .catch(() => false);
       if (matched) {
         matchedSession = session;
         break;
@@ -276,7 +286,9 @@ export class AuthService {
 
     if (refreshToken) {
       for (const session of sessions) {
-        const matched = await bcrypt.compare(refreshToken, session.refreshTokenHash).catch(() => false);
+        const matched = await bcrypt
+          .compare(refreshToken, session.refreshTokenHash)
+          .catch(() => false);
 
         if (matched) {
           await this.prisma.userSession.update({
@@ -315,7 +327,11 @@ export class AuthService {
       };
     }
 
-    await this.createAndSendOtp(user.id, normalizedEmail, OtpPurpose.PASSWORD_RESET);
+    await this.createAndSendOtp(
+      user.id,
+      normalizedEmail,
+      OtpPurpose.PASSWORD_RESET,
+    );
 
     return {
       message: 'If the email exists, a password reset OTP has been sent.',
@@ -333,7 +349,11 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    const otpRecord = await this.getLatestValidOtp(user.id, normalizedEmail, OtpPurpose.PASSWORD_RESET);
+    const otpRecord = await this.getLatestValidOtp(
+      user.id,
+      normalizedEmail,
+      OtpPurpose.PASSWORD_RESET,
+    );
 
     const matched = await bcrypt.compare(otp, otpRecord.otpCodeHash);
 
@@ -365,7 +385,11 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    const otpRecord = await this.getLatestValidOtp(user.id, normalizedEmail, OtpPurpose.PASSWORD_RESET);
+    const otpRecord = await this.getLatestValidOtp(
+      user.id,
+      normalizedEmail,
+      OtpPurpose.PASSWORD_RESET,
+    );
 
     const matched = await bcrypt.compare(otp, otpRecord.otpCodeHash);
 

@@ -11,16 +11,16 @@ import { MailService } from './mail.service';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
         transport: {
-          host: configService.get<string>('MAIL_HOST'),
-          port: Number(configService.get<string>('MAIL_PORT')),
+          host: configService.getOrThrow<string>('MAIL_HOST'),
+          port: Number(configService.getOrThrow<string>('MAIL_PORT')),
           secure: false,
           auth: {
-            user: configService.get<string>('MAIL_USER'),
-            pass: configService.get<string>('MAIL_PASSWORD'),
+            user: configService.getOrThrow<string>('MAIL_USER'),
+            pass: configService.getOrThrow<string>('MAIL_PASSWORD'),
           },
         },
         defaults: {
-          from: configService.get<string>('MAIL_FROM'),
+          from: configService.getOrThrow<string>('MAIL_FROM'),
         },
       }),
     }),

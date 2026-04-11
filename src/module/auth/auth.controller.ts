@@ -5,7 +5,6 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
-import { ResendEmailOtpDto } from './dto/resend-email-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { VerifyResetPasswordOtpDto } from './dto/verify-reset-password-otp.dto';
@@ -27,12 +26,6 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify email using OTP' })
   async verifyEmailOtp(@Body() dto: VerifyEmailOtpDto) {
     return this.authService.verifyEmailOtp(dto.email, dto.otp);
-  }
-
-  @Post('resend-email-otp')
-  @ApiOperation({ summary: 'Resend email verification OTP' })
-  async resendEmailOtp(@Body() dto: ResendEmailOtpDto) {
-    return this.authService.resendEmailVerificationOtp(dto.email);
   }
 
   @Post('login')
