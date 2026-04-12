@@ -9,16 +9,12 @@ model User {
   fullName          String?
   avatarFileId      String?
   phone             String?
-  companyName       String?
-  jobTitle          String?
-  country           String?
   timezone          String?
   preferredLanguage String?          @default("en")
   status            UserStatus       @default(PENDING_VERIFICATION)
   lastLoginAt       DateTime?
   lastLoginIp       String?
   signupSource      AuthProviderType @default(LOCAL)
-  notes             String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   deletedAt         DateTime?
@@ -28,9 +24,8 @@ model User {
   roles                  UserRole[]
   authProviders          AuthProvider[]
   sessions               UserSession[]
-  passwordResetTokens    PasswordResetToken[]
+  userOtps               UserOtp[]
   subscriptions          Subscription[]
-  subscriptionEvents     SubscriptionEvent[]
   entitlements           Entitlement[]
   patreonConnection      PatreonConnection?
   assignedInquiries      ContactInquiry[]     @relation("InquiryAssignedTo")
@@ -50,4 +45,6 @@ model User {
   updatedSettings        AppSetting[]
   emailLogs              EmailLog[]
   auditLogs              AuditLog[]
+  passwordResetTokens    PasswordResetToken[]
+  subscriptionEvents     SubscriptionEvent[]
 }

@@ -218,3 +218,17 @@ enum AuditAction {
   GRANT
   REVOKE
 }
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+enum FileType {
+  IMAGE
+  DOCS
+  LINK
+  DOCUMENT
+  ANY
+  VIDEO
+  AUDIO
+}

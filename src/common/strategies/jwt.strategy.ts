@@ -1,14 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { UserRoleCode } from '@prisma/client';
+import { CurrentUserData } from 'common/interfaces/current-user.interface';
+import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
-type AccessTokenPayload = {
-  sub: string;
-  email: string;
-  roles?: UserRoleCode[];
-};
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -22,17 +18,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: AccessTokenPayload): Promise<{
-    userId: string;
-    email: string;
-    roles: UserRoleCode[];
-  }> {
+  async validate(payload: JwtPayload): Promise<CurrentUserData> {
     if (!payload.sub || !payload.email) {
       throw new UnauthorizedException('Invalid access token payload');
     }
 
     return {
-      userId: payload.sub,
+      id: payload.sub,
       email: payload.email,
       roles: payload.roles ?? [],
     };

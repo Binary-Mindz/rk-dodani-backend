@@ -21,9 +21,7 @@ export class PrismaService
     super({
       adapter,
       log:
-        process.env.NODE_ENV === 'development'
-          ? ['query', 'info', 'warn', 'error']
-          : ['error'],
+        process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     });
   }
 
@@ -35,4 +33,3 @@ export class PrismaService
     await this.$disconnect();
   }
 }
-

@@ -28,11 +28,6 @@ model ContentItem {
   allowDownload              Boolean            @default(true)
   downloadRequiresAcceptance Boolean            @default(false)
   termsText                  String?
-  seoTitle                   String?
-  seoDescription             String?
-  seoKeywords                String?
-  canonicalUrl               String?
-  ogImageFileId              String?
   viewCount                  BigInt             @default(0)
   downloadCount              BigInt             @default(0)
   sortOrder                  Int                @default(0)
@@ -45,9 +40,8 @@ model ContentItem {
 
   contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
   primaryAuthor User?       @relation("ContentPrimaryAuthor", fields: [primaryAuthorId], references: [id], onDelete: SetNull)
-  coverImage    StoredFile? @relation("ContentCoverImage", fields: [coverImageFileId], references: [id], onDelete: SetNull)
-  thumbnail     StoredFile? @relation("ContentThumbnail", fields: [thumbnailFileId], references: [id], onDelete: SetNull)
-  ogImage       StoredFile? @relation("ContentOgImage", fields: [ogImageFileId], references: [id], onDelete: SetNull)
+  coverImage    String?
+  thumbnail     String?
   createdBy     User?       @relation("ContentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?       @relation("ContentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   publishedBy   User?       @relation("ContentPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)

@@ -5,28 +5,27 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 export function setupSwagger(app: INestApplication): void {
   const configService = app.get(ConfigService);
 
-  const swaggerTitle = configService.get<string>('SWAGGER_TITLE') ?? 'AgentArum API';
+  const swaggerTitle =
+    configService.get<string>('SWAGGER_TITLE') ?? 'AgentArum API';
   const swaggerDescription =
     configService.get<string>('SWAGGER_DESCRIPTION') ??
     'AgentArum Backend API Documentation';
-  const swaggerVersion = configService.get<string>('SWAGGER_VERSION') ?? '1.0.0';
-  const swaggerPath = configService.get<string>('SWAGGER_PATH') ?? 'docs';
+  const swaggerVersion =
+    configService.get<string>('SWAGGER_VERSION') ?? '1.0.0';
+  const swaggerPath =
+    configService.get<string>('SWAGGER_PATH') ?? 'docs';
 
   const config = new DocumentBuilder()
     .setTitle(swaggerTitle)
     .setDescription(swaggerDescription)
     .setVersion(swaggerVersion)
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        description: 'Enter JWT token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      description: 'Enter JWT token',
+      in: 'header',
+    })
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
