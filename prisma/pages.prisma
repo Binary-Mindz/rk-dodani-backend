@@ -9,19 +9,13 @@ model Page {
   heroSubtitle    String?
   heroImageFileId String?
   body            Json?
-  seoTitle        String?
-  seoDescription  String?
-  seoKeywords     String?
-  canonicalUrl    String?
-  ogImageFileId   String?
   publishedAt     DateTime?
   createdById     String?
   updatedById     String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  heroImage StoredFile? @relation("PageHeroImage", fields: [heroImageFileId], references: [id], onDelete: SetNull)
-  ogImage   StoredFile? @relation("PageOgImage", fields: [ogImageFileId], references: [id], onDelete: SetNull)
+  heroImage       String?
   createdBy User?       @relation("PageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User?       @relation("PageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
