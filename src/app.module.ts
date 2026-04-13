@@ -6,9 +6,8 @@ import { RolesModule } from 'module/roles/roles.module';
 import { AuthModule } from 'module/auth/auth.module';
 import { UsersModule } from 'module/users/users.module';
 import { MailModule } from 'common/mail/mail.module';
-import { PagesModule } from 'module/pages/pages.module';
-import { ServicesModule } from 'module/services/services.module';
-import { FilesModule } from 'module/files/files.module';
+import { ContentMasterModule } from 'module/content-master/content-master.module';
+
 
 @Module({
   imports: [
@@ -22,9 +21,9 @@ import { FilesModule } from 'module/files/files.module';
     MailModule,
     AuthModule,
     UsersModule,
-    FilesModule,
-    PagesModule,
-    ServicesModule
+    ContentMasterModule
+    
+
   ],
 })
 export class AppModule {}

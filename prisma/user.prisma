@@ -7,7 +7,7 @@ model User {
   firstName         String?
   lastName          String?
   fullName          String?
-  avatarFileId      String?
+  avatarUrl         String?
   phone             String?
   timezone          String?
   preferredLanguage String?          @default("en")
@@ -19,8 +19,6 @@ model User {
   updatedAt         DateTime         @updatedAt
   deletedAt         DateTime?
 
-  avatarFile StoredFile? @relation("UserAvatar", fields: [avatarFileId], references: [id])
-
   roles                  UserRole[]
   authProviders          AuthProvider[]
   sessions               UserSession[]
@@ -31,7 +29,6 @@ model User {
   assignedInquiries      ContactInquiry[]     @relation("InquiryAssignedTo")
   relatedInquiries       ContactInquiry[]     @relation("InquiryRelatedUser")
   inquiryActivities      InquiryActivity[]
-  uploadedFiles          StoredFile[]         @relation("FileUploadedBy")
   createdPages           Page[]               @relation("PageCreatedBy")
   updatedPages           Page[]               @relation("PageUpdatedBy")
   createdServices        Service[]            @relation("ServiceCreatedBy")

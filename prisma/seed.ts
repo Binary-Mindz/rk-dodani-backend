@@ -1,5 +1,9 @@
 import 'dotenv/config';
-import { PrismaClient, UserRoleCode } from '@prisma/client';
+import {
+  PrismaClient,
+  ContentTypeCode,
+  UserRoleCode,
+} from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const connectionString = process.env.DATABASE_URL;
@@ -16,7 +20,65 @@ const prisma = new PrismaClient({
   adapter,
 });
 
-async function main() {
+async function seedContentTypes() {
+  const contentTypes = [
+    {
+      code: ContentTypeCode.ARTICLE,
+      name: 'Article',
+      description: 'Standard article or blog content',
+    },
+    {
+      code: ContentTypeCode.WHITE_PAPER,
+      name: 'White Paper',
+      description: 'Long-form premium or public white paper',
+    },
+    {
+      code: ContentTypeCode.CASE_STUDY,
+      name: 'Case Study',
+      description: 'Customer or business case study content',
+    },
+    {
+      code: ContentTypeCode.REPORT,
+      name: 'Report',
+      description: 'Research and analytical reports',
+    },
+    {
+      code: ContentTypeCode.PODCAST,
+      name: 'Podcast',
+      description: 'Podcast content and episodes',
+    },
+    {
+      code: ContentTypeCode.VIDEO,
+      name: 'Video',
+      description: 'Video-based media content',
+    },
+    {
+      code: ContentTypeCode.RESEARCH_NOTE,
+      name: 'Research Note',
+      description: 'Short-form research insight content',
+    },
+    {
+      code: ContentTypeCode.MEDIA_POST,
+      name: 'Media Post',
+      description: 'Media and thought leadership snippets',
+    },
+  ];
+
+  for (const item of contentTypes) {
+    await prisma.contentType.upsert({
+      where: { code: item.code },
+      update: {
+        name: item.name,
+        description: item.description,
+      },
+      create: item,
+    });
+  }
+
+  console.log('Content types seeded successfully');
+}
+
+async function seedRoles() {
   const roles = [
     {
       code: UserRoleCode.SUPER_ADMIN,
@@ -71,12 +133,17 @@ async function main() {
   console.log('Roles seeded successfully');
 }
 
+async function main() {
+  await seedRoles();
+  await seedContentTypes();
+  console.log('All seeds completed successfully');
+}
+
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
   .catch(async (error) => {
-    console.error(error);
+    console.error('Seed failed:', error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
     await prisma.$disconnect();
-    process.exit(1);
   });

@@ -17,11 +17,11 @@ model Service {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  icon       String?
-  coverImage String?
-  
-  createdBy  User?       @relation("ServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy  User?       @relation("ServiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  iconUrl       String?
+  coverImageUrl String?
+
+  createdBy User? @relation("ServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("ServiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([isFeatured])

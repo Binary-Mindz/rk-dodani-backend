@@ -15,9 +15,10 @@ model Page {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  heroImage       String?
-  createdBy User?       @relation("PageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy User?       @relation("PageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  heroImageUrl String?
+
+  createdBy User? @relation("PageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("PageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([pageType])
   @@index([status])
