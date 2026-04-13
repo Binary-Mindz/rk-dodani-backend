@@ -4,8 +4,8 @@ model Service {
   title            String
   shortDescription String?
   description      String?
-  iconFileId       String?
-  coverImageFileId String?
+  iconUrl       String?
+  coverImageUrl String?
   displayOrder     Int           @default(0)
   isFeatured       Boolean       @default(false)
   status           PublishStatus @default(DRAFT)
@@ -17,8 +17,7 @@ model Service {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  iconUrl       String?
-  coverImageUrl String?
+
 
   createdBy User? @relation("ServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User? @relation("ServiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)

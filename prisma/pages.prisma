@@ -1,21 +1,19 @@
 model Page {
-  id              String        @id @default(uuid())
-  slug            String        @unique
-  title           String
-  subtitle        String?
-  pageType        PageType
-  status          PublishStatus @default(DRAFT)
-  heroTitle       String?
-  heroSubtitle    String?
-  heroImageFileId String?
-  body            Json?
-  publishedAt     DateTime?
-  createdById     String?
-  updatedById     String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
+  id           String        @id @default(uuid())
+  slug         String        @unique
+  title        String
+  subtitle     String?
+  pageType     PageType
+  status       PublishStatus @default(DRAFT)
+  heroTitle    String?
+  heroSubtitle String?
   heroImageUrl String?
+  body         Json?
+  publishedAt  DateTime?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   createdBy User? @relation("PageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User? @relation("PageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
