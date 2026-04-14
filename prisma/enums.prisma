@@ -223,6 +223,7 @@ enum OtpPurpose {
   EMAIL_VERIFICATION
   PASSWORD_RESET
 }
+
 enum FileType {
   IMAGE
   DOCS

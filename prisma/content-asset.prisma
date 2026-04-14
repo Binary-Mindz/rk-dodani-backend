@@ -1,7 +1,10 @@
 model ContentAsset {
   id             String              @id @default(uuid())
   contentItemId  String
-  storedFileId   String
+  fileUrl        String
+  fileName       String?
+  mimeType       String?
+  size           Int?
   assetRole      ContentAssetRole
   title          String?
   description    String?
@@ -13,8 +16,6 @@ model ContentAsset {
   updatedAt      DateTime            @updatedAt
 
   contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
-  storedFile  StoredFile  @relation(fields: [storedFileId], references: [id], onDelete: Cascade)
 
   @@index([contentItemId])
-  @@index([storedFileId])
 }

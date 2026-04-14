@@ -10,8 +10,8 @@ model ContentItem {
   plainTextBody              String?
   authorDisplayName          String?
   primaryAuthorId            String?
-  coverImageFileId           String?
-  thumbnailFileId            String?
+  coverImageUrl              String?
+  thumbnailUrl               String?
   status                     PublishStatus      @default(DRAFT)
   visibility                 ContentVisibility  @default(PUBLIC)
   accessModel                ContentAccessModel @default(PUBLIC)
@@ -40,8 +40,6 @@ model ContentItem {
 
   contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
   primaryAuthor User?       @relation("ContentPrimaryAuthor", fields: [primaryAuthorId], references: [id], onDelete: SetNull)
-  coverImage    String?
-  thumbnail     String?
   createdBy     User?       @relation("ContentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?       @relation("ContentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   publishedBy   User?       @relation("ContentPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
