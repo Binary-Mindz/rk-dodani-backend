@@ -69,7 +69,7 @@ export class ContentService {
     }
   }
 
-  async create(userId: string | null, dto: CreateContentDto) {
+  async create(userId: string, dto: CreateContentDto) {
     const existingSlug = await this.prisma.contentItem.findUnique({
       where: { slug: dto.slug },
     });

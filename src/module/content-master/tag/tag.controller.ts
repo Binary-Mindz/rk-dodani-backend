@@ -7,18 +7,25 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TagService } from './tag.service';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { QueryTagDto } from './dto/query-tag.dto';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
 
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Tags')
 @Controller()
 export class TagController {
   constructor(private readonly service: TagService) {}
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/tags')
   @ApiOperation({ summary: 'Create tag' })
   async create(@Body() dto: CreateTagDto) {
@@ -55,6 +62,7 @@ export class TagController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/tags/:id')
   @ApiOperation({ summary: 'Update tag' })
   async update(@Param('id') id: string, @Body() dto: UpdateTagDto) {
@@ -67,6 +75,7 @@ export class TagController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/tags/:id')
   @ApiOperation({ summary: 'Delete tag' })
   async remove(@Param('id') id: string) {

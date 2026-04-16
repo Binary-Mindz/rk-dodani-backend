@@ -7,22 +7,27 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContentAccessService } from './content-access.service';
 import { CreateContentAccessRuleDto } from './dto/create-content-access-rule.dto';
 import { UpdateContentAccessRuleDto } from './dto/update-content-access-rule.dto';
 import { QueryContentAccessRuleDto } from './dto/query-content-access-rule.dto';
+import { CurrentUser } from 'common/decorators/current-user.decorator';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
 
-// import { CurrentUser } from 'src/shared/decorators/current-user.decorator';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
 
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Content Access')
 @Controller()
 export class ContentAccessController {
   constructor(private readonly service: ContentAccessService) {}
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/content-access-rules')
   @ApiOperation({ summary: 'Create content access rule' })
   async createRule(@Body() dto: CreateContentAccessRuleDto) {
@@ -35,6 +40,7 @@ export class ContentAccessController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-access-rules')
   @ApiOperation({ summary: 'Get content access rules' })
   async findRules(@Query() query: QueryContentAccessRuleDto) {
@@ -47,6 +53,7 @@ export class ContentAccessController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Get content access rule details' })
   async findRuleById(@Param('id') id: string) {
@@ -59,6 +66,7 @@ export class ContentAccessController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Update content access rule' })
   async updateRule(
@@ -74,6 +82,7 @@ export class ContentAccessController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Delete content access rule' })
   async removeRule(@Param('id') id: string) {
@@ -90,9 +99,9 @@ export class ContentAccessController {
   @ApiOperation({ summary: 'Check whether current user can access content' })
   async checkAccess(
     @Param('slug') slug: string,
-    // @CurrentUser() user: any,
+     @CurrentUser('id') userId: string,
   ) {
-    const data = await this.service.checkAccess(slug, null);
+    const data = await this.service.checkAccess(slug, userId);
 
     return {
       statusCode: 200,
@@ -107,9 +116,9 @@ export class ContentAccessController {
   })
   async getAccessibleContent(
     @Param('slug') slug: string,
-    // @CurrentUser() user: any,
+   @CurrentUser('id') userId: string,
   ) {
-    const data = await this.service.getAccessibleContentBySlug(slug, null);
+    const data = await this.service.getAccessibleContentBySlug(slug, userId)
 
     return {
       statusCode: 200,

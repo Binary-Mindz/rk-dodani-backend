@@ -7,15 +7,19 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { QueryCategoryDto } from './dto/query-category.dto';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Categories')
 @Controller()
 export class CategoryController {
@@ -23,7 +27,7 @@ export class CategoryController {
 
   @Post('admin/categories')
   @ApiOperation({ summary: 'Create category' })
-  // @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   async create(@Body() dto: CreateCategoryDto) {
     const data = await this.service.create(dto);
 
@@ -58,6 +62,7 @@ export class CategoryController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/categories/:id')
   @ApiOperation({ summary: 'Update category' })
   async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
@@ -70,6 +75,7 @@ export class CategoryController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/categories/:id')
   @ApiOperation({ summary: 'Delete category' })
   async remove(@Param('id') id: string) {

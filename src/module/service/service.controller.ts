@@ -7,31 +7,35 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ServiceService } from './service.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryAdminServiceDto } from './dto/query-admin-service.dto';
 import { QueryPublicServiceDto } from './dto/query-public-service.dto';
 import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
+import { CurrentUser } from 'common/decorators/current-user.decorator';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 
-// import { CurrentUser } from 'src/shared/decorators/current-user.decorator';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
-
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Services')
 @Controller()
 export class ServiceController {
   constructor(private readonly service: ServiceService) {}
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/services')
   @ApiOperation({ summary: 'Create service' })
   async create(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreateServiceDto,
   ) {
-    const data = await this.service.create(null, dto);
+    const data = await this.service.create(userId, dto);
 
     return {
       statusCode: 201,
@@ -39,7 +43,7 @@ export class ServiceController {
       data,
     };
   }
-
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/services')
   @ApiOperation({ summary: 'Get admin services' })
   async findAdminAll(@Query() query: QueryAdminServiceDto) {
@@ -52,6 +56,7 @@ export class ServiceController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/services/:id')
   @ApiOperation({ summary: 'Get admin service details' })
   async findAdminOne(@Param('id') id: string) {
@@ -64,14 +69,15 @@ export class ServiceController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/services/:id')
   @ApiOperation({ summary: 'Update service' })
   async update(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateServiceDto,
   ) {
-    const data = await this.service.update(null, id, dto);
+    const data = await this.service.update(userId, id, dto);
 
     return {
       statusCode: 200,
@@ -80,14 +86,15 @@ export class ServiceController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/services/:id/status')
   @ApiOperation({ summary: 'Update service status' })
   async updateStatus(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateServiceStatusDto,
   ) {
-    const data = await this.service.updateStatus(null, id, dto);
+    const data = await this.service.updateStatus(userId, id, dto);
 
     return {
       statusCode: 200,
@@ -96,6 +103,7 @@ export class ServiceController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/services/:id')
   @ApiOperation({ summary: 'Delete service' })
   async remove(@Param('id') id: string) {

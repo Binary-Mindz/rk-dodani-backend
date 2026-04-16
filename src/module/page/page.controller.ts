@@ -7,31 +7,32 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PageService } from './page.service';
 import { CreatePageDto } from './dto/create-page.dto';
 import { UpdatePageDto } from './dto/update-page.dto';
 import { QueryAdminPageDto } from './dto/query-admin-page.dto';
 import { QueryPublicPageDto } from './dto/query-public-page.dto';
 import { UpdatePageStatusDto } from './dto/update-page-status.dto';
+import { CurrentUser } from 'common/decorators/current-user.decorator';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 
-// import { CurrentUser } from 'src/shared/decorators/current-user.decorator';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
-
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Pages')
 @Controller()
 export class PageController {
   constructor(private readonly service: PageService) {}
 
   @Post('admin/pages')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Create page' })
-  async create(
-    // @CurrentUser() user: any,
-    @Body() dto: CreatePageDto,
-  ) {
-    const data = await this.service.create(null, dto);
+  async create(@CurrentUser('id') userId: string, @Body() dto: CreatePageDto) {
+    const data = await this.service.create(userId, dto);
 
     return {
       statusCode: 201,
@@ -65,13 +66,14 @@ export class PageController {
   }
 
   @Patch('admin/pages/:id')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Update page' })
   async update(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdatePageDto,
   ) {
-    const data = await this.service.update(null, id, dto);
+    const data = await this.service.update(userId, id, dto);
 
     return {
       statusCode: 200,
@@ -81,9 +83,10 @@ export class PageController {
   }
 
   @Patch('admin/pages/:id/status')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Update page status' })
   async updateStatus(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdatePageStatusDto,
   ) {
@@ -97,6 +100,7 @@ export class PageController {
   }
 
   @Delete('admin/pages/:id')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Delete page' })
   async remove(@Param('id') id: string) {
     const data = await this.service.remove(id);
