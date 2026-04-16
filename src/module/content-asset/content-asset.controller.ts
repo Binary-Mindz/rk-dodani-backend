@@ -14,15 +14,16 @@ import { CreateContentAssetDto } from './dto/create-content-asset.dto';
 import { UpdateContentAssetDto } from './dto/update-content-asset.dto';
 import { QueryContentAssetDto } from './dto/query-content-asset.dto';
 import { ReorderContentAssetDto } from './dto/reorder-content-asset.dto';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
 
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
 
 @ApiTags('Content Assets')
 @Controller()
 export class ContentAssetController {
   constructor(private readonly service: ContentAssetService) {}
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/content-assets')
   @ApiOperation({ summary: 'Create content asset' })
   async create(@Body() dto: CreateContentAssetDto) {
@@ -35,6 +36,7 @@ export class ContentAssetController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-assets')
   @ApiOperation({ summary: 'Get admin content assets' })
   async findAdminAll(@Query() query: QueryContentAssetDto) {
@@ -47,6 +49,7 @@ export class ContentAssetController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-assets/:id')
   @ApiOperation({ summary: 'Get content asset details' })
   async findAdminOne(@Param('id') id: string) {
@@ -59,6 +62,7 @@ export class ContentAssetController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content-assets/:id')
   @ApiOperation({ summary: 'Update content asset' })
   async update(
@@ -74,6 +78,7 @@ export class ContentAssetController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/content-assets/:id')
   @ApiOperation({ summary: 'Delete content asset' })
   async remove(@Param('id') id: string) {
@@ -86,6 +91,7 @@ export class ContentAssetController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content/:contentItemId/assets/reorder')
   @ApiOperation({ summary: 'Reorder content assets' })
   async reorder(

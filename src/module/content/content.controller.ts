@@ -7,19 +7,22 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { QueryAdminContentDto } from './dto/query-admin-content.dto';
 import { QueryPublicContentDto } from './dto/query-public-content.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
+import { CurrentUser } from 'common/decorators/current-user.decorator';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 
-// import { CurrentUser } from 'src/shared/decorators/current-user.decorator';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
-
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Content')
 @Controller()
 export class ContentController {
@@ -27,12 +30,12 @@ export class ContentController {
 
   @Post('admin/content')
   @ApiOperation({ summary: 'Create content' })
-  // @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   async create(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreateContentDto,
   ) {
-    const data = await this.service.create(null, dto);
+    const data = await this.service.create(userId, dto);
 
     return {
       statusCode: 201,
@@ -41,6 +44,7 @@ export class ContentController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content')
   @ApiOperation({ summary: 'Get admin content list' })
   async findAdminAll(@Query() query: QueryAdminContentDto) {
@@ -53,6 +57,7 @@ export class ContentController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content/:id')
   @ApiOperation({ summary: 'Get admin content details' })
   async findAdminOne(@Param('id') id: string) {
@@ -65,14 +70,15 @@ export class ContentController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content/:id')
   @ApiOperation({ summary: 'Update content' })
   async update(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateContentDto,
   ) {
-    const data = await this.service.update(null, id, dto);
+    const data = await this.service.update(userId, id, dto);
 
     return {
       statusCode: 200,
@@ -81,14 +87,15 @@ export class ContentController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content/:id/status')
   @ApiOperation({ summary: 'Update content status' })
   async updateStatus(
-    // @CurrentUser() user: any,
+    @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateContentStatusDto,
   ) {
-    const data = await this.service.updateStatus(null, id, dto);
+    const data = await this.service.updateStatus(userId, id, dto);
 
     return {
       statusCode: 200,
@@ -97,6 +104,7 @@ export class ContentController {
     };
   }
 
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/content/:id')
   @ApiOperation({ summary: 'Delete content (soft delete)' })
   async remove(@Param('id') id: string) {

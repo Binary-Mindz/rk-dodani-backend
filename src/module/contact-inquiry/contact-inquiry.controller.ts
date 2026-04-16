@@ -7,8 +7,9 @@ import {
   Post,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { ContactInquiryService } from './contact-inquiry.service';
@@ -17,17 +18,19 @@ import { QueryAdminContactInquiryDto } from './dto/query-admin-contact-inquiry.d
 import { UpdateInquiryStatusDto } from './dto/update-inquiry-status.dto';
 import { AssignInquiryDto } from './dto/assign-inquiry.dto';
 import { AddInquiryNoteDto } from './dto/add-inquiry-note.dto';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
 
-// import { CurrentUser } from 'src/shared/decorators/current-user.decorator';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-// import { UserRoleCode } from '@prisma/client';
-
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @ApiTags('Contact Inquiries')
 @Controller()
 export class ContactInquiryController {
   constructor(private readonly service: ContactInquiryService) {}
 
   @Post('contact/inquiries')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Submit public contact inquiry' })
   async createPublic(
     @Body() dto: CreateContactInquiryDto,
@@ -47,6 +50,7 @@ export class ContactInquiryController {
   }
 
   @Get('admin/inquiries')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Get admin inquiry list' })
   async findAdminAll(@Query() query: QueryAdminContactInquiryDto) {
     const data = await this.service.findAdminAll(query);
@@ -59,6 +63,7 @@ export class ContactInquiryController {
   }
 
   @Get('admin/inquiries/:id')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Get inquiry details' })
   async findAdminOne(@Param('id') id: string) {
     const data = await this.service.findAdminOne(id);
@@ -69,13 +74,10 @@ export class ContactInquiryController {
       data,
     };
   }
-
   @Patch('admin/inquiries/:id/assign')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Assign inquiry to a user' })
-  async assign(
-    @Param('id') id: string,
-    @Body() dto: AssignInquiryDto,
-  ) {
+  async assign(@Param('id') id: string, @Body() dto: AssignInquiryDto) {
     const data = await this.service.assign(id, null, dto);
 
     return {
@@ -86,6 +88,7 @@ export class ContactInquiryController {
   }
 
   @Patch('admin/inquiries/:id/status')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Update inquiry status' })
   async updateStatus(
     @Param('id') id: string,
@@ -101,11 +104,9 @@ export class ContactInquiryController {
   }
 
   @Post('admin/inquiries/:id/note')
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Add note to inquiry' })
-  async addNote(
-    @Param('id') id: string,
-    @Body() dto: AddInquiryNoteDto,
-  ) {
+  async addNote(@Param('id') id: string, @Body() dto: AddInquiryNoteDto) {
     const data = await this.service.addNote(id, null, dto);
 
     return {
