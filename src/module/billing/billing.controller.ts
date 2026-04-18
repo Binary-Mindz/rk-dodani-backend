@@ -18,7 +18,7 @@ export class BillingController {
    @CurrentUser('id') userId: string,
     @Body() dto: CreateCheckoutSessionDto,
   ) {
-    const data = await this.service.createCheckoutSession('USER_ID_HERE', dto);
+    const data = await this.service.createCheckoutSession(userId, dto);
 
     return {
       statusCode: 201,
@@ -30,7 +30,7 @@ export class BillingController {
   @Get('my-subscriptions')
   @ApiOperation({ summary: 'Get current user subscriptions' })
   async getMySubscriptions(@CurrentUser('id') userId: string) {
-    const data = await this.service.getMySubscription('USER_ID_HERE');
+    const data = await this.service.getMySubscription(userId);
 
     return {
       statusCode: 200,
@@ -46,7 +46,7 @@ export class BillingController {
     @Param('subscriptionId') subscriptionId: string,
   ) {
     const data = await this.service.cancelMySubscription(
-      'USER_ID_HERE',
+      userId,
       subscriptionId,
     );
 

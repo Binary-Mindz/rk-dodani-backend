@@ -20,17 +20,18 @@ import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { RolesGuard } from 'common/guards/roles.guard';
 
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @ApiTags('Content')
 @Controller()
 export class ContentController {
   constructor(private readonly service: ContentService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/content')
   @ApiOperation({ summary: 'Create content' })
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   async create(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateContentDto,
@@ -44,6 +45,8 @@ export class ContentController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content')
   @ApiOperation({ summary: 'Get admin content list' })
@@ -57,6 +60,8 @@ export class ContentController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content/:id')
   @ApiOperation({ summary: 'Get admin content details' })
@@ -70,6 +75,8 @@ export class ContentController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content/:id')
   @ApiOperation({ summary: 'Update content' })
@@ -87,6 +94,8 @@ export class ContentController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content/:id/status')
   @ApiOperation({ summary: 'Update content status' })
@@ -104,6 +113,8 @@ export class ContentController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/content/:id')
   @ApiOperation({ summary: 'Delete content (soft delete)' })
@@ -116,6 +127,7 @@ export class ContentController {
       data,
     };
   }
+
 
   @Get('content')
   @ApiOperation({ summary: 'Get public content list' })

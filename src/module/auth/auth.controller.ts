@@ -8,9 +8,6 @@ import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { VerifyResetPasswordOtpDto } from './dto/verify-reset-password-otp.dto';
-import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
-import { CurrentUser } from 'common/decorators/current-user.decorator';
-
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {

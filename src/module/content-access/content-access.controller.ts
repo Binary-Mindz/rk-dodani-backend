@@ -18,15 +18,15 @@ import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
+import { RolesGuard } from 'common/guards/roles.guard';
 
-
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @ApiTags('Content Access')
 @Controller()
 export class ContentAccessController {
   constructor(private readonly service: ContentAccessService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/content-access-rules')
   @ApiOperation({ summary: 'Create content access rule' })
@@ -40,6 +40,8 @@ export class ContentAccessController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-access-rules')
   @ApiOperation({ summary: 'Get content access rules' })
@@ -53,6 +55,8 @@ export class ContentAccessController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Get content access rule details' })
@@ -66,6 +70,8 @@ export class ContentAccessController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Update content access rule' })
@@ -82,6 +88,8 @@ export class ContentAccessController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Delete content access rule' })
@@ -95,11 +103,12 @@ export class ContentAccessController {
     };
   }
 
+
   @Get('content/:slug/access-check')
   @ApiOperation({ summary: 'Check whether current user can access content' })
   async checkAccess(
     @Param('slug') slug: string,
-     @CurrentUser('id') userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     const data = await this.service.checkAccess(slug, userId);
 
@@ -110,15 +119,16 @@ export class ContentAccessController {
     };
   }
 
+
   @Get('content/:slug/protected')
   @ApiOperation({
     summary: 'Get protected content if current user has access',
   })
   async getAccessibleContent(
     @Param('slug') slug: string,
-   @CurrentUser('id') userId: string,
+    @CurrentUser('id') userId: string,
   ) {
-    const data = await this.service.getAccessibleContentBySlug(slug, userId)
+    const data = await this.service.getAccessibleContentBySlug(slug, userId);
 
     return {
       statusCode: 200,

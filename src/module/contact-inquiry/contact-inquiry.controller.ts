@@ -21,16 +21,15 @@ import { AddInquiryNoteDto } from './dto/add-inquiry-note.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
+import { RolesGuard } from 'common/guards/roles.guard';
 
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+
 @ApiTags('Contact Inquiries')
 @Controller()
 export class ContactInquiryController {
   constructor(private readonly service: ContactInquiryService) {}
 
   @Post('contact/inquiries')
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Submit public contact inquiry' })
   async createPublic(
     @Body() dto: CreateContactInquiryDto,
@@ -49,6 +48,9 @@ export class ContactInquiryController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
   @Get('admin/inquiries')
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Get admin inquiry list' })
@@ -62,8 +64,10 @@ export class ContactInquiryController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
   @Get('admin/inquiries/:id')
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Get inquiry details' })
   async findAdminOne(@Param('id') id: string) {
     const data = await this.service.findAdminOne(id);
@@ -74,8 +78,10 @@ export class ContactInquiryController {
       data,
     };
   }
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
   @Patch('admin/inquiries/:id/assign')
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Assign inquiry to a user' })
   async assign(@Param('id') id: string, @Body() dto: AssignInquiryDto) {
     const data = await this.service.assign(id, null, dto);
@@ -87,8 +93,10 @@ export class ContactInquiryController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
   @Patch('admin/inquiries/:id/status')
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Update inquiry status' })
   async updateStatus(
     @Param('id') id: string,
@@ -103,8 +111,10 @@ export class ContactInquiryController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
   @Post('admin/inquiries/:id/note')
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Add note to inquiry' })
   async addNote(@Param('id') id: string, @Body() dto: AddInquiryNoteDto) {
     const data = await this.service.addNote(id, null, dto);

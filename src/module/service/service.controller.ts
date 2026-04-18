@@ -20,14 +20,16 @@ import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { RolesGuard } from 'common/guards/roles.guard';
 
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+
 @ApiTags('Services')
 @Controller()
 export class ServiceController {
   constructor(private readonly service: ServiceService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/services')
   @ApiOperation({ summary: 'Create service' })
@@ -43,6 +45,8 @@ export class ServiceController {
       data,
     };
   }
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/services')
   @ApiOperation({ summary: 'Get admin services' })
@@ -56,6 +60,8 @@ export class ServiceController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/services/:id')
   @ApiOperation({ summary: 'Get admin service details' })
@@ -69,6 +75,8 @@ export class ServiceController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/services/:id')
   @ApiOperation({ summary: 'Update service' })
@@ -86,6 +94,8 @@ export class ServiceController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/services/:id/status')
   @ApiOperation({ summary: 'Update service status' })
@@ -103,6 +113,8 @@ export class ServiceController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/services/:id')
   @ApiOperation({ summary: 'Delete service' })

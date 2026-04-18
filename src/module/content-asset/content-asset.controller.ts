@@ -7,8 +7,9 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContentAssetService } from './content-asset.service';
 import { CreateContentAssetDto } from './dto/create-content-asset.dto';
 import { UpdateContentAssetDto } from './dto/update-content-asset.dto';
@@ -16,6 +17,8 @@ import { QueryContentAssetDto } from './dto/query-content-asset.dto';
 import { ReorderContentAssetDto } from './dto/reorder-content-asset.dto';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
+import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { RolesGuard } from 'common/guards/roles.guard';
 
 
 @ApiTags('Content Assets')
@@ -23,6 +26,8 @@ import { UserRoleCode } from '@prisma/client';
 export class ContentAssetController {
   constructor(private readonly service: ContentAssetService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/content-assets')
   @ApiOperation({ summary: 'Create content asset' })
@@ -36,6 +41,8 @@ export class ContentAssetController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-assets')
   @ApiOperation({ summary: 'Get admin content assets' })
@@ -49,6 +56,8 @@ export class ContentAssetController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/content-assets/:id')
   @ApiOperation({ summary: 'Get content asset details' })
@@ -62,6 +71,8 @@ export class ContentAssetController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content-assets/:id')
   @ApiOperation({ summary: 'Update content asset' })
@@ -78,6 +89,8 @@ export class ContentAssetController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/content-assets/:id')
   @ApiOperation({ summary: 'Delete content asset' })
@@ -91,6 +104,8 @@ export class ContentAssetController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/content/:contentItemId/assets/reorder')
   @ApiOperation({ summary: 'Reorder content assets' })

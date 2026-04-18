@@ -20,16 +20,17 @@ import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { RolesGuard } from 'common/guards/roles.guard';
 
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @ApiTags('Pages')
 @Controller()
 export class PageController {
   constructor(private readonly service: PageService) {}
 
-  @Post('admin/pages')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Post('admin/pages')
   @ApiOperation({ summary: 'Create page' })
   async create(@CurrentUser('id') userId: string, @Body() dto: CreatePageDto) {
     const data = await this.service.create(userId, dto);
@@ -41,6 +42,9 @@ export class PageController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/pages')
   @ApiOperation({ summary: 'Get admin pages' })
   async findAdminAll(@Query() query: QueryAdminPageDto) {
@@ -53,6 +57,9 @@ export class PageController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Get('admin/pages/:id')
   @ApiOperation({ summary: 'Get admin page details' })
   async findAdminOne(@Param('id') id: string) {
@@ -65,8 +72,10 @@ export class PageController {
     };
   }
 
-  @Patch('admin/pages/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Patch('admin/pages/:id')
   @ApiOperation({ summary: 'Update page' })
   async update(
     @CurrentUser('id') userId: string,
@@ -82,8 +91,10 @@ export class PageController {
     };
   }
 
-  @Patch('admin/pages/:id/status')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Patch('admin/pages/:id/status')
   @ApiOperation({ summary: 'Update page status' })
   async updateStatus(
     @CurrentUser('id') userId: string,
@@ -99,8 +110,10 @@ export class PageController {
     };
   }
 
-  @Delete('admin/pages/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Delete('admin/pages/:id')
   @ApiOperation({ summary: 'Delete page' })
   async remove(@Param('id') id: string) {
     const data = await this.service.remove(id);
