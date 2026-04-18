@@ -17,6 +17,7 @@ import { QueryTagDto } from './dto/query-tag.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
+import { RolesGuard } from 'common/guards/roles.guard';
 
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -25,6 +26,8 @@ import { UserRoleCode } from '@prisma/client';
 export class TagController {
   constructor(private readonly service: TagService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/tags')
   @ApiOperation({ summary: 'Create tag' })
@@ -62,6 +65,8 @@ export class TagController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/tags/:id')
   @ApiOperation({ summary: 'Update tag' })
@@ -75,6 +80,8 @@ export class TagController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/tags/:id')
   @ApiOperation({ summary: 'Delete tag' })

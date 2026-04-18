@@ -17,14 +17,16 @@ import { QueryCategoryDto } from './dto/query-category.dto';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { RolesGuard } from 'common/guards/roles.guard';
 
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @ApiTags('Categories')
 @Controller()
 export class CategoryController {
   constructor(private readonly service: CategoryService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Post('admin/categories')
   @ApiOperation({ summary: 'Create category' })
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
@@ -62,6 +64,8 @@ export class CategoryController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Patch('admin/categories/:id')
   @ApiOperation({ summary: 'Update category' })
@@ -75,6 +79,8 @@ export class CategoryController {
     };
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @Delete('admin/categories/:id')
   @ApiOperation({ summary: 'Delete category' })

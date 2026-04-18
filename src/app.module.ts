@@ -16,6 +16,8 @@ import { ServiceModule } from 'module/service/service.module';
 import { BillingModule } from 'module/billing/billing.module';
 import { WebhookModule } from 'module/webhook/webhook.module';
 import { PlanModule } from 'module/plan/plan.module';
+import { AppSettingModule } from 'module/app-setting/app-setting.module';
+import { AuditModule } from 'module/audit/audit.module';
 
 
 @Module({
@@ -39,6 +41,9 @@ import { PlanModule } from 'module/plan/plan.module';
     ServiceModule,
     PlanModule,
     BillingModule,
+    WebhookModule,
+    AppSettingModule,
+    AuditModule,
     WebhookModule
   ],
 })
