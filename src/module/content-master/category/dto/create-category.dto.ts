@@ -4,7 +4,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -25,14 +24,6 @@ export class CreateCategoryDto {
   @IsString()
   @MaxLength(500)
   description?: string;
-
-  @ApiPropertyOptional({
-    example: 'a5f2f7a5-1d23-41c2-89c9-6877d5c2b121',
-    nullable: true,
-  })
-  @IsOptional()
-  @IsUUID()
-  parentCategoryId?: string;
 
   @ApiPropertyOptional({ example: 0, default: 0 })
   @IsOptional()

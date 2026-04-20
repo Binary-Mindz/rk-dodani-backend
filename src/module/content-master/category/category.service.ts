@@ -21,22 +21,11 @@ export class CategoryService {
       throw new BadRequestException('Category slug already exists');
     }
 
-    if (dto.parentCategoryId) {
-      const parent = await this.prisma.category.findUnique({
-        where: { id: dto.parentCategoryId },
-      });
-
-      if (!parent) {
-        throw new BadRequestException('Parent category not found');
-      }
-    }
-
     return this.prisma.category.create({
       data: {
         name: dto.name,
         slug: dto.slug,
         description: dto.description ?? null,
-        parentCategoryId: dto.parentCategoryId ?? null,
         displayOrder: dto.displayOrder ?? 0,
         isActive: dto.isActive ?? true,
       },
@@ -51,31 +40,18 @@ export class CategoryService {
               OR: [
                 { name: { contains: query.search, mode: 'insensitive' } },
                 { slug: { contains: query.search, mode: 'insensitive' } },
+                {
+                  description: {
+                    contains: query.search,
+                    mode: 'insensitive',
+                  },
+                },
               ],
             }
           : {}),
         ...(typeof query.isActive === 'boolean'
           ? { isActive: query.isActive }
           : {}),
-      },
-      include: {
-        parentCategory: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        childCategories: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            isActive: true,
-            displayOrder: true,
-          },
-          orderBy: { displayOrder: 'asc' },
-        },
       },
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
@@ -84,12 +60,6 @@ export class CategoryService {
   async findOne(id: string) {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: {
-        parentCategory: true,
-        childCategories: {
-          orderBy: { displayOrder: 'asc' },
-        },
-      },
     });
 
     if (!category) {
@@ -118,29 +88,12 @@ export class CategoryService {
       }
     }
 
-    if (dto.parentCategoryId) {
-      if (dto.parentCategoryId === id) {
-        throw new BadRequestException('Category cannot be its own parent');
-      }
-
-      const parent = await this.prisma.category.findUnique({
-        where: { id: dto.parentCategoryId },
-      });
-
-      if (!parent) {
-        throw new BadRequestException('Parent category not found');
-      }
-    }
-
     return this.prisma.category.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.slug !== undefined && { slug: dto.slug }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.parentCategoryId !== undefined && {
-          parentCategoryId: dto.parentCategoryId,
-        }),
         ...(dto.displayOrder !== undefined && { displayOrder: dto.displayOrder }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
@@ -151,19 +104,12 @@ export class CategoryService {
     const existing = await this.prisma.category.findUnique({
       where: { id },
       include: {
-        childCategories: true,
         contentItems: true,
       },
     });
 
     if (!existing) {
       throw new NotFoundException('Category not found');
-    }
-
-    if (existing.childCategories.length > 0) {
-      throw new BadRequestException(
-        'Cannot delete category with child categories',
-      );
     }
 
     if (existing.contentItems.length > 0) {
