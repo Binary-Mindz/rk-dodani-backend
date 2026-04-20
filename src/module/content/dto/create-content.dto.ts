@@ -71,26 +71,6 @@ export class CreateContentDto {
   summary?: string;
 
   @ApiPropertyOptional({
-    description: 'Structured rich-text body content',
-    example: {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          content: [
-            {
-              type: 'text',
-              text: 'This is the first paragraph of the content.',
-            },
-          ],
-        },
-      ],
-    },
-  })
-  @IsOptional()
-  body?: Record<string, any>;
-
-  @ApiPropertyOptional({
     description: 'Plain text version of the content body',
     example:
       'This whitepaper explores the adoption of AI in leadership and business strategy.',

@@ -6,7 +6,6 @@ model ContentItem {
   subtitle                   String?
   excerpt                    String?
   summary                    String?
-  body                       Json?
   plainTextBody              String?
   authorDisplayName          String?
   primaryAuthorId            String?

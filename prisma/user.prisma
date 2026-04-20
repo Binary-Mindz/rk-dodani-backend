@@ -29,8 +29,6 @@ model User {
   assignedInquiries      ContactInquiry[]     @relation("InquiryAssignedTo")
   relatedInquiries       ContactInquiry[]     @relation("InquiryRelatedUser")
   inquiryActivities      InquiryActivity[]
-  createdPages           Page[]               @relation("PageCreatedBy")
-  updatedPages           Page[]               @relation("PageUpdatedBy")
   createdServices        Service[]            @relation("ServiceCreatedBy")
   updatedServices        Service[]            @relation("ServiceUpdatedBy")
   primaryAuthoredContent ContentItem[]        @relation("ContentPrimaryAuthor")

@@ -11,7 +11,6 @@ import { ContactInquiryModule } from 'module/contact-inquiry/contact-inquiry.mod
 import { ContentModule } from 'module/content/content.module';
 import { ContentAccessModule } from 'module/content-access/content-access.module';
 import { ContentAssetModule } from 'module/content-asset/content-asset.module';
-import { PageModule } from 'module/page/page.module';
 import { ServiceModule } from 'module/service/service.module';
 import { BillingModule } from 'module/billing/billing.module';
 import { WebhookModule } from 'module/webhook/webhook.module';
@@ -37,7 +36,6 @@ import { AuditModule } from 'module/audit/audit.module';
     ContentAccessModule,
     ContactInquiryModule,
     ContentAssetModule,
-    PageModule,
     ServiceModule,
     PlanModule,
     BillingModule,

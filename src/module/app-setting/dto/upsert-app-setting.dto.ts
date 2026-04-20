@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDefined,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class UpsertAppSettingDto {
   @ApiProperty({ example: 'branding' })
@@ -16,7 +22,8 @@ export class UpsertAppSettingDto {
     example: 'AgentArum',
     description: 'Can be string, boolean, number, object, or array',
   })
-  value: any;
+  @IsDefined()
+  value!: unknown;
 
   @ApiPropertyOptional({ example: true, default: false })
   @IsOptional()
