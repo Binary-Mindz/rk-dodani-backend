@@ -31,7 +31,7 @@ export class AppSettingController {
   @Put('admin/settings')
   @ApiOperation({ summary: 'Create or update app setting' })
   async upsert(
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: UpsertAppSettingDto,
   ) {
     const data = await this.service.upsert(userId, dto);

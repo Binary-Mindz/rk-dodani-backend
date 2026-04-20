@@ -89,7 +89,6 @@ export class ContentService {
           subtitle: dto.subtitle ?? null,
           excerpt: dto.excerpt ?? null,
           summary: dto.summary ?? null,
-          body: dto.body ?? undefined,
           plainTextBody: dto.plainTextBody ?? null,
           authorDisplayName: dto.authorDisplayName ?? null,
           primaryAuthorId: dto.primaryAuthorId ?? null,
@@ -295,10 +294,6 @@ export class ContentService {
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
           ...(dto.summary !== undefined && { summary: dto.summary }),
-          ...(dto.body !== undefined && { body: dto.body }),
-          ...(dto.plainTextBody !== undefined && {
-            plainTextBody: dto.plainTextBody,
-          }),
           ...(dto.authorDisplayName !== undefined && {
             authorDisplayName: dto.authorDisplayName,
           }),
