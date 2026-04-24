@@ -167,7 +167,6 @@ export class AppController {
 
         <a href="/docs">📘 API Documentation</a>
         <a href="/health">❤️ Health Check</a>
-        <a href="/v${APP_CONFIG.version.split('.')[0]}">🔗 API Base URL</a>
       </div>
 
       <footer>
