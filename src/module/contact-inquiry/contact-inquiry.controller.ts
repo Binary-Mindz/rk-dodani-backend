@@ -52,7 +52,6 @@ export class ContactInquiryController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
   @Get('admin/inquiries')
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
   @ApiOperation({ summary: 'Get admin inquiry list' })
   async findAdminAll(@Query() query: QueryAdminContactInquiryDto) {
     const data = await this.service.findAdminAll(query);
