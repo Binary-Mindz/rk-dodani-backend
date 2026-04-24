@@ -5,8 +5,9 @@ export class HealthService {
   getHealth() {
     return {
       status: 'ok',
-      message: 'RK_Dodani is running successfully',
+      message: 'AgentArum AI API is running...',
       timestamp: new Date().toISOString(),
     };
   }
 }
+

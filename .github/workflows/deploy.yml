@@ -1,0 +1,156 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=NestJS API
+            org.opencontainers.image.description=NestJS + Prisma production API
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+
+      - name: Build and push image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image digest summary
+        run: |
+          echo "### 🐳 Docker Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    environment:
+      name: production
+      url: https://placeholder.com
+
+    steps:
+      - name: Prepare lowercase image name
+        id: image
+        run: |
+          echo "full_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${GITHUB_REPOSITORY#*/}:latest" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DOCKER_IMAGE: ${{ steps.image.outputs.full_image }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          envs: DOCKER_IMAGE,GITHUB_ACTOR,GITHUB_TOKEN,GITHUB_SHA
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            cd ~/app
+
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            docker pull "$DOCKER_IMAGE"
+
+            grep -v '^DOCKER_IMAGE=' .env > .env.tmp || true
+            echo "DOCKER_IMAGE=$DOCKER_IMAGE" >> .env.tmp
+            mv .env.tmp .env
+
+            docker compose up -d \
+              --no-deps \
+              --remove-orphans \
+              --pull never \
+              api
+
+            echo "Waiting for API health..."
+
+            ATTEMPTS=18
+            for i in $(seq 1 $ATTEMPTS); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' api 2>/dev/null || echo "missing")
+
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Healthy"
+                break
+              fi
+
+              if [ "$i" -eq "$ATTEMPTS" ]; then
+                echo "Failed"
+                docker compose logs --tail=50 api
+                docker compose up -d --no-deps api
+                exit 1
+              fi
+
+              sleep 5
+            done
+
+            docker image prune -f
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "### Deployment Failed" >> $GITHUB_STEP_SUMMARY
