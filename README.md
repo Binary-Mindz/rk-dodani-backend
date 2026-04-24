@@ -1,98 +1,525 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AgentArum AI - Lead with Intelligence. Decide with Confidence.
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 1. Purpose of This Document
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+This document explains the AgentArum platform from a frontend point of view.
 
-## Description
+It enables frontend developers to understand:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- The product vision
+- Business goals
+- Page structure
+- Role-based flows
+- User journeys
+- Dashboard responsibilities
 
-## Project setup
+**Goal:**
+After reading this, a frontend developer should clearly understand how the entire system works without backend explanations.
 
-```bash
-$ npm install
-```
+---
 
-## Compile and run the project
+## 2. Product Summary
 
-```bash
-# development
-$ npm run start
+**AgentArum** is a premium AI leadership consulting and research platform.
 
-# watch mode
-$ npm run start:dev
+### Core Purposes
 
-# production mode
-$ npm run start:prod
-```
+- Showcase consulting services professionally
+- Publish free & premium research and insights
 
-## Run tests
+### Platform Nature
 
-```bash
-# unit tests
-$ npm run test
+- Content platform ✅
+- Conversion platform ✅
+- Subscription system ✅
 
-# e2e tests
-$ npm run test:e2e
+---
 
-# test coverage
-$ npm run test:cov
-```
+## 2.1 Main Business Areas
 
-## Deployment
+- Consulting services showcase
+- Research & insights publishing
+- Media & knowledge library
+- Premium subscriptions
+- Patreon-based access
+- Inquiry & lead capture
+- Admin-controlled CMS
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 2.2 Main Frontend Areas
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+- Public Website
+- Authentication Pages
+- User Account Area
+- Admin Dashboard
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## 3. Main Product Goals
 
-Check out a few resources that may come in handy when working with NestJS:
+- Present brand professionally
+- Explain services quickly
+- Enable content discovery
+- Convert visitors → leads/subscribers
+- Handle gated content access
+- Provide role-based tools
+- Maintain simple navigation
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## 4. Roles and Access Model
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+| Role        | Description        | Access           |
+| ----------- | ------------------ | ---------------- |
+| Guest       | Not logged in      | Public website   |
+| User        | Logged-in user     | Public + Account |
+| Admin       | Operations manager | Dashboard tools  |
+| Editor      | Content manager    | Content tools    |
+| Support     | Support agent      | Inquiry tools    |
+| Super Admin | Full control       | Everything       |
 
-## Stay in touch
+### 4.1 Frontend Rules
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- Guest → no private/admin pages
+- User → no admin tools
+- Admin → role-based dashboard
+- Editor → content tools only
+- Support → inquiry tools only
+- Super Admin → full access
 
-## License
+---
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 5. Information Architecture
+
+### 5.1 Public Pages
+
+- Home
+- About
+- Services
+- Service Details
+- Research & Insights
+- Content Details
+- Media & Insights
+- Pricing
+- Contact
+- Login / Register
+- Forgot / Reset Password
+- Verify Email
+
+---
+
+### 5.2 User Area
+
+- Account Overview
+- Profile
+- Subscription
+- Patreon
+- My Library
+- Account Settings
+
+---
+
+### 5.3 Dashboard
+
+- Dashboard Home
+- Content
+- Categories
+- Tags
+- Assets
+- Pages
+- Services
+- Plans
+- Inquiries
+- Users
+- Settings
+- Audit Logs
+- Webhook Logs
+
+---
+
+## 6. Layout Strategy
+
+### 6.1 Public Layout
+
+- Header (Navigation)
+- Main Content
+- Footer
+
+**Header Navigation**
+
+- Home
+- About
+- Services
+- Research & Insights
+- Media & Insights
+- Pricing
+- Contact
+- Login / Get Started
+
+**Footer**
+
+- Brand info
+- Contact info
+- Links
+- Social media
+
+---
+
+### 6.2 User Area Layout
+
+- Sidebar / Tabs
+- Profile summary
+- Card-based sections
+
+---
+
+### 6.3 Dashboard Layout
+
+- Sidebar
+- Top bar
+- Main content (tables/forms/cards)
+
+---
+
+## 7. Public Pages Breakdown
+
+### 7.1 Home Page
+
+Sections:
+
+1. Hero
+2. Intro
+3. Services
+4. Research
+5. Media
+6. Subscription
+7. Pricing preview
+8. CTA
+9. Footer
+
+---
+
+### 7.2 About Page
+
+- Hero
+- Mission & vision
+- Platform purpose
+- Optional founder section
+
+---
+
+### 7.3 Services Page
+
+- Service list/cards
+- Featured services
+- CTA
+
+---
+
+### 7.4 Service Detail
+
+- Title
+- Description
+- CTA
+- Related services
+
+---
+
+### 7.5 Research & Insights
+
+- Search
+- Filters (category/tag/type)
+- Content list
+- Gated indicators
+
+---
+
+### 7.6 Content Detail
+
+Includes:
+
+- Title, author, date
+- Content body
+- Tags & categories
+- Assets
+- Related content
+
+#### Access Logic
+
+| Type          | Behavior           |
+| ------------- | ------------------ |
+| PUBLIC        | Show content       |
+| AUTHENTICATED | Require login      |
+| PREMIUM       | Show subscribe CTA |
+| PATREON       | Show connect CTA   |
+| TIER_BASED    | Backend check      |
+| CUSTOM        | Backend logic      |
+
+---
+
+### 7.7 Media & Insights
+
+- Videos / Podcasts
+- Filters
+- Latest media
+
+---
+
+### 7.8 Pricing
+
+- Plan cards
+- Features
+- CTA
+- Optional FAQ
+
+---
+
+### 7.9 Contact
+
+- Contact form
+- Email / phone
+- Office info
+
+---
+
+## 8. Authentication
+
+### Register
+
+- Name
+- Email
+- Password
+
+### Login
+
+- Email
+- Password
+
+### Verify Email
+
+- OTP input
+
+### Password Reset
+
+- Email → Token → New password
+
+---
+
+## 9. User Journey
+
+### Guest
+
+1. Visit site
+2. Explore content
+3. Hit gated content
+4. Register / subscribe
+
+---
+
+### Logged-in User
+
+1. Login
+2. Access account
+3. Consume content
+4. Manage profile
+
+---
+
+### Subscription Flow
+
+1. Select plan
+2. Stripe checkout
+3. Webhook update
+4. Access granted
+
+---
+
+### Patreon Flow
+
+1. Connect Patreon
+2. OAuth flow
+3. Sync membership
+4. Unlock content
+
+---
+
+## 10. User Account Area
+
+### Overview
+
+- Subscription summary
+- Patreon status
+
+### Profile
+
+- Personal info
+- Password update
+
+### Subscription
+
+- Plan details
+- Cancel / upgrade
+
+### Patreon
+
+- Connect / disconnect
+- Tier status
+
+### My Library
+
+- Accessible content list
+
+### Settings
+
+- Preferences
+
+---
+
+## 11. Admin Role Flows
+
+### Super Admin
+
+- Full system control
+- Monitor logs & operations
+
+### Admin
+
+- Manage platform operations
+
+### Editor
+
+- Manage content
+
+### Support
+
+- Handle inquiries
+
+---
+
+## 12. Dashboard Modules
+
+### Dashboard Home
+
+- Stats & recent activity
+
+### Content
+
+- CRUD content
+- Access rules
+
+### Categories & Tags
+
+- Manage taxonomy
+
+### Assets
+
+- Manage files
+
+### Pages
+
+- Static content
+
+### Services
+
+- Service management
+
+### Plans
+
+- Pricing management
+
+### Inquiries
+
+- Lead management
+
+### Users
+
+- User management
+
+### Settings
+
+- System config
+
+### Logs
+
+- Audit & webhook logs
+
+---
+
+## 13. Sidebar by Role
+
+| Role        | Sidebar         |
+| ----------- | --------------- |
+| Super Admin | Everything      |
+| Admin       | Most modules    |
+| Editor      | Content-related |
+| Support     | Inquiries only  |
+
+---
+
+## 14. UI Guidelines
+
+### Lists
+
+- Tables
+- Filters
+- Pagination
+
+### Detail Pages
+
+- Header + actions
+- Sections
+
+### Forms
+
+- Grouped inputs
+- Validation
+
+### Cards
+
+- Used for public UI
+
+---
+
+## 15. API & State Handling
+
+- Use access tokens
+- Handle:
+  - 401 Unauthorized
+  - 403 Forbidden
+  - 404 Not Found
+  - 500 Server Error
+
+- Use pagination
+- Show loading & empty states
+
+---
+
+## 16. Recommended Build Order
+
+1. Layout & routing
+2. Auth pages
+3. Public pages
+4. Content system
+5. Pricing
+6. User area
+7. Stripe & Patreon
+8. Dashboard shell
+9. CMS modules
+10. Full admin system
+
+---
+
+## 17. Final Summary
+
+- Public site → discovery + conversion
+- User area → access + subscription
+- Dashboard → management system
+
+The frontend should be:
+
+- Modular
+- Role-based
+- Clean and scalable
+
+---

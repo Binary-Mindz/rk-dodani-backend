@@ -17,7 +17,7 @@ import { WebhookModule } from 'module/webhook/webhook.module';
 import { PlanModule } from 'module/plan/plan.module';
 import { AppSettingModule } from 'module/app-setting/app-setting.module';
 import { AuditModule } from 'module/audit/audit.module';
-
+import { AppController } from 'app.controller';
 
 @Module({
   imports: [
@@ -42,7 +42,8 @@ import { AuditModule } from 'module/audit/audit.module';
     WebhookModule,
     AppSettingModule,
     AuditModule,
-    WebhookModule
+    WebhookModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
