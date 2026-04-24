@@ -3,10 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  Prisma,
-  PublishStatus,
-} from '@prisma/client';
+import { Prisma, PublishStatus } from '@prisma/client';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { QueryAdminContentDto } from './dto/query-admin-content.dto';
@@ -17,6 +14,14 @@ import { PrismaService } from 'prisma/prisma.service';
 @Injectable()
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private serializeBigInt<T>(data: T): T {
+    return JSON.parse(
+      JSON.stringify(data, (_, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    );
+  }
 
   private async validateRelations(dto: {
     contentTypeId?: string;
@@ -106,8 +111,7 @@ export class ContentService {
           isPinned: dto.isPinned ?? false,
           allowComments: dto.allowComments ?? false,
           allowDownload: dto.allowDownload ?? true,
-          downloadRequiresAcceptance:
-            dto.downloadRequiresAcceptance ?? false,
+          downloadRequiresAcceptance: dto.downloadRequiresAcceptance ?? false,
           termsText: dto.termsText ?? null,
           sortOrder: dto.sortOrder ?? 0,
           createdById: userId,
@@ -207,7 +211,7 @@ export class ContentService {
       this.prisma.contentItem.count({ where }),
     ]);
 
-    return {
+    return this.serializeBigInt({
       items,
       meta: {
         page,
@@ -215,7 +219,7 @@ export class ContentService {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   }
 
   async findAdminOne(id: string) {
@@ -255,7 +259,7 @@ export class ContentService {
       throw new NotFoundException('Content not found');
     }
 
-    return content;
+    return this.serializeBigInt(content);
   }
 
   async update(userId: string | null, id: string, dto: UpdateContentDto) {
@@ -475,7 +479,9 @@ export class ContentService {
               { title: { contains: query.search, mode: 'insensitive' } },
               { excerpt: { contains: query.search, mode: 'insensitive' } },
               { summary: { contains: query.search, mode: 'insensitive' } },
-              { plainTextBody: { contains: query.search, mode: 'insensitive' } },
+              {
+                plainTextBody: { contains: query.search, mode: 'insensitive' },
+              },
             ],
           }
         : {}),
@@ -550,7 +556,7 @@ export class ContentService {
       this.prisma.contentItem.count({ where }),
     ]);
 
-    return {
+    return this.serializeBigInt({
       items,
       meta: {
         page,
@@ -558,7 +564,7 @@ export class ContentService {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   }
 
   async findPublicBySlug(slug: string) {
@@ -606,6 +612,6 @@ export class ContentService {
       },
     });
 
-    return content;
+    return this.serializeBigInt(content);
   }
 }
