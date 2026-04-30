@@ -22,7 +22,6 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:reset": "npx prisma migrate reset",
-    "seed": "npx prisma db seed",
     "postinstall": "npx prisma generate"
   },
   "dependencies": {
