@@ -18,6 +18,7 @@ import { PlanModule } from 'module/plan/plan.module';
 import { AppSettingModule } from 'module/app-setting/app-setting.module';
 import { AuditModule } from 'module/audit/audit.module';
 import { AppController } from 'app.controller';
+import { PatreonModule } from './module/patreon/patreon.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { AppController } from 'app.controller';
     WebhookModule,
     AppSettingModule,
     AuditModule,
-    WebhookModule
+    WebhookModule,
+    PatreonModule
   ],
   controllers: [AppController],
 })
