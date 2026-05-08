@@ -15,7 +15,7 @@ COPY prisma ./prisma/
 # Dummy DATABASE_URL so prisma generate doesn't fail at build time
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app
 # install ALL deps (dev included — needed for build + prisma generate)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 # generate Prisma client (writes into node_modules/@prisma + .prisma)
 RUN pnpm exec prisma generate
 
