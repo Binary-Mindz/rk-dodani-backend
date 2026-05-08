@@ -62,7 +62,7 @@ COPY --from=deps --chown=nestjs:nodejs /app/node_modules/.bin/prisma          ./
 COPY --from=deps --chown=nestjs:nodejs /app/node_modules/prisma               ./node_modules/prisma
 COPY --from=deps --chown=nestjs:nodejs /app/node_modules/@prisma/client       ./node_modules/@prisma/client
 
-USER nestjs
+#USER nestjs
 
 EXPOSE 8080
 
