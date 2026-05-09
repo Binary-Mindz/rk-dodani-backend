@@ -69,4 +69,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
     CMD wget -qO- http://localhost:8080/health || exit 1
 
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/src/main"]
