@@ -15,7 +15,7 @@ COPY prisma ./prisma/
 # Dummy DATABASE_URL so prisma generate doesn't fail at build time
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app
 # install ALL deps (dev included — needed for build + prisma generate)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 # generate Prisma client (writes into node_modules/@prisma + .prisma)
 RUN pnpm exec prisma generate
 
@@ -62,11 +62,11 @@ COPY --from=deps --chown=nestjs:nodejs /app/node_modules/.bin/prisma          ./
 COPY --from=deps --chown=nestjs:nodejs /app/node_modules/prisma               ./node_modules/prisma
 COPY --from=deps --chown=nestjs:nodejs /app/node_modules/@prisma/client       ./node_modules/@prisma/client
 
-USER nestjs
+# USER nestjs
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
     CMD wget -qO- http://localhost:8080/health || exit 1
 
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/src/main"]
