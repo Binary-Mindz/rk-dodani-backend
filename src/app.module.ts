@@ -44,7 +44,8 @@ import { PatreonModule } from './module/patreon/patreon.module';
     AppSettingModule,
     AuditModule,
     WebhookModule,
-    PatreonModule
+    PatreonModule,
+    MailModule
   ],
   controllers: [AppController],
 })

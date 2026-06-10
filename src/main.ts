@@ -45,3 +45,4 @@ async function bootstrap() {
   console.log(`Application running on: http://localhost:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
+bootstrap();

@@ -2,6 +2,7 @@ import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { MailService } from './mail.service';
+import { MailController } from './mail.controller';
 
 @Module({
   imports: [
@@ -52,8 +53,8 @@ import { MailService } from './mail.service';
     }),
   ],
 
+  controllers: [MailController],
   providers: [MailService],
-
   exports: [MailService],
 })
 export class MailModule { }
