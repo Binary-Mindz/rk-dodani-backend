@@ -9,10 +9,14 @@ export class MailController {
   @Post()
   @HttpCode(HttpStatus.OK)
   async handleInquiry(@Body() inquiryDto: InquiryDto) {
+   
     await this.mailService.sendInquiryToAdmin(inquiryDto);
+    
+    await this.mailService.sendInquiryConfirmationToUser(inquiryDto);
+
     return {
       success: true,
-      message: 'Inquiry sent successfully to admin!',
+      message: 'Inquiry sent successfully to admin and confirmation sent to user!',
     };
   }
 }
