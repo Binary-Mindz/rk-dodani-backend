@@ -12,7 +12,7 @@ import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class PlanService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private normalizeCurrency(currency: string) {
     return currency.trim().toUpperCase();
@@ -64,52 +64,31 @@ export class PlanService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.PlanWhereInput = {
-      ...(query.search
-        ? {
-            OR: [
-              { name: { contains: query.search, mode: 'insensitive' } },
-              { code: { contains: query.search, mode: 'insensitive' } },
-              { description: { contains: query.search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-      ...(query.billingProvider
-        ? { billingProvider: query.billingProvider }
-        : {}),
-      ...(query.billingInterval
-        ? { billingInterval: query.billingInterval }
-        : {}),
-      ...(typeof query.isPublic === 'boolean'
-        ? { isPublic: query.isPublic }
-        : {}),
-      ...(typeof query.isActive === 'boolean'
-        ? { isActive: query.isActive }
-        : {}),
+      ...(query.search && {
+        OR: [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { code: { contains: query.search, mode: 'insensitive' } },
+          { description: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(query.targetAudience && { targetAudience: query.targetAudience }),
+      ...(query.billingProvider && { billingProvider: query.billingProvider }),
+      ...(query.billingInterval && { billingInterval: query.billingInterval }),
+      ...(typeof query.isPublic === 'boolean' && { isPublic: query.isPublic }),
+      ...(typeof query.isActive === 'boolean' && { isActive: query.isActive }),
     };
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.plan.findMany({
         where,
-        orderBy: [
-          { sortOrder: 'asc' },
-          { priceAmount: 'asc' },
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ sortOrder: 'asc' }, { priceAmount: 'asc' }],
         skip,
         take: limit,
       }),
       this.prisma.plan.count({ where }),
     ]);
 
-    return {
-      items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findAdminOne(id: string) {
@@ -256,20 +235,15 @@ export class PlanService {
     const where: Prisma.PlanWhereInput = {
       isPublic: true,
       isActive: true,
-      ...(query.search
-        ? {
-            OR: [
-              { name: { contains: query.search, mode: 'insensitive' } },
-              { description: { contains: query.search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-      ...(query.billingProvider
-        ? { billingProvider: query.billingProvider }
-        : {}),
-      ...(query.billingInterval
-        ? { billingInterval: query.billingInterval }
-        : {}),
+      ...(query.search && {
+        OR: [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { description: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(query.targetAudience && { targetAudience: query.targetAudience }), // Filters B2C vs B2B from image tab switching
+      ...(query.billingProvider && { billingProvider: query.billingProvider }),
+      ...(query.billingInterval && { billingInterval: query.billingInterval }),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -280,35 +254,26 @@ export class PlanService {
           code: true,
           name: true,
           description: true,
+          targetAudience: true,
           billingProvider: true,
           billingInterval: true,
           currency: true,
           priceAmount: true,
+          isPerUser: true,
           trialDays: true,
+          isFeatured: true,
           sortOrder: true,
           features: true,
           metadata: true,
         },
-        orderBy: [
-          { sortOrder: 'asc' },
-          { priceAmount: 'asc' },
-          { createdAt: 'asc' },
-        ],
+        orderBy: [{ sortOrder: 'asc' }, { priceAmount: 'asc' }],
         skip,
         take: limit,
       }),
       this.prisma.plan.count({ where }),
     ]);
 
-    return {
-      items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findPublicOne(id: string) {

@@ -233,3 +233,7 @@ enum FileType {
   VIDEO
   AUDIO
 }
+enum PlanAudience {
+  B2C
+  B2B
+}
