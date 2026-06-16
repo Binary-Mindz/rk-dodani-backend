@@ -1,57 +1,39 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  BillingInterval,
-  BillingProvider,
-} from '@prisma/client';
-import { Transform, Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsOptional, IsEnum, IsString, IsBoolean } from 'class-validator';
+import { BillingProvider, BillingInterval, PlanAudience } from '@prisma/client';
+import { Transform } from 'class-transformer';
 
 export class QueryPlanDto {
-  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: BillingProvider })
+  @IsOptional()
+  @IsEnum(PlanAudience)
+  targetAudience?: PlanAudience; // Allows filtering by B2C or B2B
+
   @IsOptional()
   @IsEnum(BillingProvider)
   billingProvider?: BillingProvider;
 
-  @ApiPropertyOptional({ enum: BillingInterval })
   @IsOptional()
   @IsEnum(BillingInterval)
   billingInterval?: BillingInterval;
 
-  @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isPublic?: boolean;
 
-  @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ default: 1 })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+  @Transform(({ value }) => parseInt(value))
+  page?: number;
 
-  @ApiPropertyOptional({ default: 10 })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number = 10;
+  @Transform(({ value }) => parseInt(value))
+  limit?: number;
 }

@@ -1,19 +1,22 @@
 model Plan {
   id              String          @id @default(uuid())
-  code            String          @unique
-  name            String
-  description     String?
+  code            String          @unique 
+  name            String         
+  description     String?         
+  targetAudience  PlanAudience    @default(B2C) 
   billingProvider BillingProvider @default(STRIPE)
   stripeProductId String?
   stripePriceId   String?
   billingInterval BillingInterval
   currency        String
   priceAmount     Decimal         @db.Decimal(12, 2)
-  trialDays       Int             @default(0)
+  isPerUser       Boolean         @default(false)
+  trialDays       Int             @default(0)     
   isPublic        Boolean         @default(true)
   isActive        Boolean         @default(true)
+  isFeatured      Boolean         @default(false) 
   sortOrder       Int             @default(0)
-  features        Json?
+  features        Json?          
   metadata        Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -23,5 +26,6 @@ model Plan {
 
   @@index([isPublic])
   @@index([isActive])
+  @@index([targetAudience])
   @@index([sortOrder])
 }
