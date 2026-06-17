@@ -12,13 +12,12 @@ import { ContentModule } from 'module/content/content.module';
 import { ContentAccessModule } from 'module/content-access/content-access.module';
 import { ContentAssetModule } from 'module/content-asset/content-asset.module';
 import { ServiceModule } from 'module/service/service.module';
-import { BillingModule } from 'module/billing/billing.module';
-import { WebhookModule } from 'module/webhook/webhook.module';
 import { PlanModule } from 'module/plan/plan.module';
 import { AppSettingModule } from 'module/app-setting/app-setting.module';
 import { AuditModule } from 'module/audit/audit.module';
 import { AppController } from 'app.controller';
 import { PatreonModule } from './module/patreon/patreon.module';
+import { SubscriptionModule } from './module/subscription/subscription.module';
 
 @Module({
   imports: [
@@ -32,6 +31,7 @@ import { PatreonModule } from './module/patreon/patreon.module';
     MailModule,
     AuthModule,
     UsersModule,
+    SubscriptionModule,
     ContentMasterModule,
     ContentModule,
     ContentAssetModule,
@@ -39,11 +39,8 @@ import { PatreonModule } from './module/patreon/patreon.module';
     ServiceModule,
     PlanModule,
     ContactInquiryModule,
-    BillingModule,
-    WebhookModule,
     AppSettingModule,
     AuditModule,
-    WebhookModule,
     PatreonModule,
     MailModule
   ],
