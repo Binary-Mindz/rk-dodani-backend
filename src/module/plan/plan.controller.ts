@@ -133,7 +133,7 @@ export class PlanController {
   @ApiOperation({ summary: 'Get public plan details' })
   async findPublicOne(@Param('id') id: string) {
     const data = await this.service.findPublicOne(id);
-
+    console.log('Public plan details:', data);
     return {
       statusCode: 200,
       message: 'Plan fetched successfully',
