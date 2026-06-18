@@ -5,8 +5,5 @@ export default defineConfig({
   schema: 'prisma',
   datasource: {
     url: env('DATABASE_URL'),
-  },
-  migrations: {
-    seed: 'node prisma/seed.js'
   }
 });
