@@ -7,7 +7,6 @@ import { ConfigService } from '@nestjs/config';
 import {
   AuthProviderType,
   OtpPurpose,
-  Prisma,
   UserRoleCode,
   UserStatus,
 } from '@prisma/client';
@@ -63,12 +62,9 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
-    const defaultRole = await this.rolesService.getRoleByCode(
-      UserRoleCode.USER,
-    );
-    const fullName =
-      [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
+    const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
 
+    // 💡 No Role is Assigned upon Registration. User is completely roleless until subscription payment.
     const user = await this.prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -79,12 +75,6 @@ export class AuthService {
         phone: dto.phone ?? null,
         status: UserStatus.PENDING_VERIFICATION,
         signupSource: AuthProviderType.LOCAL,
-        roles: {
-          create: {
-            roleId: defaultRole.id,
-            isActive: true,
-          },
-        },
       },
     });
 
@@ -103,6 +93,7 @@ export class AuthService {
       },
     };
   }
+
   async verifyEmailOtp(email: string, otp: string) {
     const normalizedEmail = email.trim().toLowerCase();
 

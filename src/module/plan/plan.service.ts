@@ -19,7 +19,6 @@ export class PlanService {
   }
 
   async create(dto: CreatePlanDto) {
-    // 🛡️ ডুপ্লিকেট রেজিস্ট্যান্ট গার্ড: একই কোড দিয়ে দ্বিতীয়বার প্ল্যান ক্রিয়েট ব্লক করবে
     const existingCode = await this.prisma.plan.findUnique({
       where: { code: dto.code.trim().toUpperCase() },
     });
@@ -28,7 +27,6 @@ export class PlanService {
       throw new BadRequestException(`A plan with unique code "${dto.code}" already exists in the system`);
     }
 
-    // নতুন প্ল্যান ইনসার্ট লজিক
     const plan = await this.prisma.plan.create({
       data: {
         code: dto.code.trim().toUpperCase(),

@@ -11,7 +11,7 @@ import {
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
-import { Pool } from 'pg'; // Client এর পরিবর্তে Pool ব্যবহার করা প্রোডাকশন ও লোকাল উভয়ের জন্য নিরাপদ
+import { Pool } from 'pg';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -19,13 +19,12 @@ if (!connectionString) {
   throw new Error('❌ DATABASE_URL is not set in environment variables');
 }
 
-// pg Pool ব্যবহার করা হচ্ছে যা ইন্টারনালি কানেকশন ম্যানেজ করে
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 /**
- * ✅ Seed Roles
+ * ✅ Seed Clean Meaningful Roles (Independent of billing intervals)
  */
 async function seedRoles() {
   const count = await prisma.role.count();
@@ -37,15 +36,98 @@ async function seedRoles() {
   await prisma.role.createMany({
     data: [
       { code: UserRoleCode.SUPER_ADMIN, name: 'Super Admin', description: 'Full system access', isSystem: true },
-      { code: UserRoleCode.ADMIN, name: 'Admin', description: 'Administrative access', isSystem: true },
-      { code: UserRoleCode.EDITOR, name: 'Editor', description: 'Content management access', isSystem: true },
-      { code: UserRoleCode.SUPPORT, name: 'Support', description: 'Inquiry and support access', isSystem: true },
-      { code: UserRoleCode.USER, name: 'User', description: 'Regular authenticated user', isSystem: true },
-      { code: UserRoleCode.SUBSCRIBER, name: 'Subscriber', description: 'Premium subscriber access', isSystem: true },
+      { code: 'STUDENT' as UserRoleCode, name: 'Student', description: 'Student tier access core role', isSystem: true },
+      { code: 'SOLO_PROF' as UserRoleCode, name: 'Solo Professional', description: 'Independent professional tier core role', isSystem: true },
+      { code: 'SMB' as UserRoleCode, name: 'SMB', description: 'Small & medium business tier core role', isSystem: true },
+      { code: 'ENTERPRISE' as UserRoleCode, name: 'Enterprise', description: 'Corporate enterprise tier core role', isSystem: true },
     ],
     skipDuplicates: true,
   });
-  console.log('🚀 Roles seeded successfully');
+  console.log('🚀 Meaningful roles seeded successfully');
+}
+
+/**
+ * ✅ Seed Plans (Superadmin can modify these via Admin endpoints later)
+ */
+async function seedPlans() {
+  const count = await prisma.plan.count();
+  if (count > 0) {
+    console.log('ℹ️ Plans already seeded. Skipping...');
+    return;
+  }
+
+  const plansData = [
+    {
+      code: 'STUDENT_MONTHLY',
+      name: 'Student Plan',
+      description: 'For Learners & Future AI Professionals',
+      targetAudience: PlanAudience.B2C,
+      billingProvider: BillingProvider.STRIPE,
+      billingInterval: BillingInterval.MONTHLY,
+      currency: 'USD',
+      priceAmount: '9.99',
+      isPerUser: false,
+      trialDays: 14,
+      isFeatured: false,
+      sortOrder: 1,
+      features: ['AI Learning Paths', 'Beginner-Friendly Whitepapers', 'AI Fundamentals', 'Community Access'],
+    },
+    {
+      code: 'SOLO_PROF_MONTHLY',
+      name: 'Solo Professional Plan',
+      description: 'For Independent Professionals & Researchers',
+      targetAudience: PlanAudience.B2C,
+      billingProvider: BillingProvider.STRIPE,
+      billingInterval: BillingInterval.MONTHLY,
+      currency: 'USD',
+      priceAmount: '29.99',
+      isPerUser: false,
+      trialDays: 14,
+      isFeatured: true,
+      sortOrder: 2,
+      features: ['Premium Whitepapers', 'Research Library Access', 'Personal Analytics Dashboard'],
+    },
+    {
+      code: 'SMB_MONTHLY',
+      name: 'SMB Plan',
+      description: 'For Startups, Agencies & Growing Teams',
+      targetAudience: PlanAudience.B2B,
+      billingProvider: BillingProvider.STRIPE,
+      billingInterval: BillingInterval.MONTHLY,
+      currency: 'USD',
+      priceAmount: '29.99',
+      isPerUser: true,
+      trialDays: 14,
+      isFeatured: true,
+      sortOrder: 3,
+      features: ['Everything in Solo', 'Shared Team Workspace', 'Team Collaboration Tools', 'Team Size 100'],
+    },
+    {
+      code: 'ENTERPRISE_MONTHLY',
+      name: 'Enterprise Plan',
+      description: 'For Large Organizations & Enterprise Teams',
+      targetAudience: PlanAudience.B2B,
+      billingProvider: BillingProvider.STRIPE,
+      billingInterval: BillingInterval.MONTHLY,
+      currency: 'USD',
+      priceAmount: '19.99',
+      isPerUser: true,
+      trialDays: 14,
+      isFeatured: false,
+      sortOrder: 4,
+      features: ['Everything in SMB', 'Unlimited Team Members', 'SSO & Access Management', 'Dedicated Success Manager'],
+    },
+  ];
+
+  for (const plan of plansData) {
+    await prisma.plan.create({
+      data: {
+        ...plan,
+        features: plan.features,
+      },
+    });
+  }
+  console.log('🚀 Initial pricing plans seeded successfully');
 }
 
 /**
@@ -115,16 +197,14 @@ async function seedSuperAdmin() {
   console.log('🚀 Super Admin created successfully');
 }
 
-
 /**
  * 🚀 MAIN RUNNER
  */
 async function main() {
-  // এখানে ম্যানুয়াল client.connect() করার দরকার নেই, Prisma নিজেই হ্যান্ডেল করবে
   await seedRoles();
+  await seedPlans();
   await seedContentTypes();
   await seedSuperAdmin();
-
   console.log('✅ All seeds completed successfully!');
 }
 
