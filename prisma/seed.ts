@@ -115,91 +115,6 @@ async function seedSuperAdmin() {
   console.log('🚀 Super Admin created successfully');
 }
 
-/**
- * ✅ Seed Plans
- */
-async function seedPlans() {
-  const count = await prisma.plan.count();
-  if (count > 0) {
-    console.log('ℹ️ Plans already seeded. Skipping...');
-    return;
-  }
-
-  const plansData = [
-    {
-      code: 'STUDENT_MONTHLY',
-      name: 'Student Plan',
-      description: 'For Learners & Future AI Professionals',
-      targetAudience: PlanAudience.B2C,
-      billingProvider: BillingProvider.STRIPE,
-      billingInterval: BillingInterval.MONTHLY,
-      currency: 'USD',
-      priceAmount: 9.99,
-      isPerUser: false,
-      trialDays: 14,
-      isFeatured: false,
-      sortOrder: 1,
-      features: ['AI Learning Paths', 'Beginner-Friendly Whitepapers', 'AI Fundamentals', 'Community Access'],
-    },
-    {
-      code: 'SOLO_PROF_MONTHLY',
-      name: 'Solo Professional Plan',
-      description: 'For Independent Professionals & Researchers',
-      targetAudience: PlanAudience.B2C,
-      billingProvider: BillingProvider.STRIPE,
-      billingInterval: BillingInterval.MONTHLY,
-      currency: 'USD',
-      priceAmount: 29.99,
-      isPerUser: false,
-      trialDays: 14,
-      isFeatured: true,
-      sortOrder: 2,
-      features: ['Premium Whitepapers', 'Research Library Access', 'Personal Analytics Dashboard'],
-    },
-    {
-      code: 'SMB_MONTHLY',
-      name: 'SMB Plan',
-      description: 'For Startups, Agencies & Growing Teams',
-      targetAudience: PlanAudience.B2B,
-      billingProvider: BillingProvider.STRIPE,
-      billingInterval: BillingInterval.MONTHLY,
-      currency: 'USD',
-      priceAmount: 29.99,
-      isPerUser: true,
-      trialDays: 14,
-      isFeatured: true,
-      sortOrder: 3,
-      features: ['Everything in Solo', 'Shared Team Workspace', 'Team Collaboration Tools', 'Team Size 100'],
-    },
-    {
-      code: 'ENTERPRISE_MONTHLY',
-      name: 'Enterprise Plan',
-      description: 'For Large Organizations & Enterprise Teams',
-      targetAudience: PlanAudience.B2B,
-      billingProvider: BillingProvider.STRIPE,
-      billingInterval: BillingInterval.MONTHLY,
-      currency: 'USD',
-      priceAmount: 19.99,
-      isPerUser: true,
-      trialDays: 14,
-      isFeatured: false,
-      sortOrder: 4,
-      features: ['Everything in SMB', 'Unlimited Team Members', 'SSO & Access Management', 'Dedicated Success Manager'],
-    },
-  ];
-
-  for (const plan of plansData) {
-    await prisma.plan.create({
-      data: {
-        ...plan,
-        priceAmount: plan.priceAmount.toString(),
-        features: plan.features,
-      },
-    });
-  }
-
-  console.log('🚀 Plans seeded successfully');
-}
 
 /**
  * 🚀 MAIN RUNNER
@@ -209,7 +124,6 @@ async function main() {
   await seedRoles();
   await seedContentTypes();
   await seedSuperAdmin();
-  await seedPlans();
 
   console.log('✅ All seeds completed successfully!');
 }

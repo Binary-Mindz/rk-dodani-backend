@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, BillingProvider } from '@prisma/client';
+import { Prisma, BillingProvider, PlanAudience } from '@prisma/client';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { QueryPlanDto } from './dto/query-plan.dto';
@@ -12,45 +12,40 @@ import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class PlanService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   private normalizeCurrency(currency: string) {
     return currency.trim().toUpperCase();
   }
 
   async create(dto: CreatePlanDto) {
+    // 🛡️ ডুপ্লিকেট রেজিস্ট্যান্ট গার্ড: একই কোড দিয়ে দ্বিতীয়বার প্ল্যান ক্রিয়েট ব্লক করবে
     const existingCode = await this.prisma.plan.findUnique({
-      where: { code: dto.code },
+      where: { code: dto.code.trim().toUpperCase() },
     });
 
     if (existingCode) {
-      throw new BadRequestException('Plan code already exists');
+      throw new BadRequestException(`A plan with unique code "${dto.code}" already exists in the system`);
     }
 
-    if (
-      dto.billingProvider === BillingProvider.STRIPE &&
-      dto.billingInterval !== 'ONE_TIME' &&
-      dto.stripePriceId === ''
-    ) {
-      throw new BadRequestException('Stripe price ID cannot be empty');
-    }
-
+    // নতুন প্ল্যান ইনসার্ট লজিক
     const plan = await this.prisma.plan.create({
       data: {
-        code: dto.code,
+        code: dto.code.trim().toUpperCase(),
         name: dto.name,
         description: dto.description ?? null,
+        targetAudience: dto.targetAudience ?? PlanAudience.B2C,
         billingProvider: dto.billingProvider ?? BillingProvider.STRIPE,
-        stripeProductId: dto.stripeProductId ?? null,
-        stripePriceId: dto.stripePriceId ?? null,
         billingInterval: dto.billingInterval,
         currency: this.normalizeCurrency(dto.currency),
         priceAmount: new Prisma.Decimal(dto.priceAmount),
+        isPerUser: dto.isPerUser ?? false,
         trialDays: dto.trialDays ?? 0,
         isPublic: dto.isPublic ?? true,
         isActive: dto.isActive ?? true,
+        isFeatured: dto.isFeatured ?? false,
         sortOrder: dto.sortOrder ?? 0,
-        features: dto.features ?? null,
+        features: dto.features ? (dto.features as any) : null,
         metadata: dto.metadata ?? null,
       },
     });
@@ -120,60 +115,35 @@ export class PlanService {
       throw new NotFoundException('Plan not found');
     }
 
-    if (dto.code && dto.code !== existing.code) {
+    if (dto.code && dto.code.trim().toUpperCase() !== existing.code) {
       const codeExists = await this.prisma.plan.findUnique({
-        where: { code: dto.code },
+        where: { code: dto.code.trim().toUpperCase() },
       });
 
       if (codeExists) {
-        throw new BadRequestException('Plan code already exists');
+        throw new BadRequestException(`Cannot update! Unique code "${dto.code}" is already taken by another tier`);
       }
     }
 
     const updated = await this.prisma.plan.update({
       where: { id },
       data: {
-        ...(dto.code !== undefined && { code: dto.code }),
+        ...(dto.code !== undefined && { code: dto.code.trim().toUpperCase() }),
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.description !== undefined && {
-          description: dto.description,
-        }),
-        ...(dto.billingProvider !== undefined && {
-          billingProvider: dto.billingProvider,
-        }),
-        ...(dto.stripeProductId !== undefined && {
-          stripeProductId: dto.stripeProductId,
-        }),
-        ...(dto.stripePriceId !== undefined && {
-          stripePriceId: dto.stripePriceId,
-        }),
-        ...(dto.billingInterval !== undefined && {
-          billingInterval: dto.billingInterval,
-        }),
-        ...(dto.currency !== undefined && {
-          currency: this.normalizeCurrency(dto.currency),
-        }),
-        ...(dto.priceAmount !== undefined && {
-          priceAmount: new Prisma.Decimal(dto.priceAmount),
-        }),
-        ...(dto.trialDays !== undefined && {
-          trialDays: dto.trialDays,
-        }),
-        ...(dto.isPublic !== undefined && {
-          isPublic: dto.isPublic,
-        }),
-        ...(dto.isActive !== undefined && {
-          isActive: dto.isActive,
-        }),
-        ...(dto.sortOrder !== undefined && {
-          sortOrder: dto.sortOrder,
-        }),
-        ...(dto.features !== undefined && {
-          features: dto.features,
-        }),
-        ...(dto.metadata !== undefined && {
-          metadata: dto.metadata,
-        }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.targetAudience !== undefined && { targetAudience: dto.targetAudience }),
+        ...(dto.billingProvider !== undefined && { billingProvider: dto.billingProvider }),
+        ...(dto.billingInterval !== undefined && { billingInterval: dto.billingInterval }),
+        ...(dto.currency !== undefined && { currency: this.normalizeCurrency(dto.currency) }),
+        ...(dto.priceAmount !== undefined && { priceAmount: new Prisma.Decimal(dto.priceAmount) }),
+        ...(dto.isPerUser !== undefined && { isPerUser: dto.isPerUser }),
+        ...(dto.trialDays !== undefined && { trialDays: dto.trialDays }),
+        ...(dto.isPublic !== undefined && { isPublic: dto.isPublic }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        ...(dto.features !== undefined && { features: dto.features as any }),
+        ...(dto.metadata !== undefined && { metadata: dto.metadata }),
       },
     });
 
@@ -216,7 +186,7 @@ export class PlanService {
 
     if (existing._count.subscriptions > 0 || existing._count.entitlements > 0) {
       throw new BadRequestException(
-        'Cannot delete plan that is already linked to subscriptions or entitlements',
+        'Cannot delete plan that is already linked to active consumer subscriptions or entitlements',
       );
     }
 
@@ -241,7 +211,7 @@ export class PlanService {
           { description: { contains: query.search, mode: 'insensitive' } },
         ],
       }),
-      ...(query.targetAudience && { targetAudience: query.targetAudience }), // Filters B2C vs B2B from image tab switching
+      ...(query.targetAudience && { targetAudience: query.targetAudience }),
       ...(query.billingProvider && { billingProvider: query.billingProvider }),
       ...(query.billingInterval && { billingInterval: query.billingInterval }),
     };
@@ -288,11 +258,14 @@ export class PlanService {
         code: true,
         name: true,
         description: true,
+        targetAudience: true,
         billingProvider: true,
         billingInterval: true,
         currency: true,
         priceAmount: true,
+        isPerUser: true,
         trialDays: true,
+        isFeatured: true,
         sortOrder: true,
         features: true,
         metadata: true,

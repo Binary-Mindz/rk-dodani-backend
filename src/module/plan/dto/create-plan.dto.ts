@@ -1,8 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  BillingInterval,
-  BillingProvider,
-} from '@prisma/client';
+import { BillingInterval, BillingProvider, PlanAudience } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
@@ -12,31 +9,48 @@ import {
   MaxLength,
   Min,
   IsNumber,
+  IsNotEmpty,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePlanDto {
   @ApiProperty({
-    example: 'PREMIUM_MONTHLY',
+    description: 'Unique identifier code for the plan. System prevents duplicate creation.',
+    example: 'SOLO_PROF_MONTHLY',
   })
+  @IsNotEmpty()
   @IsString()
   @MaxLength(100)
   code!: string;
 
   @ApiProperty({
-    example: 'Premium Monthly',
+    description: 'Name of the plan displayed on the pricing cards.',
+    example: 'Solo Professional Plan',
   })
+  @IsNotEmpty()
   @IsString()
   @MaxLength(150)
   name!: string;
 
   @ApiPropertyOptional({
-    example: 'Access to premium research and subscriber-only insights',
+    description: 'Subtitle or brief description context.',
+    example: 'For Independent Professionals & Researchers',
   })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
   description?: string;
+
+  @ApiPropertyOptional({
+    enum: PlanAudience,
+    description: 'Target segment: B2C (Student, Solo Prof) or B2B (SMB, Enterprise)',
+    default: PlanAudience.B2C,
+    example: PlanAudience.B2C,
+  })
+  @IsOptional()
+  @IsEnum(PlanAudience)
+  targetAudience?: PlanAudience;
 
   @ApiPropertyOptional({
     enum: BillingProvider,
@@ -46,22 +60,6 @@ export class CreatePlanDto {
   @IsEnum(BillingProvider)
   billingProvider?: BillingProvider;
 
-  @ApiPropertyOptional({
-    example: 'prod_ABC123',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  stripeProductId?: string;
-
-  @ApiPropertyOptional({
-    example: 'price_ABC123',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  stripePriceId?: string;
-
   @ApiProperty({
     enum: BillingInterval,
     example: BillingInterval.MONTHLY,
@@ -70,13 +68,16 @@ export class CreatePlanDto {
   billingInterval!: BillingInterval;
 
   @ApiProperty({
+    description: 'Currency code ISO.',
     example: 'USD',
   })
+  @IsNotEmpty()
   @IsString()
   @MaxLength(10)
   currency!: string;
 
   @ApiProperty({
+    description: 'Exact retail price of the plan.',
     example: 29.99,
   })
   @Type(() => Number)
@@ -85,8 +86,18 @@ export class CreatePlanDto {
   priceAmount!: number;
 
   @ApiPropertyOptional({
-    example: 7,
-    default: 0,
+    description: 'Determines if the tier is priced flat-rate or dynamically scaled per workspace seat.',
+    default: false,
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPerUser?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Trial period days context.',
+    default: 14,
+    example: 14,
   })
   @IsOptional()
   @IsInt()
@@ -94,7 +105,6 @@ export class CreatePlanDto {
   trialDays?: number;
 
   @ApiPropertyOptional({
-    example: true,
     default: true,
   })
   @IsOptional()
@@ -102,7 +112,6 @@ export class CreatePlanDto {
   isPublic?: boolean;
 
   @ApiPropertyOptional({
-    example: true,
     default: true,
   })
   @IsOptional()
@@ -110,7 +119,15 @@ export class CreatePlanDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    example: 0,
+    description: 'Applies "Most Popular" or special highlighted CSS wrapper tags on UI client.',
+    default: false,
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
+
+  @ApiPropertyOptional({
     default: 0,
   })
   @IsOptional()
@@ -119,20 +136,21 @@ export class CreatePlanDto {
   sortOrder?: number;
 
   @ApiPropertyOptional({
+    description: 'List of feature benefits bundled inside the plan.',
+    type: [String],
     example: [
-      'Premium research access',
-      'Whitepapers and reports',
-      'Subscriber-only insights',
+      'Premium Whitepapers & Reports',
+      'Research Library Access',
+      'Personal Analytics Dashboard',
     ],
   })
   @IsOptional()
-  features?: any;
+  @IsArray()
+  @IsString({ each: true })
+  features?: string[];
 
   @ApiPropertyOptional({
-    example: {
-      badge: 'Most Popular',
-      theme: 'dark',
-    },
+    example: { badge: 'Most Popular', theme: 'premium' },
   })
   @IsOptional()
   metadata?: any;
