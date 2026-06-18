@@ -5,3 +5,912 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ==========================================
+// ১. ব্যবহারকারী ও নিরাপত্তা সংক্রান্ত মডেল (Auth & User)
+// ==========================================
+
+model User {
+  id                String           @id @default(uuid())
+  email             String           @unique
+  emailVerified     Boolean          @default(false)
+  emailVerifiedAt   DateTime?
+  passwordHash      String?
+  firstName         String?
+  lastName          String?
+  fullName          String?
+  avatarUrl         String?
+  phone             String?
+  timezone          String?
+  preferredLanguage String?          @default("en")
+  status            UserStatus       @default(PENDING_VERIFICATION)
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  signupSource      AuthProviderType @default(LOCAL)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  roles                  UserRole[]
+  authProviders          AuthProvider[]
+  sessions               UserSession[]
+  userOtps               UserOtp[]
+  subscriptions          Subscription[]
+  entitlements           Entitlement[]
+  patreonConnection      PatreonConnection?
+  assignedInquiries      ContactInquiry[]     @relation("InquiryAssignedTo")
+  relatedInquiries       ContactInquiry[]     @relation("InquiryRelatedUser")
+  inquiryActivities      InquiryActivity[]
+  createdServices        Service[]            @relation("ServiceCreatedBy")
+  updatedServices        Service[]            @relation("ServiceUpdatedBy")
+  primaryAuthoredContent ContentItem[]        @relation("ContentPrimaryAuthor")
+  createdContent         ContentItem[]        @relation("ContentCreatedBy")
+  updatedContent         ContentItem[]        @relation("ContentUpdatedBy")
+  publishedContent       ContentItem[]        @relation("ContentPublishedBy")
+  grantedEntitlements    Entitlement[]        @relation("EntitlementGrantedBy")
+  revokedEntitlements    Entitlement[]        @relation("EntitlementRevokedBy")
+  updatedSettings        AppSetting[]         @relation("AppSettingUpdatedBy")
+  emailLogs              EmailLog[]
+  auditLogs              AuditLog[]
+  passwordResetTokens    PasswordResetToken[]
+  subscriptionEvents     SubscriptionEvent[]
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  code        UserRoleCode @unique
+  name        String
+  description String?
+  isSystem    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  userRoles UserRole[]
+}
+
+model UserRole {
+  id         String    @id @default(uuid())
+  userId     String
+  roleId     String
+  assignedBy String?
+  assignedAt DateTime  @default(now())
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model UserSession {
+  id               String    @id @default(uuid())
+  userId           String
+  refreshTokenHash String
+  deviceName       String?
+  deviceType       String?
+  browser          String?
+  os               String?
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UserOtp {
+  id           String     @id @default(uuid())
+  userId       String
+  email        String
+  purpose      OtpPurpose
+  otpCodeHash  String
+  expiresAt    DateTime
+  verifiedAt   DateTime?
+  usedAt       DateTime?
+  attemptCount Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id          String    @id @default(uuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedIp String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuthProvider {
+  id                    String           @id @default(uuid())
+  userId                String
+  provider              AuthProviderType
+  providerUserId        String
+  providerEmail         String?
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  tokenExpiresAt        DateTime?
+  rawProfile            Json?
+  isPrimary             Boolean          @default(false)
+  linkedAt              DateTime         @default(now())
+  lastSyncedAt          DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+// ==========================================
+// ২. সাবস্ক্রিপশন ও বিলিং মডেল (Billing & Subscription)
+// ==========================================
+
+model Plan {
+  id              String          @id @default(uuid())
+  code            String          @unique 
+  name            String         
+  description     String?         
+  targetAudience  PlanAudience    @default(B2C) 
+  billingProvider BillingProvider @default(STRIPE)
+  stripeProductId String?
+  stripePriceId   String?
+  billingInterval BillingInterval
+  currency        String
+  priceAmount     Decimal         @db.Decimal(12, 2)
+  isPerUser       Boolean         @default(false)
+  trialDays       Int             @default(0)     
+  isPublic        Boolean         @default(true)
+  isActive        Boolean         @default(true)
+  isFeatured      Boolean         @default(false) 
+  sortOrder       Int             @default(0)
+  features        Json?          
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  subscriptions Subscription[]
+  entitlements  Entitlement[]
+
+  @@index([isPublic])
+  @@index([isActive])
+  @@index([targetAudience])
+  @@index([sortOrder])
+}
+
+model Subscription {
+  id                     String             @id @default(uuid())
+  userId                 String
+  planId                 String
+  provider               BillingProvider    @default(STRIPE)
+  providerSubscriptionId String?
+  providerCustomerId     String?
+  providerPriceId        String?
+  status                 SubscriptionStatus
+  startedAt              DateTime?
+  trialStartsAt          DateTime?
+  trialEndsAt            DateTime?
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  canceledAt             DateTime?
+  endedAt                DateTime?
+  billingEmail           String?
+  lastPaymentAt          DateTime?
+  lastPaymentAmount      Decimal?           @db.Decimal(12, 2)
+  currency               String?
+  failureReason          String?
+  metadata               Json?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscriptionEvents SubscriptionEvent[]
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+model SubscriptionEvent {
+  id              String          @id @default(uuid())
+  subscriptionId  String?
+  userId          String?
+  provider        BillingProvider
+  providerEventId String
+  eventType       String
+  eventPayload    Json
+  processed       Boolean         @default(false)
+  processedAt     DateTime?
+  processingError String?
+  createdAt       DateTime        @default(now())
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([subscriptionId])
+  @@index([userId])
+  @@index([processed])
+}
+
+model PatreonConnection {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  patreonUserId         String    @unique
+  patreonEmail          String?
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String?
+  tokenExpiresAt        DateTime?
+  campaignId            String?
+  membershipStatus      String?
+  patreonTierId         String?
+  patreonTierTitle      String?
+  pledgeAmountCents     Int?
+  lastVerifiedAt        DateTime?
+  lastSyncStatus        String?
+  lastSyncError         String?
+  rawProfile            Json?
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+}
+
+model Entitlement {
+  id              String                @id @default(uuid())
+  userId          String
+  sourceType      EntitlementSourceType
+  sourceId        String?
+  entitlementType EntitlementType
+  planId          String?
+  contentItemId   String?
+  status          EntitlementStatus     @default(PENDING)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  grantedById     String?
+  revokedById     String?
+  revokedAt       DateTime?
+  reason          String?
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        Plan?        @relation(fields: [planId], references: [id], onDelete: SetNull)
+  contentItem ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: SetNull)
+  grantedBy   User?        @relation("EntitlementGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+  revokedBy   User?        @relation("EntitlementRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([planId])
+  @@index([contentItemId])
+  @@index([status, endsAt])
+}
+
+// ==========================================
+// ৩. কনটেন্ট ও ক্যাটাগরি মডেল (Content & CMS)
+// ==========================================
+
+model ContentItem {
+  id                         String             @id @default(uuid())
+  contentTypeId              String
+  slug                       String             @unique
+  title                      String
+  subtitle                   String?
+  excerpt                    String?
+  summary                    String?
+  plainTextBody              String?
+  authorDisplayName          String?
+  primaryAuthorId            String?
+  coverImageUrl              String?
+  thumbnailUrl               String?
+  status                     PublishStatus      @default(DRAFT)
+  visibility                 ContentVisibility  @default(PUBLIC)
+  accessModel                ContentAccessModel @default(PUBLIC)
+  contentFormat              String?
+  externalUrl                String?
+  externalEmbedCode          String?
+  readingTimeMinutes         Int?
+  publishedAt                DateTime?
+  scheduledAt                DateTime?
+  archivedAt                 DateTime?
+  isFeatured                 Boolean            @default(false)
+  isPinned                   Boolean            @default(false)
+  allowComments              Boolean            @default(false)
+  allowDownload              Boolean            @default(true)
+  downloadRequiresAcceptance Boolean            @default(false)
+  termsText                  String?
+  viewCount                  BigInt             @default(0)
+  downloadCount              BigInt             @default(0)
+  sortOrder                  Int                @default(0)
+  createdById                String?
+  updatedById                String?
+  publishedById              String?
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  deletedAt                  DateTime?
+
+  contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
+  primaryAuthor User?       @relation("ContentPrimaryAuthor", fields: [primaryAuthorId], references: [id], onDelete: SetNull)
+  createdBy     User?       @relation("ContentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?       @relation("ContentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  publishedBy   User?       @relation("ContentPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  assets            ContentAsset[]
+  contentCategories ContentCategory[]
+  contentTags       ContentTag[]
+  accessRules       ContentAccessRule[]
+  entitlements      Entitlement[]
+
+  @@index([contentTypeId])
+  @@index([status, publishedAt])
+  @@index([visibility])
+  @@index([accessModel])
+  @@index([isFeatured])
+  @@index([isPinned])
+}
+
+model ContentCategory {
+  id            String   @id @default(uuid())
+  contentItemId String
+  categoryId    String
+  createdAt     DateTime @default(now())
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, categoryId])
+  @@index([contentItemId])
+  @@index([categoryId])
+}
+
+model Category {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  contentItems ContentCategory[]
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model ContentTag {
+  id            String   @id @default(uuid())
+  contentItemId String
+  tagId         String
+  createdAt     DateTime @default(now())
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, tagId])
+  @@index([contentItemId])
+  @@index([tagId])
+}
+
+model Tag {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  description String?
+  color       String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  contentTags ContentTag[]
+
+  @@index([isActive])
+}
+
+model ContentType {
+  id          String          @id @default(uuid())
+  code        ContentTypeCode @unique
+  name        String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  contentItems ContentItem[]
+}
+
+model ContentAsset {
+  id             String              @id @default(uuid())
+  contentItemId  String
+  fileUrl        String
+  fileName       String?
+  mimeType       String?
+  size           Int?
+  assetRole      ContentAssetRole
+  title          String?
+  description    String?
+  displayOrder   Int                 @default(0)
+  isDownloadable Boolean             @default(true)
+  isPreviewOnly  Boolean             @default(false)
+  accessOverride ContentAccessModel?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId])
+}
+
+model ContentAccessRule {
+  id            String             @id @default(uuid())
+  contentItemId String
+  ruleType      AccessRuleType
+  operator      AccessRuleOperator
+  ruleValue     Json
+  priority      Int                @default(0)
+  allowAccess   Boolean            @default(true)
+  message       String?
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId])
+  @@index([ruleType])
+  @@index([isActive])
+}
+
+// ==========================================
+// ৪. সার্ভিস ও সিস্টেম সেটিংস (Service & Settings)
+// ==========================================
+
+model Service {
+  id               String        @id @default(uuid())
+  slug             String        @unique
+  title            String
+  shortDescription String?
+  description      String?
+  iconUrl          String?
+  coverImageUrl    String?
+  displayOrder     Int           @default(0)
+  isFeatured       Boolean       @default(false)
+  status           PublishStatus @default(DRAFT)
+  ctaLabel         String?
+  ctaUrl           String?
+  publishedAt      DateTime?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  createdBy User? @relation("ServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("ServiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([isFeatured])
+  @@index([displayOrder])
+}
+
+model AppSetting {
+  id          String   @id @default(uuid())
+  groupName   String
+  key         String
+  value       Json
+  isPublic    Boolean  @default(false)
+  description String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("AppSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([groupName, key])
+  @@index([groupName])
+}
+
+// ==========================================
+// ৫. ইনকোয়ারি, ফাইল ও লগিং (Inquiries & Logs)
+// ==========================================
+
+model ContactInquiry {
+  id            String          @id @default(uuid())
+  name          String
+  email         String
+  phone         String?
+  company       String?
+  jobTitle      String?
+  country       String?
+  subject       String?
+  message       String
+  inquiryType   InquiryType
+  source        String?
+  status        InquiryStatus   @default(NEW)
+  priority      InquiryPriority @default(NORMAL)
+  assignedToId  String?
+  relatedUserId String?
+  tags          Json?
+  adminNotes    String?
+  respondedAt   DateTime?
+  closedAt      DateTime?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  assignedTo  User?             @relation("InquiryAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  relatedUser User?             @relation("InquiryRelatedUser", fields: [relatedUserId], references: [id], onDelete: SetNull)
+  activities  InquiryActivity[]
+
+  @@index([status, createdAt])
+  @@index([assignedToId])
+  @@index([inquiryType])
+}
+
+model InquiryActivity {
+  id            String              @id @default(uuid())
+  inquiryId     String
+  actionType    InquiryActivityType
+  oldValue      Json?
+  newValue      Json?
+  note          String?
+  performedById String?
+  createdAt     DateTime            @default(now())
+
+  inquiry     ContactInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  performedBy User?          @relation(fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId])
+  @@index([performedById])
+}
+
+model FileInstance {
+  id               String   @id @default(uuid())
+  filename         String
+  originalFilename String
+  path             String
+  url              String
+  fileType         FileType @default(ANY)
+  mimeType         String
+  size             Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("file_instances")
+}
+
+model WebhookLog {
+  id               String                  @id @default(uuid())
+  provider         WebhookProvider
+  eventId          String?
+  eventType        String?
+  signatureHeader  String?
+  requestHeaders   Json?
+  requestBody      Json?
+  responseStatus   Int?
+  processingStatus WebhookProcessingStatus @default(RECEIVED)
+  errorMessage     String?
+  processedAt      DateTime?
+  createdAt        DateTime                @default(now())
+
+  @@index([provider])
+  @@index([eventId])
+  @@index([processingStatus])
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  actorUserId String?
+  entityType  String
+  entityId    String?
+  action      AuditAction
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?
+  createdAt   DateTime    @default(now())
+
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([action])
+}
+
+model EmailLog {
+  id                String              @id @default(uuid())
+  templateCode      String
+  recipientEmail    String
+  recipientUserId   String?
+  subject           String
+  payload           Json?
+  status            EmailDeliveryStatus @default(QUEUED)
+  provider          String?
+  providerMessageId String?
+  failureReason     String?
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  recipientUser User? @relation(fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([recipientUserId])
+  @@index([status])
+}
+
+// ==========================================
+// ৬. সমস্ত এনামসমূহ (Enums)
+// ==========================================
+
+enum UserStatus {
+  ACTIVE
+  PENDING_VERIFICATION
+  INACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum UserRoleCode {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  SUPPORT
+  USER
+  SUBSCRIBER
+}
+
+enum AuthProviderType {
+  LOCAL
+  GOOGLE
+  PATREON
+}
+
+enum PageType {
+  HOME
+  ABOUT
+  SERVICES
+  CONTACT
+  CUSTOM
+}
+
+enum PublishStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentTypeCode {
+  ARTICLE
+  WHITE_PAPER
+  CASE_STUDY
+  REPORT
+  PODCAST
+  VIDEO
+  RESEARCH_NOTE
+  MEDIA_POST
+}
+
+enum ContentVisibility {
+  PUBLIC
+  AUTHENTICATED
+  GATED
+}
+
+enum ContentAccessModel {
+  PUBLIC
+  AUTHENTICATED
+  PREMIUM
+  PATREON
+  TIER_BASED
+  CUSTOM
+}
+
+enum StoredFileKind {
+  IMAGE
+  PDF
+  DOCUMENT
+  PRESENTATION
+  AUDIO
+  VIDEO
+  ARCHIVE
+  OTHER
+}
+
+enum StoredFileAccessLevel {
+  PRIVATE
+  PUBLIC
+  SIGNED_URL
+}
+
+enum ContentAssetRole {
+  COVER_IMAGE
+  THUMBNAIL
+  PRIMARY_DOCUMENT
+  ATTACHMENT
+  AUDIO_SOURCE
+  VIDEO_SOURCE
+  TRANSCRIPT
+  PREVIEW_FILE
+}
+
+enum BillingProvider {
+  STRIPE
+  PATREON
+  INTERNAL
+  ADMIN
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  EXPIRED
+}
+
+enum EntitlementSourceType {
+  SUBSCRIPTION
+  PATREON
+  ADMIN_GRANT
+  PROMOTION
+  MANUAL
+}
+
+enum EntitlementType {
+  PREMIUM_ACCESS
+  PLAN_ACCESS
+  CONTENT_ACCESS
+  DOWNLOAD_ACCESS
+}
+
+enum EntitlementStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum InquiryType {
+  GENERAL
+  CONSULTING
+  PARTNERSHIP
+  SUPPORT
+  PRICING
+  MEDIA
+}
+
+enum InquiryStatus {
+  NEW
+  REVIEWED
+  CONTACTED
+  QUALIFIED
+  CLOSED
+  SPAM
+}
+
+enum InquiryPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InquiryActivityType {
+  CREATED
+  ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  RESPONDED
+  CLOSED
+}
+
+enum AccessRuleType {
+  ROLE
+  PLAN
+  SUBSCRIPTION_STATUS
+  PATREON_TIER
+  COUNTRY
+  CUSTOM
+}
+
+enum AccessRuleOperator {
+  EQUALS
+  NOT_EQUALS
+  IN
+  NOT_IN
+  EXISTS
+}
+
+enum WebhookProvider {
+  STRIPE
+  PATREON
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  VERIFIED
+  FAILED
+  PROCESSED
+  DUPLICATE
+}
+
+enum EmailDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PUBLISH
+  ARCHIVE
+  ASSIGN
+  GRANT
+  REVOKE
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum FileType {
+  IMAGE
+  DOCS
+  LINK
+  DOCUMENT
+  ANY
+  VIDEO
+  AUDIO
+}
+
+enum PlanAudience {
+  B2C
+  B2B
+}

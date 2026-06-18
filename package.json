@@ -26,8 +26,8 @@
     "seed": "npx prisma db seed",
     "postinstall": "npx prisma generate"
   },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+ "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.4",
