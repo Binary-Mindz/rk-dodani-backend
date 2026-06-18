@@ -10,7 +10,7 @@ import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class TagService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(dto: CreateTagDto) {
     const existingSlug = await this.prisma.tag.findUnique({
@@ -37,11 +37,11 @@ export class TagService {
       where: {
         ...(query.search
           ? {
-              OR: [
-                { name: { contains: query.search, mode: 'insensitive' } },
-                { slug: { contains: query.search, mode: 'insensitive' } },
-              ],
-            }
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' } },
+              { slug: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
           : {}),
         ...(typeof query.isActive === 'boolean'
           ? { isActive: query.isActive }
@@ -98,16 +98,17 @@ export class TagService {
     const existing = await this.prisma.tag.findUnique({
       where: { id },
       include: {
-        contentItems: true,
+        contentTags: true,
       },
     });
+
 
     if (!existing) {
       throw new NotFoundException('Tag not found');
     }
 
-    if (existing.contentItems.length > 0) {
-      throw new BadRequestException('Cannot delete tag that is used in content');
+    if (existing.contentTags.length > 0) { 
+      throw new BadRequestException('Cannot delete tag associated with content items');
     }
 
     await this.prisma.tag.delete({
