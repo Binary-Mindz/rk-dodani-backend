@@ -684,11 +684,10 @@ enum UserStatus {
 
 enum UserRoleCode {
   SUPER_ADMIN
-  ADMIN
-  EDITOR
-  SUPPORT
-  USER
-  SUBSCRIBER
+  STUDENT
+  SOLO_PROF
+  SMB
+  ENTERPRISE
 }
 
 enum AuthProviderType {
