@@ -28,7 +28,7 @@ export class ContentAssetController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Post('admin/content-assets')
   @ApiOperation({ summary: 'Create content asset' })
   async create(@Body() dto: CreateContentAssetDto) {
@@ -43,7 +43,7 @@ export class ContentAssetController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Get('admin/content-assets')
   @ApiOperation({ summary: 'Get admin content assets' })
   async findAdminAll(@Query() query: QueryContentAssetDto) {
@@ -58,7 +58,7 @@ export class ContentAssetController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Get('admin/content-assets/:id')
   @ApiOperation({ summary: 'Get content asset details' })
   async findAdminOne(@Param('id') id: string) {
@@ -73,7 +73,7 @@ export class ContentAssetController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Patch('admin/content-assets/:id')
   @ApiOperation({ summary: 'Update content asset' })
   async update(
@@ -91,7 +91,7 @@ export class ContentAssetController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Delete('admin/content-assets/:id')
   @ApiOperation({ summary: 'Delete content asset' })
   async remove(@Param('id') id: string) {
@@ -106,7 +106,7 @@ export class ContentAssetController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Patch('admin/content/:contentItemId/assets/reorder')
   @ApiOperation({ summary: 'Reorder content assets' })
   async reorder(

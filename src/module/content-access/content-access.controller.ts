@@ -27,7 +27,7 @@ export class ContentAccessController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Post('admin/content-access-rules')
   @ApiOperation({ summary: 'Create content access rule' })
   async createRule(@Body() dto: CreateContentAccessRuleDto) {
@@ -42,7 +42,7 @@ export class ContentAccessController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Get('admin/content-access-rules')
   @ApiOperation({ summary: 'Get content access rules' })
   async findRules(@Query() query: QueryContentAccessRuleDto) {
@@ -57,7 +57,7 @@ export class ContentAccessController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Get('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Get content access rule details' })
   async findRuleById(@Param('id') id: string) {
@@ -72,7 +72,7 @@ export class ContentAccessController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Patch('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Update content access rule' })
   async updateRule(
@@ -90,7 +90,7 @@ export class ContentAccessController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Delete('admin/content-access-rules/:id')
   @ApiOperation({ summary: 'Delete content access rule' })
   async removeRule(@Param('id') id: string) {

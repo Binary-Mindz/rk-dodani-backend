@@ -26,10 +26,10 @@ export class CategoryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Post('admin/categories')
   @ApiOperation({ summary: 'Create category' })
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   async create(@Body() dto: CreateCategoryDto) {
     const data = await this.service.create(dto);
 
@@ -66,7 +66,7 @@ export class CategoryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Patch('admin/categories/:id')
   @ApiOperation({ summary: 'Update category' })
   async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
@@ -81,7 +81,7 @@ export class CategoryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Delete('admin/categories/:id')
   @ApiOperation({ summary: 'Delete category' })
   async remove(@Param('id') id: string) {

@@ -30,7 +30,7 @@ export class ServiceController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Post('admin/services')
   @ApiOperation({ summary: 'Create service' })
   async create(
@@ -47,7 +47,7 @@ export class ServiceController {
   }
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Get('admin/services')
   @ApiOperation({ summary: 'Get admin services' })
   async findAdminAll(@Query() query: QueryAdminServiceDto) {
@@ -62,7 +62,7 @@ export class ServiceController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Get('admin/services/:id')
   @ApiOperation({ summary: 'Get admin service details' })
   async findAdminOne(@Param('id') id: string) {
@@ -77,7 +77,7 @@ export class ServiceController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Patch('admin/services/:id')
   @ApiOperation({ summary: 'Update service' })
   async update(
@@ -96,7 +96,7 @@ export class ServiceController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Patch('admin/services/:id/status')
   @ApiOperation({ summary: 'Update service status' })
   async updateStatus(
@@ -115,7 +115,7 @@ export class ServiceController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Delete('admin/services/:id')
   @ApiOperation({ summary: 'Delete service' })
   async remove(@Param('id') id: string) {

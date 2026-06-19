@@ -50,7 +50,7 @@ export class ContactInquiryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get('admin/inquiries')
   @ApiOperation({ summary: 'Get admin inquiry list' })
   async findAdminAll(@Query() query: QueryAdminContactInquiryDto) {
@@ -65,7 +65,7 @@ export class ContactInquiryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get('admin/inquiries/:id')
   @ApiOperation({ summary: 'Get inquiry details' })
   async findAdminOne(@Param('id') id: string) {
@@ -79,7 +79,7 @@ export class ContactInquiryController {
   }
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Patch('admin/inquiries/:id/assign')
   @ApiOperation({ summary: 'Assign inquiry to a user' })
   async assign(@Param('id') id: string, @Body() dto: AssignInquiryDto) {
@@ -94,7 +94,7 @@ export class ContactInquiryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Patch('admin/inquiries/:id/status')
   @ApiOperation({ summary: 'Update inquiry status' })
   async updateStatus(
@@ -112,7 +112,7 @@ export class ContactInquiryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.SUPPORT)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Post('admin/inquiries/:id/note')
   @ApiOperation({ summary: 'Add note to inquiry' })
   async addNote(@Param('id') id: string, @Body() dto: AddInquiryNoteDto) {

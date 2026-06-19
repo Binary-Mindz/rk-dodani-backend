@@ -27,7 +27,7 @@ export class AppSettingController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Put('admin/settings')
   @ApiOperation({ summary: 'Create or update app setting' })
   async upsert(
@@ -45,7 +45,7 @@ export class AppSettingController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Get('admin/settings')
   @ApiOperation({ summary: 'Get admin app settings' })
   async findAdminAll(@Query() query: QueryAppSettingDto) {
@@ -60,7 +60,7 @@ export class AppSettingController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get('admin/settings/:groupName/:key')
   @ApiOperation({ summary: 'Get single app setting' })
   async findOne(
@@ -78,7 +78,7 @@ export class AppSettingController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Delete('admin/settings/:groupName/:key')
   @ApiOperation({ summary: 'Delete app setting' })
   async remove(

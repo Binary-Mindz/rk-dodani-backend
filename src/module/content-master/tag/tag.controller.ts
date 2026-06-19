@@ -28,7 +28,7 @@ export class TagController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Post('admin/tags')
   @ApiOperation({ summary: 'Create tag' })
   async create(@Body() dto: CreateTagDto) {
@@ -67,7 +67,7 @@ export class TagController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Patch('admin/tags/:id')
   @ApiOperation({ summary: 'Update tag' })
   async update(@Param('id') id: string, @Body() dto: UpdateTagDto) {
@@ -82,7 +82,7 @@ export class TagController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN, UserRoleCode.EDITOR)
+  @Roles(UserRoleCode.SUPER_ADMIN   )
   @Delete('admin/tags/:id')
   @ApiOperation({ summary: 'Delete tag' })
   async remove(@Param('id') id: string) {
