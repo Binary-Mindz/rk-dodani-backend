@@ -26,7 +26,7 @@ export class PlanController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Post('admin/plans')
   @ApiOperation({ summary: 'Create plan' })
   async create(@Body() dto: CreatePlanDto) {
@@ -41,7 +41,7 @@ export class PlanController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get('admin/plans')
   @ApiOperation({ summary: 'Get admin plan list' })
   async findAdminAll(@Query() query: QueryPlanDto) {
@@ -56,7 +56,7 @@ export class PlanController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get('admin/plans/:id')
   @ApiOperation({ summary: 'Get admin plan details' })
   async findAdminOne(@Param('id') id: string) {
@@ -71,7 +71,7 @@ export class PlanController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Patch('admin/plans/:id')
   @ApiOperation({ summary: 'Update plan' })
   async update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
@@ -86,7 +86,7 @@ export class PlanController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Patch('admin/plans/:id/status')
   @ApiOperation({ summary: 'Activate or deactivate a plan' })
   async updateStatus(
@@ -104,7 +104,7 @@ export class PlanController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Delete('admin/plans/:id')
   @ApiOperation({ summary: 'Delete plan' })
   async remove(@Param('id') id: string) {

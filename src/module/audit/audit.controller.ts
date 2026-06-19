@@ -14,7 +14,7 @@ export class AuditController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get()
   @ApiOperation({ summary: 'Get audit logs' })
   async findAll(@Query() query: QueryAuditLogDto) {
@@ -29,7 +29,7 @@ export class AuditController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN )
   @Get(':id')
   @ApiOperation({ summary: 'Get audit log details' })
   async findOne(@Param('id') id: string) {

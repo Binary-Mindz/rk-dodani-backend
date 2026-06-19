@@ -15,7 +15,7 @@ export class WebhookLogController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Get()
   @ApiOperation({ summary: 'Get webhook logs' })
   async findAll(@Query() query: QueryWebhookLogDto) {
@@ -30,7 +30,7 @@ export class WebhookLogController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN, UserRoleCode.ADMIN)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Get(':id')
   @ApiOperation({ summary: 'Get webhook log details' })
   async findOne(@Param('id') id: string) {
