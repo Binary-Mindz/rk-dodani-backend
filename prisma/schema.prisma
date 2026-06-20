@@ -685,8 +685,6 @@ enum UserStatus {
 enum UserRoleCode {
   SUPER_ADMIN
   STUDENT
-  SOLO_PROF
-  SMB
   ENTERPRISE
 }
 

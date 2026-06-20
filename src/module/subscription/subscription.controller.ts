@@ -10,24 +10,28 @@ import { SubscriptionService } from './subscription.service';
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
-
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('checkout')
-  @ApiOperation({ summary: 'Create a Stripe Checkout Session to buy a plan' })
+  @ApiOperation({ summary: 'Create Checkout or Direct Free Activation' })
   async createCheckoutSession(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateCheckoutDto,
   ) {
-    const session = await this.subscriptionService.createCheckoutSession(userId, dto.planId);
+    const result = await this.subscriptionService.createCheckoutSession(userId, dto.planId);
     
+    if (result.isFreeActivation) {
+      return {
+        statusCode: 201,
+        message: 'Free plan activated successfully without payment',
+        data: { isFree: true, url: null, sessionId: null },
+      };
+    }
+
     return {
       statusCode: 200,
       message: 'Checkout session created successfully',
-      data: {
-        sessionId: session.id,
-        url: session.url,
-      },
+      data: { sessionId: result.id, url: result.url },
     };
   }
 
@@ -35,18 +39,13 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard)
   @Get('verify')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify Stripe payment session manually and assign security roles' })
-  @ApiQuery({ name: 'session_id', description: 'The Stripe Checkout Session ID (cs_test_...)', required: true })
+  @ApiOperation({ summary: 'Verify Stripe session and update role' })
   async verifyPayment(@Query('session_id') sessionId: string) {
-    
     await this.subscriptionService.verifySessionAndAssignRole(sessionId);
-    
     return {
       statusCode: 200,
-      message: 'Payment verified and your subscription security role assigned successfully.',
-      data: {
-        verified: true,
-      }
+      message: 'Payment verified and security role updated.',
+      data: { verified: true }
     };
   }
 }
