@@ -1,0 +1,3 @@
+ssh app@74.208.203.222 
+
+docker exec -it api sh
