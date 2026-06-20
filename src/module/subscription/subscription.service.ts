@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { Stripe as StripeType } from 'stripe';
-import { UserRoleCode, SubscriptionStatus, EntitlementSourceType, EntitlementType, EntitlementStatus, BillingProvider } from '@prisma/client';
+import { UserRoleCode, SubscriptionStatus, EntitlementSourceType, EntitlementType, EntitlementStatus, BillingProvider, PlanAudience, Prisma } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionService {
@@ -22,11 +22,18 @@ export class SubscriptionService {
   }
 
   async createCheckoutSession(userId: string, planId: string): Promise<Record<string, any>> {
-    this.logger.log(`Initiating checkout session generation for userId: ${userId}, planId: ${planId}`);
-    const plan = await this.prisma.plan.findFirst({ where: { id: planId, isActive: true, isPublic: true } });
+    this.logger.log(`Initiating sub context processor for userId: ${userId}, planId: ${planId}`);
+    const plan = await this.prisma.plan.findFirst({ where: { id: planId, isActive: true } });
     if (!plan) throw new NotFoundException('Plan not found');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+
+    // ✅ FREE PLAN DIRECT ACTIVATION (NO STRIPE GATEWAY INVOLVED)
+    if (Number(plan.priceAmount) === 0) {
+      this.logger.log(`Triggering instant deployment schema for free plan tier: ${plan.code}`);
+      await this.executeInstantFreeActivation(user, plan);
+      return { isFreeActivation: true };
+    }
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const unitAmount = Math.round(Number(plan.priceAmount) * 100);
@@ -38,80 +45,99 @@ export class SubscriptionService {
           currency: plan.currency.toLowerCase(),
           product_data: { name: plan.name, description: plan.description || undefined },
           unit_amount: unitAmount,
-          ...(plan.billingInterval !== 'ONE_TIME' && {
-            recurring: { interval: plan.billingInterval === 'YEARLY' ? 'year' : 'month' },
-          }),
+          recurring: { interval: 'month' },
         },
         quantity: 1, 
       }],
-      mode: plan.billingInterval === 'ONE_TIME' ? 'payment' : 'subscription',
+      mode: 'subscription',
       customer_email: user.email,
       success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/pricing`,
       metadata: { userId: user.id, planId: plan.id },
     });
      
-    this.logger.log(`Checkout session successfully created: ${session.id} for User: ${userId}`);
     return session;
   }
 
+  private async executeInstantFreeActivation(user: any, plan: any): Promise<void> {
+    const targetRoleCode = PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
+    if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
 
-  async verifySessionAndAssignRole(sessionId: string): Promise<void> {
-    this.logger.log(`Verifying Stripe Session manually: ${sessionId}`);
+    const fakeSessionId = `free_activation_${plan.code}_${Date.now()}`;
 
-    const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.subscription.create({
+        data: {
+          userId: user.id,
+          planId: plan.id,
+          provider: BillingProvider.STRIPE,
+          providerSubscriptionId: fakeSessionId,
+          status: SubscriptionStatus.ACTIVE,
+          startedAt: new Date(),
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: this.calculatePeriodEnd('MONTHLY'),
+          currency: plan.currency,
+          lastPaymentAt: new Date(),
+          lastPaymentAmount: new Prisma.Decimal('0.00'),
+        },
+      });
 
-    if (session.payment_status !== 'paid') {
-      this.logger.warn(`Verification failed: Session ${sessionId} is not paid yet.`);
-      throw new BadRequestException('Payment has not been completed for this session.');
-    }
+      await tx.entitlement.create({
+        data: {
+          userId: user.id,
+          planId: plan.id,
+          sourceType: EntitlementSourceType.SUBSCRIPTION,
+          entitlementType: EntitlementType.PLAN_ACCESS,
+          status: EntitlementStatus.ACTIVE,
+          startsAt: new Date(),
+          endsAt: this.calculatePeriodEnd('MONTHLY'),
+        },
+      });
 
-    await this.handleSuccessfulCheckout(session);
+      // ✅ STRICTLY ONE ACTIVE ROLE RULE: Deactivate old roles
+      await tx.userRole.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: { isActive: false },
+      });
+
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: roleRecord.id } },
+        update: { isActive: true, expiresAt: this.calculatePeriodEnd('MONTHLY') },
+        create: { userId: user.id, roleId: roleRecord.id, isActive: true, expiresAt: this.calculatePeriodEnd('MONTHLY') },
+      });
+    });
   }
 
+  async verifySessionAndAssignRole(sessionId: string): Promise<void> {
+    const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+    if (session.payment_status !== 'paid') {
+      throw new BadRequestException('Payment validation error from automated gateway');
+    }
+    await this.handleSuccessfulCheckout(session);
+  }
 
   async handleSuccessfulCheckout(session: Record<string, any>): Promise<void> {
     const sessionId = session.id;
     const userId = session.metadata?.userId;
     const planId = session.metadata?.planId;
 
-    if (!userId || !planId) {
-      this.logger.error(`Processing halted: Missing metadata in Stripe session ${sessionId}`);
-      throw new BadRequestException('Missing userId or planId in session metadata');
-    }
+    if (!userId || !planId) throw new BadRequestException('Missing session metadata payloads');
 
     const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!plan || !user) {
-      throw new NotFoundException('Plan or User context not found');
-    }
+    if (!plan || !user) throw new NotFoundException('Context mapping execution faulted');
 
-    let targetRoleCode: UserRoleCode;
-    if (plan.code.startsWith('STUDENT_')) {
-      targetRoleCode = UserRoleCode.STUDENT;
-    } else if (plan.code.startsWith('SOLO_PROF_')) {
-      targetRoleCode = UserRoleCode.SOLO_PROF;
-    } else if (plan.code.startsWith('SMB_')) {
-      targetRoleCode = UserRoleCode.SMB;
-    } else if (plan.code.startsWith('ENTERPRISE_')) {
-      targetRoleCode = UserRoleCode.ENTERPRISE;
-    } else {
-      throw new BadRequestException(`Unknown mapping infrastructure for plan code: ${plan.code}`);
-    }
-
+    // ✅ STRICT AUDIENCE ORIENTED ROLE MAPPING
+    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    
     const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
-    if (!roleRecord) throw new NotFoundException(`Role "${targetRoleCode}" not found.`);
+    if (!roleRecord) throw new NotFoundException(`Role code configuration invalid`);
 
-    const existingSub = await this.prisma.subscription.findFirst({
-      where: { providerSubscriptionId: session.subscription ? String(session.subscription) : sessionId }
-    });
-    if (existingSub) {
-      this.logger.warn(`Session ${sessionId} already processed into database. Skipping to prevent duplicates.`);
-      return;
-    }
-
-    this.logger.log(`Running DB Transaction -> User: ${user.email}, Role Upgrading to: ${targetRoleCode}`);
+    const targetSubId = session.subscription ? String(session.subscription) : sessionId;
+    const existingSub = await this.prisma.subscription.findFirst({ where: { providerSubscriptionId: targetSubId } });
+    if (existingSub) return;
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -120,15 +146,15 @@ export class SubscriptionService {
             userId: user.id,
             planId: plan.id,
             provider: BillingProvider.STRIPE,
-            providerSubscriptionId: session.subscription ? String(session.subscription) : sessionId,
+            providerSubscriptionId: targetSubId,
             providerCustomerId: session.customer ? String(session.customer) : null,
             status: SubscriptionStatus.ACTIVE,
             startedAt: new Date(),
             currentPeriodStart: new Date(),
-            currentPeriodEnd: calculatePeriodEnd(plan.billingInterval),
+            currentPeriodEnd: this.calculatePeriodEnd(plan.billingInterval),
             currency: plan.currency,
             lastPaymentAt: new Date(),
-            lastPaymentAmount: plan.priceAmount,
+            lastPaymentAmount: new Prisma.Decimal(plan.priceAmount),
           },
         });
 
@@ -140,35 +166,32 @@ export class SubscriptionService {
             entitlementType: EntitlementType.PLAN_ACCESS,
             status: EntitlementStatus.ACTIVE,
             startsAt: new Date(),
-            endsAt: calculatePeriodEnd(plan.billingInterval),
+            endsAt: this.calculatePeriodEnd(plan.billingInterval),
           },
         });
 
+        // ✅ ENSURE EXCLUSIVITY - DEACTIVATE ALL PREVIOUS USER ROLES
         await tx.userRole.updateMany({
           where: { userId: user.id, isActive: true },
           data: { isActive: false },
         });
 
-      
         await tx.userRole.upsert({
           where: { userId_roleId: { userId: user.id, roleId: roleRecord.id } },
-          update: { isActive: true, expiresAt: calculatePeriodEnd(plan.billingInterval) },
-          create: { userId: user.id, roleId: roleRecord.id, isActive: true, expiresAt: calculatePeriodEnd(plan.billingInterval) },
+          update: { isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
+          create: { userId: user.id, roleId: roleRecord.id, isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
         });
       });
-
-      this.logger.log(`🎉 [SUCCESS] User ${user.email} role updated to "${targetRoleCode}" successfully!`);
     } catch (error) {
-      this.logger.error(`❌ DB Transaction failed for session ${sessionId}:`, error.stack);
+      this.logger.error(`❌ DB Transaction failure inside gateway routing:`, error.stack);
       throw error;
     }
   }
-}
 
-function calculatePeriodEnd(interval: string): Date {
-  const date = new Date();
-  if (interval === 'YEARLY') date.setFullYear(date.getFullYear() + 1);
-  else if (interval === 'MONTHLY') date.setMonth(date.getMonth() + 1);
-  else date.setDate(date.getDate() + 30); 
-  return date;
+  private calculatePeriodEnd(interval: string): Date {
+    const date = new Date();
+    if (interval === 'YEARLY') date.setFullYear(date.getFullYear() + 1);
+    else date.setMonth(date.getMonth() + 1);
+    return date;
+  }
 }
