@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -41,6 +42,7 @@ export class AuthService {
 
     if (existingUser) {
       if (!existingUser.emailVerified) {
+        // 💡 যদি মেইল পাঠাতে ফেইল করে, তাহলে ট্রাই-ক্যাচ এটা হ্যান্ডেল করবে
         await this.createAndSendOtp(
           existingUser.id,
           existingUser.email,
@@ -64,34 +66,47 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
     const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
 
-    // 💡 No Role is Assigned upon Registration. User is completely roleless until subscription payment.
-    const user = await this.prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        passwordHash,
-        firstName: dto.firstName ?? null,
-        lastName: dto.lastName ?? null,
-        fullName,
-        phone: dto.phone ?? null,
-        status: UserStatus.PENDING_VERIFICATION,
-        signupSource: AuthProviderType.LOCAL,
-      },
-    });
+    // 💡 এখানে আমরা একটি ট্রানজেকশন ব্যবহার করব যেন মেইল ফেইল করলে ইউজার ক্রিয়েশন রোলব্যাক হয়ে যায়
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash,
+            firstName: dto.firstName ?? null,
+            lastName: dto.lastName ?? null,
+            fullName,
+            phone: dto.phone ?? null,
+            status: UserStatus.PENDING_VERIFICATION,
+            signupSource: AuthProviderType.LOCAL,
+          },
+        });
 
-    await this.createAndSendOtp(
-      user.id,
-      user.email,
-      OtpPurpose.EMAIL_VERIFICATION,
-    );
+        // OTP তৈরি এবং মেল পাঠানো (মেইল ফেইল করলে এক্সেপশন থ্রো হবে এবং ডিবি রোলব্যাক হবে)
+        await this.createAndSendOtpWithTx(
+          tx,
+          user.id,
+          user.email,
+          OtpPurpose.EMAIL_VERIFICATION,
+        );
 
-    return {
-      message: 'Registration successful. Verification OTP sent to your email.',
-      data: {
-        userId: user.id,
-        email: user.email,
-        status: user.status,
-      },
-    };
+        return {
+          message: 'Registration successful. Verification OTP sent to your email.',
+          data: {
+            userId: user.id,
+            email: user.email,
+            status: user.status,
+          },
+        };
+      });
+    } catch (error) {
+      // যদি মেইল পাঠানোর এরর আমাদের কাস্টম BadRequestException হয়, তবে সেটি সরাসরি থ্রো করো
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      // অন্য যেকোনো ইন্টারনাল ক্র্যাশের জন্য নিরাপদ মেসেজ
+      throw new InternalServerErrorException('Registration failed due to a system error. Please try again.');
+    }
   }
 
   async verifyEmailOtp(email: string, otp: string) {
@@ -383,7 +398,22 @@ export class AuthService {
     };
   }
 
+  /**
+   * ✅ মূল মেইলার হ্যান্ডলার উইথ ট্রাই-ক্যাচ ব্লক
+   */
   private async createAndSendOtp(
+    userId: string,
+    email: string,
+    purpose: OtpPurpose,
+  ) {
+    return this.createAndSendOtpWithTx(this.prisma, userId, email, purpose);
+  }
+
+  /**
+   * ✅ ট্রানজেকশন অ্যাওয়ার ও কাস্টম এক্সেপশন হ্যান্ডলিং মেথড
+   */
+  private async createAndSendOtpWithTx(
+    txClient: any, // Accepts standard prisma instance or transaction client
     userId: string,
     email: string,
     purpose: OtpPurpose,
@@ -394,7 +424,7 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + this.otpExpiryMinutes);
 
-    await this.prisma.userOtp.create({
+    await txClient.userOtp.create({
       data: {
         userId,
         email,
@@ -404,12 +434,21 @@ export class AuthService {
       },
     });
 
-    if (purpose === OtpPurpose.EMAIL_VERIFICATION) {
-      await this.mailService.sendEmailVerificationOtp(email, otp);
-    }
+    try {
+      if (purpose === OtpPurpose.EMAIL_VERIFICATION) {
+        await this.mailService.sendEmailVerificationOtp(email, otp);
+      }
 
-    if (purpose === OtpPurpose.PASSWORD_RESET) {
-      await this.mailService.sendPasswordResetOtp(email, otp);
+      if (purpose === OtpPurpose.PASSWORD_RESET) {
+        await this.mailService.sendPasswordResetOtp(email, otp);
+      }
+    } catch (mailError) {
+      // 🚨 মেইল সার্ভার এরর কনসোলে লগ করুন কিন্তু ক্লায়েন্টকে মিনিংফুল মেসেজ দিন
+      console.error(`❌ Failed to send OTP email to ${email}:`, mailError);
+      
+      throw new BadRequestException(
+        `Unable to send verification email to "${email}". Please verify that the email address is correct and valid.`,
+      );
     }
   }
 
