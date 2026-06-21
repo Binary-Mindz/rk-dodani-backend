@@ -96,7 +96,6 @@ export class ContentService {
           summary: dto.summary ?? null,
           plainTextBody: dto.plainTextBody ?? null,
           authorDisplayName: dto.authorDisplayName ?? null,
-          primaryAuthorId: dto.primaryAuthorId ?? null,
           coverImageUrl: dto.coverImageUrl ?? null,
           thumbnailUrl: dto.thumbnailUrl ?? null,
           status: dto.status ?? PublishStatus.DRAFT,
@@ -186,9 +185,6 @@ export class ContentService {
         where,
         include: {
           contentType: true,
-          primaryAuthor: {
-            select: { id: true, fullName: true, email: true },
-          },
           contentCategories: {
             include: {
               category: true,
@@ -230,9 +226,6 @@ export class ContentService {
       },
       include: {
         contentType: true,
-        primaryAuthor: {
-          select: { id: true, fullName: true, email: true },
-        },
         createdBy: {
           select: { id: true, fullName: true, email: true },
         },
@@ -300,9 +293,6 @@ export class ContentService {
           ...(dto.summary !== undefined && { summary: dto.summary }),
           ...(dto.authorDisplayName !== undefined && {
             authorDisplayName: dto.authorDisplayName,
-          }),
-          ...(dto.primaryAuthorId !== undefined && {
-            primaryAuthorId: dto.primaryAuthorId,
           }),
           ...(dto.coverImageUrl !== undefined && {
             coverImageUrl: dto.coverImageUrl,
@@ -579,13 +569,6 @@ export class ContentService {
       },
       include: {
         contentType: true,
-        primaryAuthor: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
         contentCategories: {
           include: {
             category: true,

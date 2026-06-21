@@ -40,6 +40,117 @@ async function seedRoles() {
   });
   console.log('🚀 3 Main roles seeded successfully');
 }
+async function seedContentTypes() {
+  const count = await prisma.contentType.count();
+
+  if (count > 0) {
+    console.log('ℹ️ Content types already seeded. Skipping...');
+    return;
+  }
+
+  await prisma.contentType.createMany({
+    data: [
+      {
+        code: ContentTypeCode.ARTICLE,
+        name: 'Article',
+        description: 'General articles and blog posts',
+      },
+      {
+        code: ContentTypeCode.WHITE_PAPER,
+        name: 'White Paper',
+        description: 'Research-driven white papers',
+      },
+      {
+        code: ContentTypeCode.CASE_STUDY,
+        name: 'Case Study',
+        description: 'Real-world implementation case studies',
+      },
+      {
+        code: ContentTypeCode.REPORT,
+        name: 'Report',
+        description: 'Industry and market reports',
+      },
+      {
+        code: ContentTypeCode.PODCAST,
+        name: 'Podcast',
+        description: 'Audio podcast content',
+      },
+      {
+        code: ContentTypeCode.VIDEO,
+        name: 'Video',
+        description: 'Video content and recordings',
+      },
+      {
+        code: ContentTypeCode.RESEARCH_NOTE,
+        name: 'Research Note',
+        description: 'Short-form research findings',
+      },
+      {
+        code: ContentTypeCode.MEDIA_POST,
+        name: 'Media Post',
+        description: 'Social media and promotional content',
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  console.log('🚀 Content types seeded successfully');
+}
+
+async function seedSuperAdmin() {
+  const email = process.env.SUPER_ADMIN_EMAIL;
+
+  if (!email) {
+    console.log('⚠️ SUPER_ADMIN_EMAIL not found. Skipping super admin seed...');
+    return;
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    console.log('ℹ️ Super Admin already exists. Skipping...');
+    return;
+  }
+
+  const superAdminRole = await prisma.role.findUnique({
+    where: {
+      code: UserRoleCode.SUPER_ADMIN,
+    },
+  });
+
+  if (!superAdminRole) {
+    throw new Error('❌ SUPER_ADMIN role not found. Run role seed first.');
+  }
+
+  const passwordHash = await bcrypt.hash(
+    process.env.SUPER_ADMIN_PASSWORD || '12345678',
+    10,
+  );
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      firstName: process.env.SUPER_ADMIN_FIRST_NAME || 'Super',
+      lastName: process.env.SUPER_ADMIN_LAST_NAME || 'Admin',
+      fullName: `${process.env.SUPER_ADMIN_FIRST_NAME || 'Super'} ${process.env.SUPER_ADMIN_LAST_NAME || 'Admin'}`,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      status: UserStatus.ACTIVE,
+      signupSource: AuthProviderType.LOCAL,
+
+      roles: {
+        create: {
+          roleId: superAdminRole.id,
+        },
+      },
+    },
+  });
+
+  console.log(`✅ Super Admin created: ${user.email}`);
+}
 
 async function seedPlans() {
   const count = await prisma.plan.count();
@@ -166,7 +277,10 @@ async function seedPlans() {
 
 async function main() {
   await seedRoles();
+  await seedContentTypes();
+  await seedSuperAdmin();
   await seedPlans();
+
   console.log('✅ Seeds completed.');
 }
 

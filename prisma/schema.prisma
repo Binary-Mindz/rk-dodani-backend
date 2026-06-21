@@ -44,7 +44,6 @@ model User {
   inquiryActivities      InquiryActivity[]
   createdServices        Service[]            @relation("ServiceCreatedBy")
   updatedServices        Service[]            @relation("ServiceUpdatedBy")
-  primaryAuthoredContent ContentItem[]        @relation("ContentPrimaryAuthor")
   createdContent         ContentItem[]        @relation("ContentCreatedBy")
   updatedContent         ContentItem[]        @relation("ContentUpdatedBy")
   publishedContent       ContentItem[]        @relation("ContentPublishedBy")
@@ -331,7 +330,6 @@ model ContentItem {
   summary                    String?
   plainTextBody              String?
   authorDisplayName          String?
-  primaryAuthorId            String?
   coverImageUrl              String?
   thumbnailUrl               String?
   status                     PublishStatus      @default(DRAFT)
@@ -361,7 +359,6 @@ model ContentItem {
   deletedAt                  DateTime?
 
   contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
-  primaryAuthor User?       @relation("ContentPrimaryAuthor", fields: [primaryAuthorId], references: [id], onDelete: SetNull)
   createdBy     User?       @relation("ContentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?       @relation("ContentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   publishedBy   User?       @relation("ContentPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)

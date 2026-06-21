@@ -89,14 +89,6 @@ export class CreateContentDto {
   authorDisplayName?: string;
 
   @ApiPropertyOptional({
-    description: 'Primary author user ID',
-    example: '7f61db8b-fb35-4d7d-a7df-8e8d4d88e021',
-  })
-  @IsOptional()
-  @IsUUID()
-  primaryAuthorId?: string;
-
-  @ApiPropertyOptional({
     description: 'Cover image URL',
     example: 'https://cdn.example.com/content/cover-ai-whitepaper.jpg',
   })
