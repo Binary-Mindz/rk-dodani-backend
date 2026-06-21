@@ -10,7 +10,6 @@ import { ContentMasterModule } from 'module/content-master/content-master.module
 import { ContactInquiryModule } from 'module/contact-inquiry/contact-inquiry.module';
 import { ContentModule } from 'module/content/content.module';
 import { ContentAccessModule } from 'module/content-access/content-access.module';
-import { ContentAssetModule } from 'module/content-asset/content-asset.module';
 import { ServiceModule } from 'module/service/service.module';
 import { PlanModule } from 'module/plan/plan.module';
 import { AppSettingModule } from 'module/app-setting/app-setting.module';
@@ -34,7 +33,6 @@ import { SubscriptionModule } from './module/subscription/subscription.module';
     SubscriptionModule,
     ContentMasterModule,
     ContentModule,
-    ContentAssetModule,
     ContentAccessModule,
     ServiceModule,
     PlanModule,

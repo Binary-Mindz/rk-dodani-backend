@@ -15,17 +15,22 @@ import { PrismaService } from 'prisma/prisma.service';
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * ✅ Safely transforms BigInt to number for JSON serialization
+   */
   private serializeBigInt<T>(data: T): T {
     return JSON.parse(
       JSON.stringify(data, (_, value) =>
-        typeof value === 'bigint' ? value.toString() : value,
+        typeof value === 'bigint' ? Number(value) : value,
       ),
     );
   }
 
+  /**
+   * ✅ Core validation logic for micro-relations
+   */
   private async validateRelations(dto: {
     contentTypeId?: string;
-    primaryAuthorId?: string;
     categoryIds?: string[];
     tagIds?: string[];
   }) {
@@ -33,29 +38,15 @@ export class ContentService {
       const contentType = await this.prisma.contentType.findUnique({
         where: { id: dto.contentTypeId },
       });
-
       if (!contentType) {
         throw new BadRequestException('Content type not found');
       }
     }
 
-    if (dto.primaryAuthorId) {
-      const author = await this.prisma.user.findUnique({
-        where: { id: dto.primaryAuthorId },
-      });
-
-      if (!author) {
-        throw new BadRequestException('Primary author not found');
-      }
-    }
-
     if (dto.categoryIds?.length) {
       const count = await this.prisma.category.count({
-        where: {
-          id: { in: dto.categoryIds },
-        },
+        where: { id: { in: dto.categoryIds } },
       });
-
       if (count !== dto.categoryIds.length) {
         throw new BadRequestException('One or more categories are invalid');
       }
@@ -63,11 +54,8 @@ export class ContentService {
 
     if (dto.tagIds?.length) {
       const count = await this.prisma.tag.count({
-        where: {
-          id: { in: dto.tagIds },
-        },
+        where: { id: { in: dto.tagIds } },
       });
-
       if (count !== dto.tagIds.length) {
         throw new BadRequestException('One or more tags are invalid');
       }
@@ -109,18 +97,19 @@ export class ContentService {
           isFeatured: dto.isFeatured ?? false,
           isPinned: dto.isPinned ?? false,
           allowComments: dto.allowComments ?? false,
-          allowDownload: dto.allowDownload ?? true,
-          downloadRequiresAcceptance: dto.downloadRequiresAcceptance ?? false,
-          termsText: dto.termsText ?? null,
           sortOrder: dto.sortOrder ?? 0,
           createdById: userId,
           updatedById: userId,
+          
+          // 📂 Merged Asset Core Properties
+          fileUrl: dto.fileUrl ?? null,
+          isDownloadable: dto.isDownloadable ?? true,
+          downloadRequiresAcceptance: dto.downloadRequiresAcceptance ?? false,
+          termsText: dto.termsText ?? null,
+
           ...(dto.status === PublishStatus.PUBLISHED && {
             publishedAt: new Date(),
             publishedById: userId,
-          }),
-          ...(dto.status === PublishStatus.ARCHIVED && {
-            archivedAt: new Date(),
           }),
         },
       });
@@ -158,26 +147,19 @@ export class ContentService {
 
     const where: Prisma.ContentItemWhereInput = {
       deletedAt: null,
-      ...(query.search
-        ? {
-            OR: [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              { slug: { contains: query.search, mode: 'insensitive' } },
-              { excerpt: { contains: query.search, mode: 'insensitive' } },
-              { summary: { contains: query.search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.visibility ? { visibility: query.visibility } : {}),
-      ...(query.accessModel ? { accessModel: query.accessModel } : {}),
-      ...(query.contentTypeId ? { contentTypeId: query.contentTypeId } : {}),
-      ...(typeof query.isFeatured === 'boolean'
-        ? { isFeatured: query.isFeatured }
-        : {}),
-      ...(typeof query.isPinned === 'boolean'
-        ? { isPinned: query.isPinned }
-        : {}),
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { slug: { contains: query.search, mode: 'insensitive' } },
+          { excerpt: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(query.status && { status: query.status }),
+      ...(query.visibility && { visibility: query.visibility }),
+      ...(query.accessModel && { accessModel: query.accessModel }),
+      ...(query.contentTypeId && { contentTypeId: query.contentTypeId }),
+      ...(typeof query.isFeatured === 'boolean' && { isFeatured: query.isFeatured }),
+      ...(typeof query.isPinned === 'boolean' && { isPinned: query.isPinned }),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -185,22 +167,10 @@ export class ContentService {
         where,
         include: {
           contentType: true,
-          contentCategories: {
-            include: {
-              category: true,
-            },
-          },
-          contentTags: {
-            include: {
-              tag: true,
-            },
-          },
+          contentCategories: { include: { category: true } },
+          contentTags: { include: { tag: true } },
         },
-        orderBy: [
-          { isPinned: 'desc' },
-          { sortOrder: 'asc' },
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ isPinned: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
       }),
@@ -209,42 +179,17 @@ export class ContentService {
 
     return this.serializeBigInt({
       items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
 
   async findAdminOne(id: string) {
     const content = await this.prisma.contentItem.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+      where: { id, deletedAt: null },
       include: {
         contentType: true,
-        createdBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        updatedBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        publishedBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        contentCategories: {
-          include: {
-            category: true,
-          },
-        },
-        contentTags: {
-          include: {
-            tag: true,
-          },
-        },
+        contentCategories: { include: { category: true } },
+        contentTags: { include: { tag: true } },
       },
     });
 
@@ -255,12 +200,9 @@ export class ContentService {
     return this.serializeBigInt(content);
   }
 
-  async update(userId: string | null, id: string, dto: UpdateContentDto) {
+  async update(userId: string, id: string, dto: UpdateContentDto) {
     const existing = await this.prisma.contentItem.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+      where: { id, deletedAt: null },
     });
 
     if (!existing) {
@@ -271,7 +213,6 @@ export class ContentService {
       const slugExists = await this.prisma.contentItem.findUnique({
         where: { slug: dto.slug },
       });
-
       if (slugExists) {
         throw new BadRequestException('Content slug already exists');
       }
@@ -283,95 +224,54 @@ export class ContentService {
       await tx.contentItem.update({
         where: { id },
         data: {
-          ...(dto.contentTypeId !== undefined && {
-            contentTypeId: dto.contentTypeId,
-          }),
+          ...(dto.contentTypeId !== undefined && { contentTypeId: dto.contentTypeId }),
           ...(dto.slug !== undefined && { slug: dto.slug }),
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
           ...(dto.summary !== undefined && { summary: dto.summary }),
-          ...(dto.authorDisplayName !== undefined && {
-            authorDisplayName: dto.authorDisplayName,
-          }),
-          ...(dto.coverImageUrl !== undefined && {
-            coverImageUrl: dto.coverImageUrl,
-          }),
-          ...(dto.thumbnailUrl !== undefined && {
-            thumbnailUrl: dto.thumbnailUrl,
-          }),
+          ...(dto.plainTextBody !== undefined && { plainTextBody: dto.plainTextBody }),
+          ...(dto.authorDisplayName !== undefined && { authorDisplayName: dto.authorDisplayName }),
+          ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
+          ...(dto.thumbnailUrl !== undefined && { thumbnailUrl: dto.thumbnailUrl }),
           ...(dto.status !== undefined && { status: dto.status }),
           ...(dto.visibility !== undefined && { visibility: dto.visibility }),
-          ...(dto.accessModel !== undefined && {
-            accessModel: dto.accessModel,
-          }),
-          ...(dto.contentFormat !== undefined && {
-            contentFormat: dto.contentFormat,
-          }),
-          ...(dto.externalUrl !== undefined && {
-            externalUrl: dto.externalUrl,
-          }),
-          ...(dto.externalEmbedCode !== undefined && {
-            externalEmbedCode: dto.externalEmbedCode,
-          }),
-          ...(dto.readingTimeMinutes !== undefined && {
-            readingTimeMinutes: dto.readingTimeMinutes,
-          }),
-          ...(dto.scheduledAt !== undefined && {
-            scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
-          }),
-          ...(dto.isFeatured !== undefined && {
-            isFeatured: dto.isFeatured,
-          }),
-          ...(dto.isPinned !== undefined && {
-            isPinned: dto.isPinned,
-          }),
-          ...(dto.allowComments !== undefined && {
-            allowComments: dto.allowComments,
-          }),
-          ...(dto.allowDownload !== undefined && {
-            allowDownload: dto.allowDownload,
-          }),
-          ...(dto.downloadRequiresAcceptance !== undefined && {
-            downloadRequiresAcceptance: dto.downloadRequiresAcceptance,
-          }),
-          ...(dto.termsText !== undefined && {
-            termsText: dto.termsText,
-          }),
-          ...(dto.sortOrder !== undefined && {
-            sortOrder: dto.sortOrder,
-          }),
+          ...(dto.accessModel !== undefined && { accessModel: dto.accessModel }),
+          ...(dto.contentFormat !== undefined && { contentFormat: dto.contentFormat }),
+          ...(dto.externalUrl !== undefined && { externalUrl: dto.externalUrl }),
+          ...(dto.externalEmbedCode !== undefined && { externalEmbedCode: dto.externalEmbedCode }),
+          ...(dto.readingTimeMinutes !== undefined && { readingTimeMinutes: dto.readingTimeMinutes }),
+          ...(dto.scheduledAt !== undefined && { scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null }),
+          ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+          ...(dto.isPinned !== undefined && { isPinned: dto.isPinned }),
+          ...(dto.allowComments !== undefined && { allowComments: dto.allowComments }),
+          ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+          
+          // 📂 Merged Asset Inline Update Fields
+          ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
+          ...(dto.isDownloadable !== undefined && { isDownloadable: dto.isDownloadable }),
+          ...(dto.downloadRequiresAcceptance !== undefined && { downloadRequiresAcceptance: dto.downloadRequiresAcceptance }),
+          ...(dto.termsText !== undefined && { termsText: dto.termsText }),
+
           updatedById: userId,
         },
       });
 
       if (dto.categoryIds) {
-        await tx.contentCategory.deleteMany({
-          where: { contentItemId: id },
-        });
-
+        await tx.contentCategory.deleteMany({ where: { contentItemId: id } });
         if (dto.categoryIds.length) {
           await tx.contentCategory.createMany({
-            data: dto.categoryIds.map((categoryId) => ({
-              contentItemId: id,
-              categoryId,
-            })),
+            data: dto.categoryIds.map((categoryId) => ({ contentItemId: id, categoryId })),
             skipDuplicates: true,
           });
         }
       }
 
       if (dto.tagIds) {
-        await tx.contentTag.deleteMany({
-          where: { contentItemId: id },
-        });
-
+        await tx.contentTag.deleteMany({ where: { contentItemId: id } });
         if (dto.tagIds.length) {
           await tx.contentTag.createMany({
-            data: dto.tagIds.map((tagId) => ({
-              contentItemId: id,
-              tagId,
-            })),
+            data: dto.tagIds.map((tagId) => ({ contentItemId: id, tagId })),
             skipDuplicates: true,
           });
         }
@@ -381,16 +281,9 @@ export class ContentService {
     return this.findAdminOne(id);
   }
 
-  async updateStatus(
-    userId: string | null,
-    id: string,
-    dto: UpdateContentStatusDto,
-  ) {
+  async updateStatus(userId: string, id: string, dto: UpdateContentStatusDto) {
     const existing = await this.prisma.contentItem.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+      where: { id, deletedAt: null },
     });
 
     if (!existing) {
@@ -399,43 +292,24 @@ export class ContentService {
 
     const updateData: Prisma.ContentItemUpdateInput = {
       status: dto.status,
-      updatedBy: userId ? { connect: { id: userId } } : undefined,
     };
 
     if (dto.status === PublishStatus.PUBLISHED) {
       updateData.publishedAt = existing.publishedAt ?? new Date();
-      if (userId) {
-        updateData.publishedBy = { connect: { id: userId } };
-      }
       updateData.archivedAt = null;
-    }
-
-    if (dto.status === PublishStatus.ARCHIVED) {
+    } else if (dto.status === PublishStatus.ARCHIVED) {
       updateData.archivedAt = new Date();
-    }
-
-    if (
-      dto.status === PublishStatus.DRAFT ||
-      dto.status === PublishStatus.REVIEW ||
-      dto.status === PublishStatus.SCHEDULED
-    ) {
+    } else {
       updateData.archivedAt = null;
     }
 
-    await this.prisma.contentItem.update({
-      where: { id },
-      data: updateData,
-    });
-
+    await this.prisma.contentItem.update({ where: { id }, data: updateData });
     return this.findAdminOne(id);
   }
 
   async remove(id: string) {
     const existing = await this.prisma.contentItem.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+      where: { id, deletedAt: null },
     });
 
     if (!existing) {
@@ -444,9 +318,7 @@ export class ContentService {
 
     await this.prisma.contentItem.update({
       where: { id },
-      data: {
-        deletedAt: new Date(),
-      },
+      data: { deletedAt: new Date() },
     });
 
     return { deleted: true };
@@ -460,50 +332,22 @@ export class ContentService {
     const where: Prisma.ContentItemWhereInput = {
       deletedAt: null,
       status: PublishStatus.PUBLISHED,
-      publishedAt: {
-        lte: new Date(),
-      },
-      ...(query.search
-        ? {
-            OR: [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              { excerpt: { contains: query.search, mode: 'insensitive' } },
-              { summary: { contains: query.search, mode: 'insensitive' } },
-              {
-                plainTextBody: { contains: query.search, mode: 'insensitive' },
-              },
-            ],
-          }
-        : {}),
-      ...(query.categorySlug
-        ? {
-            contentCategories: {
-              some: {
-                category: {
-                  slug: query.categorySlug,
-                },
-              },
-            },
-          }
-        : {}),
-      ...(query.tagSlug
-        ? {
-            contentTags: {
-              some: {
-                tag: {
-                  slug: query.tagSlug,
-                },
-              },
-            },
-          }
-        : {}),
-      ...(query.contentTypeCode
-        ? {
-            contentType: {
-              code: query.contentTypeCode,
-            },
-          }
-        : {}),
+      publishedAt: { lte: new Date() },
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { excerpt: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(query.categorySlug && {
+        contentCategories: { some: { category: { slug: query.categorySlug } } },
+      }),
+      ...(query.tagSlug && {
+        contentTags: { some: { tag: { slug: query.tagSlug } } },
+      }),
+      ...(query.contentTypeCode && {
+        contentType: { code: query.contentTypeCode },
+      }),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -524,22 +368,15 @@ export class ContentService {
           isPinned: true,
           readingTimeMinutes: true,
           contentType: true,
-          contentCategories: {
-            include: {
-              category: true,
-            },
-          },
-          contentTags: {
-            include: {
-              tag: true,
-            },
-          },
+          
+          // 📂 Merged properties inside public list response
+          fileUrl: true,
+          isDownloadable: true,
+
+          contentCategories: { include: { category: true } },
+          contentTags: { include: { tag: true } },
         },
-        orderBy: [
-          { isPinned: 'desc' },
-          { isFeatured: 'desc' },
-          { publishedAt: 'desc' },
-        ],
+        orderBy: [{ isPinned: 'desc' }, { isFeatured: 'desc' }, { publishedAt: 'desc' }],
         skip,
         take: limit,
       }),
@@ -548,12 +385,7 @@ export class ContentService {
 
     return this.serializeBigInt({
       items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
 
@@ -563,22 +395,12 @@ export class ContentService {
         slug,
         deletedAt: null,
         status: PublishStatus.PUBLISHED,
-        publishedAt: {
-          lte: new Date(),
-        },
+        publishedAt: { lte: new Date() },
       },
       include: {
         contentType: true,
-        contentCategories: {
-          include: {
-            category: true,
-          },
-        },
-        contentTags: {
-          include: {
-            tag: true,
-          },
-        },
+        contentCategories: { include: { category: true } },
+        contentTags: { include: { tag: true } },
       },
     });
 
@@ -588,11 +410,7 @@ export class ContentService {
 
     await this.prisma.contentItem.update({
       where: { id: content.id },
-      data: {
-        viewCount: {
-          increment: BigInt(1),
-        },
-      },
+      data: { viewCount: { increment: 1 } },
     });
 
     return this.serializeBigInt(content);
