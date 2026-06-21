@@ -44,9 +44,6 @@ model User {
   inquiryActivities      InquiryActivity[]
   createdServices        Service[]            @relation("ServiceCreatedBy")
   updatedServices        Service[]            @relation("ServiceUpdatedBy")
-  createdContent         ContentItem[]        @relation("ContentCreatedBy")
-  updatedContent         ContentItem[]        @relation("ContentUpdatedBy")
-  publishedContent       ContentItem[]        @relation("ContentPublishedBy")
   grantedEntitlements    Entitlement[]        @relation("EntitlementGrantedBy")
   revokedEntitlements    Entitlement[]        @relation("EntitlementRevokedBy")
   updatedSettings        AppSetting[]         @relation("AppSettingUpdatedBy")
@@ -319,7 +316,6 @@ model Entitlement {
 // ==========================================
 // ৩. কনটেন্ট ও ক্যাটাগরি মডেল (Content & CMS)
 // ==========================================
-
 model ContentItem {
   id                         String             @id @default(uuid())
   contentTypeId              String
@@ -345,12 +341,9 @@ model ContentItem {
   isFeatured                 Boolean            @default(false)
   isPinned                   Boolean            @default(false)
   allowComments              Boolean            @default(false)
-  allowDownload              Boolean            @default(true)
-  downloadRequiresAcceptance Boolean            @default(false)
-  termsText                  String?
+  sortOrder                  Int                @default(0)
   viewCount                  BigInt             @default(0)
   downloadCount              BigInt             @default(0)
-  sortOrder                  Int                @default(0)
   createdById                String?
   updatedById                String?
   publishedById              String?
@@ -358,12 +351,12 @@ model ContentItem {
   updatedAt                  DateTime           @updatedAt
   deletedAt                  DateTime?
 
-  contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
-  createdBy     User?       @relation("ContentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?       @relation("ContentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  publishedBy   User?       @relation("ContentPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  fileUrl                    String?                      
+  isDownloadable             Boolean            @default(true)
+  downloadRequiresAcceptance Boolean            @default(false)
+  termsText                  String?
 
-  assets            ContentAsset[]
+  contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
   contentCategories ContentCategory[]
   contentTags       ContentTag[]
   accessRules       ContentAccessRule[]
@@ -445,28 +438,6 @@ model ContentType {
   updatedAt   DateTime        @updatedAt
 
   contentItems ContentItem[]
-}
-
-model ContentAsset {
-  id             String              @id @default(uuid())
-  contentItemId  String
-  fileUrl        String
-  fileName       String?
-  mimeType       String?
-  size           Int?
-  assetRole      ContentAssetRole
-  title          String?
-  description    String?
-  displayOrder   Int                 @default(0)
-  isDownloadable Boolean             @default(true)
-  isPreviewOnly  Boolean             @default(false)
-  accessOverride ContentAccessModel?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
-
-  @@index([contentItemId])
 }
 
 model ContentAccessRule {
