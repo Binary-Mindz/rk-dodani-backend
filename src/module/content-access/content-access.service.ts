@@ -657,13 +657,6 @@ export class ContentAccessService {
       },
       include: {
         contentType: true,
-        primaryAuthor: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
         contentCategories: {
           include: {
             category: true,
