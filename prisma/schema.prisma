@@ -735,14 +735,11 @@ enum ContentAssetRole {
 enum BillingProvider {
   STRIPE
   PATREON
-  INTERNAL
-  ADMIN
 }
 
 enum BillingInterval {
   MONTHLY
   YEARLY
-  ONE_TIME
 }
 
 enum SubscriptionStatus {
@@ -758,9 +755,6 @@ enum SubscriptionStatus {
 enum EntitlementSourceType {
   SUBSCRIPTION
   PATREON
-  ADMIN_GRANT
-  PROMOTION
-  MANUAL
 }
 
 enum EntitlementType {

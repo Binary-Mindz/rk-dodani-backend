@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PlanService } from './plan.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
@@ -35,6 +35,20 @@ export class PlanController {
     return {
       statusCode: 201,
       message: 'Plan created successfully',
+      data,
+    };
+  }
+  @ApiBearerAuth('/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Get('stats')
+  @ApiOperation({ summary: 'Get general subscription plan statistics for dashboard metrics' })
+  @ApiResponse({ status: 200, description: 'Statistics aggregated successfully.' })
+  async getPlanStats() {
+    const data = await this.service.getPlanStats();
+    return {
+      statusCode: 200,
+      message: 'Plan statistics fetched successfully',
       data,
     };
   }
