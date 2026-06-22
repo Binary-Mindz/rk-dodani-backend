@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
@@ -130,7 +130,8 @@ export class ContentController {
 
 
   @Get('content')
-  @ApiOperation({ summary: 'Get public content list' })
+  @ApiOperation({ summary: 'Get public content list with multiple content type filters' })
+  @ApiResponse({ status: 200, description: 'Public content list fetched successfully.' })
   async findPublicAll(@Query() query: QueryPublicContentDto) {
     const data = await this.service.findPublicAll(query);
 

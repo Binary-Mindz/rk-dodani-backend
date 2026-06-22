@@ -241,6 +241,7 @@ export class PlanService {
           billingInterval: true,
           currency: true,
           priceAmount: true,
+          isActive: true,
           isPerUser: true,
           trialDays: true,
           isFeatured: true,
