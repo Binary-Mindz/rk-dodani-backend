@@ -83,6 +83,20 @@ export class PlanService {
 
     return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
+  
+  async getPlanStats() {
+    const [totalPlans, activePlans, inactivePlans] = await this.prisma.$transaction([
+      this.prisma.plan.count(),
+      this.prisma.plan.count({ where: { isActive: true } }),
+      this.prisma.plan.count({ where: { isActive: false } }),
+    ]);
+
+    return {
+      totalPlans,
+      activePlans,
+      inactivePlans,
+    };
+  }
 
   async findAdminOne(id: string) {
     const plan = await this.prisma.plan.findUnique({
