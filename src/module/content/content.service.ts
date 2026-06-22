@@ -13,18 +13,16 @@ import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class ContentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  /**
-   * ✅ Safely transforms BigInt to number for JSON serialization
-   */
-  private serializeBigInt<T>(data: T): T {
+  private serializeBigInt(data: any) {
     return JSON.parse(
-      JSON.stringify(data, (_, value) =>
-        typeof value === 'bigint' ? Number(value) : value,
+      JSON.stringify(data, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
       ),
     );
   }
+
 
   /**
    * ✅ Core validation logic for micro-relations
@@ -100,7 +98,7 @@ export class ContentService {
           sortOrder: dto.sortOrder ?? 0,
           createdById: userId,
           updatedById: userId,
-          
+
           // 📂 Merged Asset Core Properties
           fileUrl: dto.fileUrl ?? null,
           isDownloadable: dto.isDownloadable ?? true,
@@ -246,7 +244,7 @@ export class ContentService {
           ...(dto.isPinned !== undefined && { isPinned: dto.isPinned }),
           ...(dto.allowComments !== undefined && { allowComments: dto.allowComments }),
           ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
-          
+
           // 📂 Merged Asset Inline Update Fields
           ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
           ...(dto.isDownloadable !== undefined && { isDownloadable: dto.isDownloadable }),
@@ -345,8 +343,9 @@ export class ContentService {
       ...(query.tagSlug && {
         contentTags: { some: { tag: { slug: query.tagSlug } } },
       }),
-      ...(query.contentTypeCode && {
-        contentType: { code: query.contentTypeCode },
+      // ⚡ নতুন লজিক: এক বা একাধিক contentTypeId দিয়ে filtering করার জন্য
+      ...(query.contentTypeIds && query.contentTypeIds.length > 0 && {
+        contentTypeId: { in: query.contentTypeIds },
       }),
     };
 
@@ -368,11 +367,8 @@ export class ContentService {
           isPinned: true,
           readingTimeMinutes: true,
           contentType: true,
-          
-          // 📂 Merged properties inside public list response
           fileUrl: true,
           isDownloadable: true,
-
           contentCategories: { include: { category: true } },
           contentTags: { include: { tag: true } },
         },
@@ -388,6 +384,8 @@ export class ContentService {
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
+
+
 
   async findPublicBySlug(slug: string) {
     const content = await this.prisma.contentItem.findFirst({
