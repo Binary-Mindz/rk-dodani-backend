@@ -18,6 +18,7 @@ import { AppController } from 'app.controller';
 import { PatreonModule } from './module/patreon/patreon.module';
 import { SubscriptionModule } from './module/subscription/subscription.module';
 import { FileModule } from './module/file/file.module';
+import { UserManagementModule } from './module/user-management/user-management.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { FileModule } from './module/file/file.module';
     FileModule,
     AuthModule,
     UsersModule,
+    UserManagementModule,
     SubscriptionModule,
     ContentMasterModule,
     ContentModule,
