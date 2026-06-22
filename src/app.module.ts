@@ -17,6 +17,7 @@ import { AuditModule } from 'module/audit/audit.module';
 import { AppController } from 'app.controller';
 import { PatreonModule } from './module/patreon/patreon.module';
 import { SubscriptionModule } from './module/subscription/subscription.module';
+import { FileModule } from './module/file/file.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SubscriptionModule } from './module/subscription/subscription.module';
     HealthModule,
     RolesModule,
     MailModule,
+    FileModule,
     AuthModule,
     UsersModule,
     SubscriptionModule,
