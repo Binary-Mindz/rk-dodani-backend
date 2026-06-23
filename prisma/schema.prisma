@@ -51,6 +51,9 @@ model User {
   auditLogs              AuditLog[]
   passwordResetTokens    PasswordResetToken[]
   subscriptionEvents     SubscriptionEvent[]
+  notifications         Notification[]
+  notificationTokens    NotificationToken[]
+  notificationSetting   NotificationSetting?
 }
 
 model Role {
@@ -638,9 +641,76 @@ model EmailLog {
   @@index([status])
 }
 
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  type        NotificationType @default(SYSTEM_ALERT)
+  title       String           // Example: "Course Completed", "Sarah (CTO)"
+  body        String           // Example: "You completed AI Architecture Fundamentals!"
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  
+  // JSON payload deep-linking o metadata-r jonno (e.g., courseId, inquiryId, routing path)
+  payload     Json?            
+  
+  createdAt   DateTime         @default(now())
+
+  // Relation
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt]) // High scalability sorting er jonno index crucial
+}
+
+model NotificationToken {
+  id           String     @id @default(uuid())
+  userId       String
+  deviceToken  String     @unique // Firebase FCM Device Registration Token
+  deviceType   DeviceType @default(WEB)
+  deviceName   String?    // Browser ba Mobile model tracking
+  isActive     Boolean    // Invalid/expired tokens clean korar jonno
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relation
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model NotificationSetting {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  allowPush       Boolean  @default(true)
+  allowEmail      Boolean  @default(true)
+  allowSms        Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+
+  // Relation
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 // ==========================================
-// ৬. সমস্ত এনামসমূহ (Enums)
+// Enums updates
 // ==========================================
+
+enum NotificationType {
+  SYSTEM_ALERT
+  COURSE_COMPLETED
+  ACHIEVEMENT_UNLOCKED
+  MENTION
+  ASSIGNMENT_DUE
+  CERTIFICATE_READY
+  NEW_COURSE_ADDED
+}
+
+enum DeviceType {
+  WEB
+  IOS
+  ANDROID
+}
 
 enum UserStatus {
   ACTIVE
