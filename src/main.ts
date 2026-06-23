@@ -21,7 +21,11 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: true,
+    origin: [
+      "http://localhost:3000",
+      "https://agentarum.ai",
+    ],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });
 
