@@ -2,13 +2,13 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from 'prisma/prisma.service';
 import { QueryUserManagementDto } from './dto/query-user-management.dto';
 import { UpdateUserManagementDto } from './dto/update-user-management.dto';
-import { Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
+import { AuditAction, Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class UserManagementService {
   constructor(private readonly prisma: PrismaService) {}
 
- async findAll(query: QueryUserManagementDto) {
+async findAll(query: QueryUserManagementDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -17,9 +17,7 @@ export class UserManagementService {
       NOT: {
         roles: {
           some: {
-            role: {
-              code: UserRoleCode.SUPER_ADMIN,
-            },
+            role: { code: UserRoleCode.SUPER_ADMIN },
             isActive: true,
           },
         },
@@ -72,7 +70,6 @@ export class UserManagementService {
       this.prisma.user.count({ where }),
     ]);
 
-    
     const items = users.map((user) => {
       const activeSub = user.subscriptions[0] || null;
       return {
@@ -88,12 +85,7 @@ export class UserManagementService {
 
     return {
       items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 
@@ -101,38 +93,87 @@ export class UserManagementService {
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
-        roles: { include: { role: true } },
-        subscriptions: { include: { plan: true } },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        status: true,
+        createdAt: true,
+        lastLoginAt: true,
+        timezone: true,
+        roles: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+        subscriptions: {
+          orderBy: { createdAt: 'desc' },
+          include: { plan: true },
+        },
+        auditLogs: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
       },
     });
 
     if (!user) {
-      throw new NotFoundException('User execution failed. Target user not found.');
+      throw new NotFoundException('User profile records not located.');
     }
 
-    return user;
+    const activeSub = user.subscriptions.find(s => s.status === SubscriptionStatus.ACTIVE) || null;
+
+    return {
+      userId: user.id,
+      name: user.fullName || 'Unknown User',
+      email: user.email,
+      phone: user.phone || 'N/A',
+      status: user.status,
+      joinedDate: user.createdAt,
+      lastLogin: user.lastLoginAt,
+      personaType: user.roles.map((r) => r.role.code).join(', ') || 'No Role',
+      region: user.timezone || 'Global Tier',
+      subscription: activeSub ? {
+        planName: activeSub.plan.name,
+        billingInterval: activeSub.plan.billingInterval,
+        nextRenewal: activeSub.currentPeriodEnd,
+        features: activeSub.plan.features,
+      } : null,
+      recentActivity: user.auditLogs.map(log => ({
+        id: log.id,
+        action: log.action,
+        entityType: log.entityType,
+        timestamp: log.createdAt,
+        ipAddress: log.ipAddress
+      }))
+    };
   }
 
 
-  async update(id: string, dto: UpdateUserManagementDto) {
+ async update(id: string, dto: UpdateUserManagementDto, adminId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
-      throw new NotFoundException('User account records not discovered.');
+      throw new NotFoundException('User profile target missing.');
     }
 
     return await this.prisma.$transaction(async (tx) => {
       if (dto.planId) {
         const plan = await tx.plan.findUnique({ where: { id: dto.planId } });
-        if (!plan) throw new BadRequestException('Target subscription plan model not found.');
+        if (!plan) throw new BadRequestException('Requested backend subscription plan not found.');
 
-        
         await tx.subscription.updateMany({
           where: { userId: id, status: SubscriptionStatus.ACTIVE },
           data: { status: SubscriptionStatus.EXPIRED },
         });
 
-        
+        const billingCycle = dto.billingInterval || plan.billingInterval;
+        const periodEnd = new Date();
+        if (billingCycle === 'YEARLY') {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
+
         await tx.subscription.create({
           data: {
             userId: id,
@@ -140,7 +181,18 @@ export class UserManagementService {
             status: SubscriptionStatus.ACTIVE,
             provider: plan.billingProvider || 'ADMIN',
             currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(new Date().setMonth(new Date().getMonth() + 1)), // default 1 month extension
+            currentPeriodEnd: periodEnd,
+            metadata: dto.changeReason ? { reason: dto.changeReason } : undefined,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId: adminId,
+            entityType: 'SUBSCRIPTION',
+            entityId: id,
+            action: AuditAction.UPDATE,
+            newValues: { planId: dto.planId, billingInterval: billingCycle, reason: dto.changeReason },
           },
         });
       }
@@ -151,6 +203,47 @@ export class UserManagementService {
           ...(dto.status && { status: dto.status }),
         },
       });
+    });
+  }
+
+  async suspendUser(id: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User profile target missing.');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: { status: UserStatus.BLOCKED },
+      });
+
+      await tx.subscription.updateMany({
+        where: { userId: id, status: SubscriptionStatus.ACTIVE },
+        data: { status: SubscriptionStatus.CANCELED },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: adminId,
+          entityType: 'USER_ACCOUNT',
+          entityId: id,
+          action: AuditAction.UPDATE,
+          newValues: { status: UserStatus.BLOCKED, description: 'Account suspended by SuperAdmin action.' },
+        },
+      });
+
+      await tx.emailLog.create({
+        data: {
+          templateCode: 'ACCOUNT_SUSPENDED_NOTICE',
+          recipientEmail: user.email,
+          recipientUserId: user.id,
+          subject: '⚠️ Important Notice: Your account access has been suspended',
+          status: 'QUEUED',
+        },
+      });
+
+      return updatedUser;
     });
   }
 }
