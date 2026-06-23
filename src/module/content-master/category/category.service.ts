@@ -12,21 +12,34 @@ import { PrismaService } from 'prisma/prisma.service';
 export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Name থেকে Slug তৈরি করার হেল্পার ফাংশন
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // স্পেশাল ক্যারেক্টার রিমুভ করবে
+      .replace(/[\s_-]+/g, '-') // স্পেস এবং আন্ডারস্কোরকে হাইফেন দিয়ে রিপ্লেস করবে
+      .replace(/^-+|-+$/g, ''); // সুরুর বা শেষের বাড়তি হাইফেন বাদ দেবে
+  }
+
   async create(dto: CreateCategoryDto) {
+    // অটোমেটিকভাবে স্লাগ জেনারেট করা হচ্ছে
+    const slug = this.generateSlug(dto.name);
+
+    // চেক করা হচ্ছে এই স্লাগটি ইতিমধ্যে ডাটাবেজে আছে কিনা
     const existingSlug = await this.prisma.category.findUnique({
-      where: { slug: dto.slug },
+      where: { slug },
     });
 
     if (existingSlug) {
-      throw new BadRequestException('Category slug already exists');
+      throw new BadRequestException('Category slug already exists (generated from name)');
     }
 
     return this.prisma.category.create({
       data: {
         name: dto.name,
-        slug: dto.slug,
+        slug: slug,
         description: dto.description ?? null,
-        displayOrder: dto.displayOrder ?? 0,
         isActive: dto.isActive ?? true,
       },
     });
@@ -53,7 +66,8 @@ export class CategoryService {
           ? { isActive: query.isActive }
           : {}),
       },
-      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+      // নতুন মডেল অনুযায়ী displayOrder বাদ দিয়ে শুধু name দিয়ে সর্ট করা হয়েছে
+      orderBy: [{ name: 'asc' }],
     });
   }
 
@@ -78,23 +92,26 @@ export class CategoryService {
       throw new NotFoundException('Category not found');
     }
 
-    if (dto.slug && dto.slug !== existing.slug) {
+    let slug = existing.slug;
+    
+    // যদি আপডেট করার সময় নাম পরিবর্তন করা হয়, তবে স্লাগও নতুন করে জেনারেট হবে
+    if (dto.name && dto.name !== existing.name) {
+      slug = this.generateSlug(dto.name);
+
       const slugExists = await this.prisma.category.findUnique({
-        where: { slug: dto.slug },
+        where: { slug },
       });
 
       if (slugExists) {
-        throw new BadRequestException('Category slug already exists');
+        throw new BadRequestException('Category slug already exists (generated from updated name)');
       }
     }
 
     return this.prisma.category.update({
       where: { id },
       data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.slug !== undefined && { slug: dto.slug }),
+        ...(dto.name !== undefined && { name: dto.name, slug: slug }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.displayOrder !== undefined && { displayOrder: dto.displayOrder }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
@@ -104,7 +121,7 @@ export class CategoryService {
     const existing = await this.prisma.category.findUnique({
       where: { id },
       include: {
-        contentItems: true,
+        contentItems: true, // আপনার নতুন মডেলের ContentCategory রিলেশন
       },
     });
 
