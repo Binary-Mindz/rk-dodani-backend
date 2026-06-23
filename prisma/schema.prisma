@@ -392,7 +392,6 @@ model Category {
   name         String
   slug         String   @unique
   description  String?
-  displayOrder Int      @default(0)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -400,7 +399,6 @@ model Category {
   contentItems ContentCategory[]
 
   @@index([isActive])
-  @@index([displayOrder])
 }
 
 model ContentTag {
@@ -422,7 +420,6 @@ model Tag {
   name        String
   slug        String       @unique
   description String?
-  color       String?
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

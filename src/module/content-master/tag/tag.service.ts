@@ -12,21 +12,34 @@ import { PrismaService } from 'prisma/prisma.service';
 export class TagService {
   constructor(private readonly prisma: PrismaService) { }
 
+  // Name থেকে Slug তৈরি করার হেল্পার ফাংশন
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // স্পেশাল ক্যারেক্টার রিমুভ করবে
+      .replace(/[\s_-]+/g, '-') // স্পেস এবং আন্ডারস্কোরকে হাইফেন দিয়ে রিপ্লেস করবে
+      .replace(/^-+|-+$/g, ''); // শুরুর বা শেষের বাড়তি হাইফেন বাদ দেবে
+  }
+
   async create(dto: CreateTagDto) {
+    // নাম থেকে অটোমেটিক স্লাগ তৈরি
+    const slug = this.generateSlug(dto.name);
+
+    // স্লাগটি ইউনিক কিনা চেক করা
     const existingSlug = await this.prisma.tag.findUnique({
-      where: { slug: dto.slug },
+      where: { slug },
     });
 
     if (existingSlug) {
-      throw new BadRequestException('Tag slug already exists');
+      throw new BadRequestException('Tag slug already exists (generated from name)');
     }
 
     return this.prisma.tag.create({
       data: {
         name: dto.name,
-        slug: dto.slug,
+        slug: slug,
         description: dto.description ?? null,
-        color: dto.color ?? null,
         isActive: dto.isActive ?? true,
       },
     });
@@ -72,23 +85,26 @@ export class TagService {
       throw new NotFoundException('Tag not found');
     }
 
-    if (dto.slug && dto.slug !== existing.slug) {
+    let slug = existing.slug;
+
+    // যদি আপডেট করার সময় নাম পরিবর্তন করা হয়, তবে স্লাগও নতুন করে জেনারেট ও চেক হবে
+    if (dto.name && dto.name !== existing.name) {
+      slug = this.generateSlug(dto.name);
+
       const slugExists = await this.prisma.tag.findUnique({
-        where: { slug: dto.slug },
+        where: { slug },
       });
 
       if (slugExists) {
-        throw new BadRequestException('Tag slug already exists');
+        throw new BadRequestException('Tag slug already exists (generated from updated name)');
       }
     }
 
     return this.prisma.tag.update({
       where: { id },
       data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.slug !== undefined && { slug: dto.slug }),
+        ...(dto.name !== undefined && { name: dto.name, slug: slug }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.color !== undefined && { color: dto.color }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
@@ -98,10 +114,9 @@ export class TagService {
     const existing = await this.prisma.tag.findUnique({
       where: { id },
       include: {
-        contentTags: true,
+        contentTags: true, // নতুন মডেলের রিলেশন অনুযায়ী
       },
     });
-
 
     if (!existing) {
       throw new NotFoundException('Tag not found');
