@@ -19,8 +19,6 @@ import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { RolesGuard } from 'common/guards/roles.guard';
 
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @ApiTags('Tags')
 @Controller()
 export class TagController {
@@ -28,7 +26,7 @@ export class TagController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('admin/tags')
   @ApiOperation({ summary: 'Create tag' })
   async create(@Body() dto: CreateTagDto) {

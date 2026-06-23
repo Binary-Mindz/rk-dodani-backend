@@ -23,10 +23,17 @@ export class ContentService {
     );
   }
 
+ 
+  private generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') 
+      .replace(/[\s_-]+/g, '-') 
+      .replace(/^-+|-+$/g, ''); 
+  }
 
-  /**
-   * ✅ Core validation logic for micro-relations
-   */
+
   private async validateRelations(dto: {
     contentTypeId?: string;
     categoryIds?: string[];
@@ -61,12 +68,14 @@ export class ContentService {
   }
 
   async create(userId: string, dto: CreateContentDto) {
+    const slug = this.generateSlug(dto.title);
+
     const existingSlug = await this.prisma.contentItem.findUnique({
-      where: { slug: dto.slug },
+      where: { slug },
     });
 
     if (existingSlug) {
-      throw new BadRequestException('Content slug already exists');
+      throw new BadRequestException('Content already exist with the same title');
     }
 
     await this.validateRelations(dto);
@@ -75,7 +84,7 @@ export class ContentService {
       const content = await tx.contentItem.create({
         data: {
           contentTypeId: dto.contentTypeId,
-          slug: dto.slug,
+          slug: slug, 
           title: dto.title,
           subtitle: dto.subtitle ?? null,
           excerpt: dto.excerpt ?? null,
@@ -95,7 +104,6 @@ export class ContentService {
           isFeatured: dto.isFeatured ?? false,
           isPinned: dto.isPinned ?? false,
           allowComments: dto.allowComments ?? false,
-          sortOrder: dto.sortOrder ?? 0,
           createdById: userId,
           updatedById: userId,
 
@@ -168,7 +176,8 @@ export class ContentService {
           contentCategories: { include: { category: true } },
           contentTags: { include: { tag: true } },
         },
-        orderBy: [{ isPinned: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
+        // sortOrder মডেলে না থাকায় রিমুভ করা হয়েছে
+        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
       }),
@@ -207,12 +216,16 @@ export class ContentService {
       throw new NotFoundException('Content not found');
     }
 
-    if (dto.slug && dto.slug !== existing.slug) {
+    let slug = existing.slug;
+
+    if (dto.title && dto.title !== existing.title) {
+      slug = this.generateSlug(dto.title);
+
       const slugExists = await this.prisma.contentItem.findUnique({
-        where: { slug: dto.slug },
+        where: { slug },
       });
       if (slugExists) {
-        throw new BadRequestException('Content slug already exists');
+        throw new BadRequestException('Content slug already exists (generated from updated title)');
       }
     }
 
@@ -223,7 +236,7 @@ export class ContentService {
         where: { id },
         data: {
           ...(dto.contentTypeId !== undefined && { contentTypeId: dto.contentTypeId }),
-          ...(dto.slug !== undefined && { slug: dto.slug }),
+          slug: slug, 
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
@@ -243,7 +256,6 @@ export class ContentService {
           ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
           ...(dto.isPinned !== undefined && { isPinned: dto.isPinned }),
           ...(dto.allowComments !== undefined && { allowComments: dto.allowComments }),
-          ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
 
           // 📂 Merged Asset Inline Update Fields
           ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
@@ -331,19 +343,38 @@ export class ContentService {
       deletedAt: null,
       status: PublishStatus.PUBLISHED,
       publishedAt: { lte: new Date() },
+
       ...(query.search && {
         OR: [
           { title: { contains: query.search, mode: 'insensitive' } },
           { excerpt: { contains: query.search, mode: 'insensitive' } },
         ],
       }),
+
       ...(query.categorySlug && {
         contentCategories: { some: { category: { slug: query.categorySlug } } },
       }),
+
+      ...(query.categoryIds && query.categoryIds.length > 0 && {
+        contentCategories: {
+          some: {
+            categoryId: { in: query.categoryIds },
+          },
+        },
+      }),
+
       ...(query.tagSlug && {
         contentTags: { some: { tag: { slug: query.tagSlug } } },
       }),
-      // ⚡ নতুন লজিক: এক বা একাধিক contentTypeId দিয়ে filtering করার জন্য
+
+      ...(query.tagIds && query.tagIds.length > 0 && {
+        contentTags: {
+          some: {
+            tagId: { in: query.tagIds },
+          },
+        },
+      }),
+
       ...(query.contentTypeIds && query.contentTypeIds.length > 0 && {
         contentTypeId: { in: query.contentTypeIds },
       }),
@@ -384,8 +415,6 @@ export class ContentService {
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
-
-
 
   async findPublicBySlug(slug: string) {
     const content = await this.prisma.contentItem.findFirst({

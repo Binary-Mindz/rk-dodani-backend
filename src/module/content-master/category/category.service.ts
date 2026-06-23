@@ -17,22 +17,20 @@ export class CategoryService {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') // স্পেশাল ক্যারেক্টার রিমুভ করবে
-      .replace(/[\s_-]+/g, '-') // স্পেস এবং আন্ডারস্কোরকে হাইফেন দিয়ে রিপ্লেস করবে
-      .replace(/^-+|-+$/g, ''); // সুরুর বা শেষের বাড়তি হাইফেন বাদ দেবে
+      .replace(/[^\w\s-]/g, '') 
+      .replace(/[\s_-]+/g, '-') 
+      .replace(/^-+|-+$/g, ''); 
   }
 
   async create(dto: CreateCategoryDto) {
-    // অটোমেটিকভাবে স্লাগ জেনারেট করা হচ্ছে
     const slug = this.generateSlug(dto.name);
 
-    // চেক করা হচ্ছে এই স্লাগটি ইতিমধ্যে ডাটাবেজে আছে কিনা
     const existingSlug = await this.prisma.category.findUnique({
       where: { slug },
     });
 
     if (existingSlug) {
-      throw new BadRequestException('Category slug already exists (generated from name)');
+      throw new BadRequestException('Category already exist with the same name');
     }
 
     return this.prisma.category.create({
@@ -66,7 +64,6 @@ export class CategoryService {
           ? { isActive: query.isActive }
           : {}),
       },
-      // নতুন মডেল অনুযায়ী displayOrder বাদ দিয়ে শুধু name দিয়ে সর্ট করা হয়েছে
       orderBy: [{ name: 'asc' }],
     });
   }
@@ -94,7 +91,6 @@ export class CategoryService {
 
     let slug = existing.slug;
     
-    // যদি আপডেট করার সময় নাম পরিবর্তন করা হয়, তবে স্লাগও নতুন করে জেনারেট হবে
     if (dto.name && dto.name !== existing.name) {
       slug = this.generateSlug(dto.name);
 
