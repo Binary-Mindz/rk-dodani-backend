@@ -12,27 +12,25 @@ import { PrismaService } from 'prisma/prisma.service';
 export class TagService {
   constructor(private readonly prisma: PrismaService) { }
 
-  // Name থেকে Slug তৈরি করার হেল্পার ফাংশন
+
   private generateSlug(name: string): string {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') // স্পেশাল ক্যারেক্টার রিমুভ করবে
-      .replace(/[\s_-]+/g, '-') // স্পেস এবং আন্ডারস্কোরকে হাইফেন দিয়ে রিপ্লেস করবে
-      .replace(/^-+|-+$/g, ''); // শুরুর বা শেষের বাড়তি হাইফেন বাদ দেবে
+      .replace(/[^\w\s-]/g, '') 
+      .replace(/[\s_-]+/g, '-') 
+      .replace(/^-+|-+$/g, ''); 
   }
 
   async create(dto: CreateTagDto) {
-    // নাম থেকে অটোমেটিক স্লাগ তৈরি
     const slug = this.generateSlug(dto.name);
 
-    // স্লাগটি ইউনিক কিনা চেক করা
     const existingSlug = await this.prisma.tag.findUnique({
       where: { slug },
     });
 
     if (existingSlug) {
-      throw new BadRequestException('Tag slug already exists (generated from name)');
+      throw new BadRequestException('Tag already exist with the same name');
     }
 
     return this.prisma.tag.create({

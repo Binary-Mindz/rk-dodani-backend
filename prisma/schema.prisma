@@ -344,7 +344,6 @@ model ContentItem {
   isFeatured                 Boolean            @default(false)
   isPinned                   Boolean            @default(false)
   allowComments              Boolean            @default(false)
-  sortOrder                  Int                @default(0)
   viewCount                  BigInt             @default(0)
   downloadCount              BigInt             @default(0)
   createdById                String?

@@ -23,14 +23,6 @@ export class CreateContentDto {
   contentTypeId!: string;
 
   @ApiProperty({
-    description: 'Unique slug for the content',
-    example: 'ai-leadership-whitepaper-2026',
-  })
-  @IsString()
-  @MaxLength(180)
-  slug!: string;
-
-  @ApiProperty({
     description: 'Main title of the content',
     example: 'AI Leadership Whitepaper 2026',
   })
@@ -134,18 +126,11 @@ export class CreateContentDto {
   @IsBoolean()
   allowComments?: boolean;
 
-  @ApiPropertyOptional({ default: 0, example: 1 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  sortOrder?: number;
-
   // 📂 Merged Asset Fields From ContentAsset Table
   @ApiPropertyOptional({ description: 'Primary asset attachment URL (Merged Field)', example: 'https://cdn.example.com/files/ai-whitepaper.pdf' })
   @IsOptional()
   @IsUrl()
   fileUrl?: string;
-
 
   @ApiPropertyOptional({ description: 'Whether asset downloading is allowed', default: true, example: true })
   @IsOptional()

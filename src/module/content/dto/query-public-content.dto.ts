@@ -13,12 +13,43 @@ export class QueryPublicContentDto {
   @IsString()
   categorySlug?: string;
 
+  // 🔄 একাধিক Category ID দিয়ে ফিল্টার করার জন্য নতুন প্রোপার্টি
+  @ApiPropertyOptional({
+    description: 'Filter by one or more Category IDs (UUIDs)',
+    type: [String],
+    required: false,
+    example: ['123e4567-e89b-12d3-a456-426614174001'],
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : value.split(',');
+  })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  categoryIds?: string[];
+
   @ApiPropertyOptional({ description: 'Filter by tag slug', example: 'nest-js' })
   @IsOptional()
   @IsString()
   tagSlug?: string;
 
-  // 🔄 contentTypeCode এর পরিবর্তে একাধিক contentTypeId নেওয়ার জন্য আপডেট
+  // 🔄 একাধিক Tag ID দিয়ে ফিল্টার করার জন্য নতুন প্রোপার্টি
+  @ApiPropertyOptional({
+    description: 'Filter by one or more Tag IDs (UUIDs)',
+    type: [String],
+    required: false,
+    example: ['123e4567-e89b-12d3-a456-426614174002'],
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : value.split(',');
+  })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  tagIds?: string[];
+
   @ApiPropertyOptional({
     description: 'Filter by one or more Content Type IDs (UUIDs)',
     type: [String],
@@ -28,11 +59,10 @@ export class QueryPublicContentDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return [];
-    // যদি কুয়েরি স্ট্রিং কমা দিয়ে আসে (e.g., id1,id2) অথবা মাল্টিপল ফিল্ড হিসেবে আসে
     return Array.isArray(value) ? value : value.split(',');
   })
   @IsArray()
-  @IsUUID('all', { each: true }) // অ্যারের ভেতরের প্রতিটি ভ্যালু UUID কিনা চেক করবে
+  @IsUUID('all', { each: true })
   contentTypeIds?: string[];
 
   @ApiPropertyOptional({ default: 1, example: 1 })
