@@ -19,6 +19,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class AuthService {
@@ -31,7 +32,9 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly rolesService: RolesService,
     private readonly mailService: MailService,
-  ) {}
+
+    private readonly subscriptionService: SubscriptionService,
+  ) { }
 
   async register(dto: RegisterDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
@@ -42,7 +45,6 @@ export class AuthService {
 
     if (existingUser) {
       if (!existingUser.emailVerified) {
-        // 💡 যদি মেইল পাঠাতে ফেইল করে, তাহলে ট্রাই-ক্যাচ এটা হ্যান্ডেল করবে
         await this.createAndSendOtp(
           existingUser.id,
           existingUser.email,
@@ -66,7 +68,6 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
     const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
 
-    // 💡 এখানে আমরা একটি ট্রানজেকশন ব্যবহার করব যেন মেইল ফেইল করলে ইউজার ক্রিয়েশন রোলব্যাক হয়ে যায়
     try {
       return await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
@@ -82,7 +83,6 @@ export class AuthService {
           },
         });
 
-        // OTP তৈরি এবং মেল পাঠানো (মেইল ফেইল করলে এক্সেপশন থ্রো হবে এবং ডিবি রোলব্যাক হবে)
         await this.createAndSendOtpWithTx(
           tx,
           user.id,
@@ -100,11 +100,9 @@ export class AuthService {
         };
       });
     } catch (error) {
-      // যদি মেইল পাঠানোর এরর আমাদের কাস্টম BadRequestException হয়, তবে সেটি সরাসরি থ্রো করো
       if (error instanceof BadRequestException) {
         throw error;
       }
-      // অন্য যেকোনো ইন্টারনাল ক্র্যাশের জন্য নিরাপদ মেসেজ
       throw new InternalServerErrorException('Registration failed due to a system error. Please try again.');
     }
   }
@@ -151,6 +149,12 @@ export class AuthService {
       }),
     ]);
 
+    try {
+      await this.subscriptionService.ensureFreePlanForUser(user.id);
+    } catch (subError) {
+      console.error(`💥 Baseline activation bypassed during OTP verification:`, subError);
+    }
+
     return {
       message: 'Email verified successfully. You can now login.',
     };
@@ -161,14 +165,6 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
-      include: {
-        roles: {
-          where: { isActive: true },
-          include: {
-            role: true,
-          },
-        },
-      },
     });
 
     if (!user || !user.passwordHash) {
@@ -179,25 +175,37 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email before login');
     }
 
-    const passwordMatched = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
+    const passwordMatched = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!passwordMatched) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const roles = this.extractRoleCodes(user.roles);
+    try {
+      await this.subscriptionService.ensureFreePlanForUser(user.id);
+    } catch (subError) {
+      console.error(`💥 Baseline activation bypassed during login phase:`, subError);
+    }
+
+  
+    const freshUserWithRoles = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        roles: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
+    });
+
+    const roles = this.extractRoleCodes(freshUserWithRoles?.roles ?? []);
     const tokens = await this.generateTokens(user.id, user.email, roles);
 
     await this.saveRefreshSession(user.id, tokens.refreshToken);
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: {
-        lastLoginAt: new Date(),
-      },
+      data: { lastLoginAt: new Date() },
     });
 
     return {
@@ -398,9 +406,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * ✅ মূল মেইলার হ্যান্ডলার উইথ ট্রাই-ক্যাচ ব্লক
-   */
+ 
   private async createAndSendOtp(
     userId: string,
     email: string,
@@ -409,9 +415,7 @@ export class AuthService {
     return this.createAndSendOtpWithTx(this.prisma, userId, email, purpose);
   }
 
-  /**
-   * ✅ ট্রানজেকশন অ্যাওয়ার ও কাস্টম এক্সেপশন হ্যান্ডলিং মেথড
-   */
+
   private async createAndSendOtpWithTx(
     txClient: any, // Accepts standard prisma instance or transaction client
     userId: string,
@@ -445,7 +449,7 @@ export class AuthService {
     } catch (mailError) {
       // 🚨 মেইল সার্ভার এরর কনসোলে লগ করুন কিন্তু ক্লায়েন্টকে মিনিংফুল মেসেজ দিন
       console.error(`❌ Failed to send OTP email to ${email}:`, mailError);
-      
+
       throw new BadRequestException(
         `Unable to send verification email to "${email}". Please verify that the email address is correct and valid.`,
       );
