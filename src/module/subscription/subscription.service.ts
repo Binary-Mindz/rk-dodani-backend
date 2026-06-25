@@ -6,7 +6,7 @@ import { UserRoleCode, SubscriptionStatus, EntitlementSourceType, EntitlementTyp
 
 @Injectable()
 export class SubscriptionService {
-  private stripe: StripeType; 
+  private stripe: StripeType;
   private readonly logger = new Logger(SubscriptionService.name);
 
   constructor(
@@ -47,7 +47,7 @@ export class SubscriptionService {
           unit_amount: unitAmount,
           recurring: { interval: 'month' },
         },
-        quantity: 1, 
+        quantity: 1,
       }],
       mode: 'subscription',
       customer_email: user.email,
@@ -55,7 +55,7 @@ export class SubscriptionService {
       cancel_url: `${frontendUrl}/pricing`,
       metadata: { userId: user.id, planId: plan.id },
     });
-     
+
     return session;
   }
 
@@ -109,6 +109,43 @@ export class SubscriptionService {
     });
   }
 
+  async ensureFreePlanForUser(userId: string): Promise<void> {
+    this.logger.log(`Checking baseline tier configuration for userId: ${userId}`);
+
+    const existingActiveSub = await this.prisma.subscription.findFirst({
+      where: {
+        userId: userId,
+        status: {
+          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]
+        }
+      }
+    });
+
+    if (existingActiveSub) {
+      this.logger.log(`User ${userId} already has an active subscription. Skipping auto-free activation.`);
+      return;
+    }
+
+    const freePlan = await this.prisma.plan.findFirst({
+      where: {
+        isActive: true,
+        priceAmount: new Prisma.Decimal('0.00')
+      }
+    });
+
+    if (!freePlan) {
+      this.logger.warn(`🚨 System failure: Default Free Plan model is missing in DB seeds.`);
+      return;
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User identity not found');
+
+    this.logger.log(`Auto-routing user ${userId} to baseline free tier: ${freePlan.code}`);
+
+    await this.executeInstantFreeActivation(user, freePlan);
+  }
+
   async verifySessionAndAssignRole(sessionId: string): Promise<void> {
     const session = await this.stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== 'paid') {
@@ -131,7 +168,7 @@ export class SubscriptionService {
 
     // ✅ STRICT AUDIENCE ORIENTED ROLE MAPPING
     const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
-    
+
     const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
     if (!roleRecord) throw new NotFoundException(`Role code configuration invalid`);
 
