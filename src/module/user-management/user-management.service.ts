@@ -2,13 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from 'prisma/prisma.service';
 import { QueryUserManagementDto } from './dto/query-user-management.dto';
 import { UpdateUserManagementDto } from './dto/update-user-management.dto';
-import { AuditAction, Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
+import { AuditAction, BillingProvider, Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
+import { ToggleSuspendDto } from './dto/suspend.dto';
 
 @Injectable()
 export class UserManagementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-async findAll(query: QueryUserManagementDto) {
+  async findAll(query: QueryUserManagementDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -150,7 +151,7 @@ async findAll(query: QueryUserManagementDto) {
   }
 
 
- async update(id: string, dto: UpdateUserManagementDto, adminId?: string) {
+  async update(id: string, dto: UpdateUserManagementDto, adminId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException('User profile target missing.');
@@ -206,42 +207,110 @@ async findAll(query: QueryUserManagementDto) {
     });
   }
 
-  async suspendUser(id: string, adminId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async toggleSuspendUser(id: string, dto: ToggleSuspendDto, adminId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        roles: { where: { isActive: true } },
+      },
+    });
+
     if (!user) {
-      throw new NotFoundException('User profile target missing.');
+      throw new NotFoundException('Target user profile records not discovered.');
     }
+
+    const isCurrentlySuspended = user.status === UserStatus.BLOCKED;
+    const nextStatus = isCurrentlySuspended ? UserStatus.ACTIVE : UserStatus.BLOCKED;
 
     return await this.prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
         where: { id },
-        data: { status: UserStatus.BLOCKED },
+        data: { status: nextStatus },
       });
 
-      await tx.subscription.updateMany({
-        where: { userId: id, status: SubscriptionStatus.ACTIVE },
-        data: { status: SubscriptionStatus.CANCELED },
-      });
+      if (nextStatus === UserStatus.BLOCKED) {
+        await tx.subscription.updateMany({
+          where: { userId: id, status: SubscriptionStatus.ACTIVE },
+          data: { status: SubscriptionStatus.CANCELED },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          actorUserId: adminId,
-          entityType: 'USER_ACCOUNT',
-          entityId: id,
-          action: AuditAction.UPDATE,
-          newValues: { status: UserStatus.BLOCKED, description: 'Account suspended by SuperAdmin action.' },
-        },
-      });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: adminId,
+            entityType: 'USER_ACCOUNT',
+            entityId: id,
+            action: AuditAction.UPDATE,
+            newValues: { 
+              status: UserStatus.BLOCKED, 
+              reason: dto.reason, 
+              context: 'Account suspended by SuperAdmin' 
+            },
+          },
+        });
 
-      await tx.emailLog.create({
-        data: {
-          templateCode: 'ACCOUNT_SUSPENDED_NOTICE',
-          recipientEmail: user.email,
-          recipientUserId: user.id,
-          subject: '⚠️ Important Notice: Your account access has been suspended',
-          status: 'QUEUED',
-        },
-      });
+
+        await tx.emailLog.create({
+          data: {
+            templateCode: 'ACCOUNT_SUSPENDED_NOTICE',
+            recipientEmail: user.email,
+            recipientUserId: user.id,
+            subject: `⚠️ Important Notice: Your account access has been suspended. Reason: ${dto.reason}`,
+            status: 'QUEUED',
+          },
+        });
+
+      } else {
+        await tx.auditLog.create({
+          data: {
+            actorUserId: adminId,
+            entityType: 'USER_ACCOUNT',
+            entityId: id,
+            action: AuditAction.UPDATE,
+            newValues: { 
+              status: UserStatus.ACTIVE, 
+              reason: dto.reason, 
+              context: 'Account unsuspended/restored by SuperAdmin' 
+            },
+          },
+        });
+
+        const hasActiveSub = await tx.subscription.findFirst({
+          where: { userId: id, status: SubscriptionStatus.ACTIVE },
+        });
+
+        const isSuperAdmin = user.roles.some(r => r.roleId === UserRoleCode.SUPER_ADMIN);
+
+        if (!hasActiveSub && !isSuperAdmin) {
+          const freePlan = await tx.plan.findFirst({
+            where: { code: 'FREE_MONTHLY' },
+          });
+
+          if (freePlan) {
+            const periodEnd = new Date();
+            periodEnd.setMonth(periodEnd.getMonth() + 1);
+            await tx.subscription.create({
+              data: {
+                userId: id,
+                planId: freePlan.id,
+                status: SubscriptionStatus.ACTIVE,
+                provider: BillingProvider.STRIPE, 
+                currentPeriodStart: new Date(),
+                currentPeriodEnd: periodEnd,
+              },
+            });
+          }
+        }
+
+        await tx.emailLog.create({
+          data: {
+            templateCode: 'ACCOUNT_RESTORED_NOTICE',
+            recipientEmail: user.email,
+            recipientUserId: user.id,
+            subject: '✅ Good News: Your account access has been fully restored',
+            status: 'QUEUED',
+          },
+        });
+      }
 
       return updatedUser;
     });
