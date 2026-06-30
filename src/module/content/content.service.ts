@@ -23,14 +23,14 @@ export class ContentService {
     );
   }
 
- 
+
   private generateSlug(title: string): string {
     return title
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') 
-      .replace(/[\s_-]+/g, '-') 
-      .replace(/^-+|-+$/g, ''); 
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
 
@@ -84,7 +84,7 @@ export class ContentService {
       const content = await tx.contentItem.create({
         data: {
           contentTypeId: dto.contentTypeId,
-          slug: slug, 
+          slug: slug,
           title: dto.title,
           subtitle: dto.subtitle ?? null,
           excerpt: dto.excerpt ?? null,
@@ -144,6 +144,57 @@ export class ContentService {
     });
 
     return this.findAdminOne(created.id);
+  }
+
+  async getContentStats() {
+    const now = new Date();
+
+    const firstDayOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const [totalCount, publishedCount, draftCount, scheduledCount] = await Promise.all([
+      this.prisma.contentItem.count({ where: { deletedAt: null } }),
+      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'PUBLISHED' } }),
+      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'DRAFT' } }),
+      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'SCHEDULED' } }),
+    ]);
+
+    const [lastMonthTotal, lastMonthPublished, lastMonthDraft, lastMonthScheduled] = await Promise.all([
+      this.prisma.contentItem.count({ where: { deletedAt: null, createdAt: { lt: firstDayOfThisMonth } } }),
+      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'PUBLISHED', createdAt: { lt: firstDayOfThisMonth } } }),
+      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'DRAFT', createdAt: { lt: firstDayOfThisMonth } } }),
+      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'SCHEDULED', createdAt: { lt: firstDayOfThisMonth } } }),
+    ]);
+
+    const calculatePercentageChange = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      const change = ((current - previous) / previous) * 100;
+      return parseFloat(change.toFixed(1));
+    };
+
+    return {
+      totalContent: {
+        count: totalCount,
+        percentageChange: calculatePercentageChange(totalCount, lastMonthTotal),
+        trend: totalCount >= lastMonthTotal ? 'up' : 'down'
+      },
+      published: {
+        count: publishedCount,
+        percentageChange: calculatePercentageChange(publishedCount, lastMonthPublished),
+        trend: publishedCount >= lastMonthPublished ? 'up' : 'down'
+      },
+      draft: {
+        count: draftCount,
+        percentageChange: calculatePercentageChange(draftCount, lastMonthDraft),
+        trend: draftCount >= lastMonthDraft ? 'up' : 'down'
+      },
+      scheduled: {
+        count: scheduledCount,
+        percentageChange: calculatePercentageChange(scheduledCount, lastMonthScheduled),
+        trend: scheduledCount >= lastMonthScheduled ? 'up' : 'down'
+      }
+    };
   }
 
   async findAdminAll(query: QueryAdminContentDto) {
@@ -236,7 +287,7 @@ export class ContentService {
         where: { id },
         data: {
           ...(dto.contentTypeId !== undefined && { contentTypeId: dto.contentTypeId }),
-          slug: slug, 
+          slug: slug,
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
