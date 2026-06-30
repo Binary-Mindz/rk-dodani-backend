@@ -38,7 +38,8 @@ export class PlanController {
       data,
     };
   }
-  @ApiBearerAuth('/stats')
+  @ApiBearerAuth()
+  @ApiBearerAuth('admin/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Get('stats')
