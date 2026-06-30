@@ -32,7 +32,6 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly rolesService: RolesService,
     private readonly mailService: MailService,
-
     private readonly subscriptionService: SubscriptionService,
   ) { }
 
@@ -112,6 +111,9 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
+      include: {
+        roles: { where: { isActive: true } },
+      },
     });
 
     if (!user) {
@@ -149,10 +151,22 @@ export class AuthService {
       }),
     ]);
 
-    try {
-      await this.subscriptionService.ensureFreePlanForUser(user.id);
-    } catch (subError) {
-      console.error(`💥 Baseline activation bypassed during OTP verification:`, subError);
+    // 🛡️ ফিক্স: ইউজারের যদি কোনো রোল না থাকে (যেমন সাধারণ নিবন্ধিত ছাত্র), শুধুমাত্র তখনই ফ্রি প্ল্যান এবং ডিফল্ট রোল দেওয়া হবে।
+    // সিডের মাধ্যমে তৈরি SUPER_ADMIN বা নির্দিষ্ট কোনো রোল থাকলে এই স্কোপ এড়ানো হবে।
+    if (!user.roles || user.roles.length === 0) {
+      try {
+        await this.subscriptionService.ensureFreePlanForUser(user.id);
+        
+        // যদি আপনার আর্কিটেকচারে ডিফল্ট রোল সিড থেকে আলাদাভাবে ম্যানেজ করতে হয়:
+        const studentRole = await this.prisma.role.findUnique({ where: { code: UserRoleCode.STUDENT } });
+        if (studentRole) {
+          await this.prisma.userRole.create({
+            data: { userId: user.id, roleId: studentRole.id, isActive: true },
+          });
+        }
+      } catch (subError) {
+        console.error(`💥 Baseline activation bypassed during OTP verification:`, subError);
+      }
     }
 
     return {
@@ -165,6 +179,12 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
+      include: {
+        roles: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
     });
 
     if (!user || !user.passwordHash) {
@@ -181,13 +201,24 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    try {
-      await this.subscriptionService.ensureFreePlanForUser(user.id);
-    } catch (subError) {
-      console.error(`💥 Baseline activation bypassed during login phase:`, subError);
+    // 🛡️ ফিক্স: যদি ইউজারটির কোনো সক্রিয় রোল অ্যাসাইন করা না থাকে, তবেই সে সাধারণ ইউজার এবং ফ্রি প্ল্যান নিশ্চিত করা হবে।
+    // যদি সে SUPER_ADMIN হয়, তবে ডাটাবেজে সাবস্ক্রিপশন টেবিল সম্পূর্ণ ক্লিন ও এড়ানো থাকবে।
+    if (!user.roles || user.roles.length === 0) {
+      try {
+        await this.subscriptionService.ensureFreePlanForUser(user.id);
+        
+        const studentRole = await this.prisma.role.findUnique({ where: { code: UserRoleCode.STUDENT } });
+        if (studentRole) {
+          await this.prisma.userRole.create({
+            data: { userId: user.id, roleId: studentRole.id, isActive: true },
+          });
+        }
+      } catch (subError) {
+        console.error(`💥 Baseline activation bypassed during login phase:`, subError);
+      }
     }
 
-  
+    // ফ্রেশ ইউজার ডাটা এবং রোল এক্সট্র্যাক্ট করা
     const freshUserWithRoles = await this.prisma.user.findUnique({
       where: { id: user.id },
       include: {
@@ -406,7 +437,6 @@ export class AuthService {
     };
   }
 
- 
   private async createAndSendOtp(
     userId: string,
     email: string,
@@ -415,9 +445,8 @@ export class AuthService {
     return this.createAndSendOtpWithTx(this.prisma, userId, email, purpose);
   }
 
-
   private async createAndSendOtpWithTx(
-    txClient: any, // Accepts standard prisma instance or transaction client
+    txClient: any,
     userId: string,
     email: string,
     purpose: OtpPurpose,
@@ -447,9 +476,7 @@ export class AuthService {
         await this.mailService.sendPasswordResetOtp(email, otp);
       }
     } catch (mailError) {
-      // 🚨 মেইল সার্ভার এরর কনসোলে লগ করুন কিন্তু ক্লায়েন্টকে মিনিংফুল মেসেজ দিন
       console.error(`❌ Failed to send OTP email to ${email}:`, mailError);
-
       throw new BadRequestException(
         `Unable to send verification email to "${email}". Please verify that the email address is correct and valid.`,
       );
