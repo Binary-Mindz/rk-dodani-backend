@@ -39,10 +39,9 @@ export class PlanController {
     };
   }
   @ApiBearerAuth()
-  @ApiBearerAuth('admin/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
-  @Get('stats')
+  @Get('admin/stats')
   @ApiOperation({ summary: 'Get general subscription plan statistics for dashboard metrics' })
   @ApiResponse({ status: 200, description: 'Statistics aggregated successfully.' })
   async getPlanStats() {
