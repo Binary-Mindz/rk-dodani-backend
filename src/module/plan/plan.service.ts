@@ -12,7 +12,7 @@ import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class PlanService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private normalizeCurrency(currency: string) {
     return currency.trim().toUpperCase();
@@ -83,7 +83,7 @@ export class PlanService {
 
     return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
-  
+
   async getPlanStats() {
     const [totalPlans, activePlans, inactivePlans] = await this.prisma.$transaction([
       this.prisma.plan.count(),
@@ -102,10 +102,15 @@ export class PlanService {
     const plan = await this.prisma.plan.findUnique({
       where: { id },
       include: {
-        _count: {
-          select: {
-            subscriptions: true,
-            entitlements: true,
+        subscriptions: {
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
           },
         },
       },
@@ -115,7 +120,65 @@ export class PlanService {
       throw new NotFoundException('Plan not found');
     }
 
-    return plan;
+    const activeSubscribersCount = await this.prisma.subscription.count({
+      where: {
+        planId: id,
+        status: 'ACTIVE',
+      },
+    });
+
+    const churnedCount = await this.prisma.subscription.count({
+      where: {
+        planId: id,
+        status: 'CANCELED',
+      },
+    });
+
+    const revenueAggregation = await this.prisma.subscription.aggregate({
+      where: {
+        planId: id,
+        lastPaymentAmount: { not: null },
+      },
+      _sum: {
+        lastPaymentAmount: true,
+      },
+    });
+
+    const totalRevenue = revenueAggregation._sum.lastPaymentAmount
+      ? Number(revenueAggregation._sum.lastPaymentAmount)
+      : 0;
+    const rawSubscriptions = (plan as any).subscriptions || [];
+
+    return {
+      id: plan.id,
+      code: plan.code,
+      name: plan.name,
+      description: plan.description,
+      billingInterval: plan.billingInterval,
+      priceAmount: Number(plan.priceAmount),
+      currency: plan.currency,
+      trialDays: plan.trialDays,
+      isPublic: plan.isPublic,
+      isActive: plan.isActive,
+      stripeProductId: plan.stripeProductId,
+      stripePriceId: plan.stripePriceId,
+      features: plan.features,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+      stats: {
+        totalSubscribers: activeSubscribersCount,
+        activeSubscribers: activeSubscribersCount,
+        churnedSubscribers: churnedCount,
+        totalRevenue: totalRevenue,
+      },
+      recentSubscribers: rawSubscriptions.map((sub: any) => ({
+        id: sub.id,
+        name: sub.user?.email ? sub.user.email.split('@')[0] : 'Subscriber',
+        email: sub.user?.email || 'No Email',
+        subscribedAt: sub.createdAt,
+        status: sub.status,
+      })),
+    };
   }
 
   async update(id: string, dto: UpdatePlanDto) {
