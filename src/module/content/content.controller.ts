@@ -25,11 +25,11 @@ import { RolesGuard } from 'common/guards/roles.guard';
 @ApiTags('Content')
 @Controller()
 export class ContentController {
-  constructor(private readonly service: ContentService) {}
+  constructor(private readonly service: ContentService) { }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('admin/content')
   @ApiOperation({ summary: 'Create content' })
   async create(
@@ -47,7 +47,7 @@ export class ContentController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Get('admin/content')
   @ApiOperation({ summary: 'Get admin content list' })
   async findAdminAll(@Query() query: QueryAdminContentDto) {
@@ -62,7 +62,22 @@ export class ContentController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Get('admin/content/stats')
+  @ApiOperation({ summary: 'Get content statistics for dashboard cards' })
+  async getStats() {
+    const data = await this.service.getContentStats();
+
+    return {
+      statusCode: 200,
+      message: 'Content statistics retrieved successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Get('admin/content/:id')
   @ApiOperation({ summary: 'Get admin content details' })
   async findAdminOne(@Param('id') id: string) {
@@ -77,7 +92,7 @@ export class ContentController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Patch('admin/content/:id')
   @ApiOperation({ summary: 'Update content' })
   async update(
@@ -96,7 +111,7 @@ export class ContentController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Patch('admin/content/:id/status')
   @ApiOperation({ summary: 'Update content status' })
   async updateStatus(
@@ -115,7 +130,7 @@ export class ContentController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN   )
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Delete('admin/content/:id')
   @ApiOperation({ summary: 'Delete content (soft delete)' })
   async remove(@Param('id') id: string) {
