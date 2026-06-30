@@ -8,6 +8,7 @@ import { RolesGuard } from 'common/guards/roles.guard';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ToggleSuspendDto } from './dto/suspend.dto';
 
 @ApiTags('SuperAdmin User Management')
 @ApiBearerAuth()
@@ -44,14 +45,18 @@ export class UserManagementController {
     };
   }
 
-  @Post(':id/suspend')
-  @ApiOperation({ summary: 'Trigger workflow action to Suspend User Account immediately' })
-  @ApiResponse({ status: 200, description: 'User profile suspended and all Active sessions/subscriptions revoked.' })
-  async suspendUser(@Param('id') id: string,  @CurrentUser('id') userId: string) {
-    const data = await this.userManagementService.suspendUser(id, userId);
+@Post(':id/toggle-suspend')
+  @ApiOperation({ summary: 'Toggle status between Suspended (BLOCKED) and ACTIVE with accountability logs' })
+  @ApiResponse({ status: 200, description: 'User account status toggled successfully.' })
+  async toggleSuspendUser(
+    @Param('id') id: string,
+    @Body() dto: ToggleSuspendDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    const data = await this.userManagementService.toggleSuspendUser(id, dto, adminId);
     return {
       statusCode: 200,
-      message: 'User account has been suspended and notification email queued.',
+      message: `User account status has been successfully changed to ${data.status}.`,
       data,
     };
   }
