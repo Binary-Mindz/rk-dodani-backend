@@ -25,6 +25,5 @@ export class UpdateProfileDto {
     example: 'https://example.com/avatars/joe-smith.png',
   })
   @IsOptional()
-  @IsUrl()
   avatarUrl?: string;
 }
