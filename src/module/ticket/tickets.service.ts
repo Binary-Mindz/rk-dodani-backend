@@ -14,6 +14,7 @@ export class TicketsService {
             const ticket = await tx.contactInquiry.create({
                 data: {
                     name: dto.name,
+                    ticketId: dto.ticketId,
                     email: dto.email,
                     subject: dto.subject,
                     message: dto.message,
