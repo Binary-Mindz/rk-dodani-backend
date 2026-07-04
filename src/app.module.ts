@@ -19,6 +19,7 @@ import { SubscriptionModule } from './module/subscription/subscription.module';
 import { FileModule } from './module/file/file.module';
 import { UserManagementModule } from './module/user-management/user-management.module';
 import { TicketsModule } from './module/ticket/tickets.module';
+import { ChatModule } from './module/chat/chat.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { TicketsModule } from './module/ticket/tickets.module';
     AppSettingModule,
     AuditModule,
     PatreonModule,
-    MailModule
+    MailModule,
+    ChatModule
   ],
   controllers: [AppController],
 })

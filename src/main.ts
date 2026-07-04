@@ -23,6 +23,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       "http://localhost:3000",
+      "http://localhost:5173",
       "https://agentarum.ai",
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
