@@ -18,6 +18,7 @@ import { PatreonModule } from './module/patreon/patreon.module';
 import { SubscriptionModule } from './module/subscription/subscription.module';
 import { FileModule } from './module/file/file.module';
 import { UserManagementModule } from './module/user-management/user-management.module';
+import { TicketsModule } from './module/ticket/tickets.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { UserManagementModule } from './module/user-management/user-management.m
     ContentAccessModule,
     ServiceModule,
     PlanModule,
+    TicketsModule,
     AppSettingModule,
     AuditModule,
     PatreonModule,
