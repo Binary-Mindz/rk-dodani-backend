@@ -8,6 +8,11 @@ export class CreateTicketDto {
   @IsString()
   name!: string;
 
+  @ApiProperty({ description: 'Ticket ID', example: 'TICKET-001' })
+  @IsNotEmpty()
+  @IsString()
+  ticketId!: string;
+
   @ApiProperty({ description: 'User Email', example: 'john@email.com' })
   @IsNotEmpty()
   @IsEmail()

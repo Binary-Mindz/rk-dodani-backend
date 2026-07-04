@@ -513,6 +513,7 @@ model AppSetting {
 
 model ContactInquiry {
   id            String          @id @default(uuid())
+  ticketId      String
   name          String
   email         String
   phone         String?
