@@ -7,7 +7,6 @@ import { AuthModule } from 'module/auth/auth.module';
 import { UsersModule } from 'module/users/users.module';
 import { MailModule } from 'common/mail/mail.module';
 import { ContentMasterModule } from 'module/content-master/content-master.module';
-import { ContactInquiryModule } from 'module/contact-inquiry/contact-inquiry.module';
 import { ContentModule } from 'module/content/content.module';
 import { ContentAccessModule } from 'module/content-access/content-access.module';
 import { ServiceModule } from 'module/service/service.module';
@@ -40,7 +39,6 @@ import { UserManagementModule } from './module/user-management/user-management.m
     ContentAccessModule,
     ServiceModule,
     PlanModule,
-    ContactInquiryModule,
     AppSettingModule,
     AuditModule,
     PatreonModule,
