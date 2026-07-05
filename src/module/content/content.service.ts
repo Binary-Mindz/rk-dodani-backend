@@ -296,7 +296,17 @@ export class ContentService {
           ...(dto.authorDisplayName !== undefined && { authorDisplayName: dto.authorDisplayName }),
           ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
           ...(dto.thumbnailUrl !== undefined && { thumbnailUrl: dto.thumbnailUrl }),
-          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.status !== undefined && { 
+            status: dto.status,
+            ...(dto.status === PublishStatus.PUBLISHED && !existing.publishedAt && {
+              publishedAt: new Date(),
+              publishedById: userId,
+              archivedAt: null,
+            }),
+            ...(dto.status === PublishStatus.ARCHIVED && {
+              archivedAt: new Date(),
+            })
+          }),
           ...(dto.visibility !== undefined && { visibility: dto.visibility }),
           ...(dto.accessModel !== undefined && { accessModel: dto.accessModel }),
           ...(dto.contentFormat !== undefined && { contentFormat: dto.contentFormat }),
