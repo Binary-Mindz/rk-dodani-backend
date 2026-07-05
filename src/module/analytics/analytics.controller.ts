@@ -20,11 +20,8 @@ export class AnalyticsController {
 
   @Get('consumption-patterns')
   @ApiOperation({ summary: 'Get daily consumption data for the bar chart' })
-  async getConsumptionPatterns(
-    @CurrentUser('id') userId: string,
-    @Query('period') period?: string,
-  ) {
-    const data = await this.analyticsService.getConsumptionPatterns(userId, period || '7d');
+  async getConsumptionPatterns(@CurrentUser('id') userId: string) {
+    const data = await this.analyticsService.getConsumptionPatterns(userId);
     return { statusCode: 200, data };
   }
 }
