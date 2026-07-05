@@ -27,12 +27,38 @@ export class AnalyticsService {
       });
       const resourcesAccessed = allProgress.length;
 
-      const teamInfluence = 'Top 5%';
+      // Calculate dynamic Team Influence (Top X%) based on total time spent compared to others
+      let teamInfluence = 'Top 100%';
+      if (totalTimeSpentSec > 0) {
+        // Group by user to find total time spent by each user
+        const allUsersProgress = await this.prisma.userContentProgress.groupBy({
+          by: ['userId'],
+          _sum: {
+            totalTimeSpentSec: true,
+          },
+        });
+
+        const totalUsers = allUsersProgress.length;
+        if (totalUsers > 1) {
+          const usersWithLessTime = allUsersProgress.filter(
+            (u) => (u._sum.totalTimeSpentSec || 0) < totalTimeSpentSec,
+          ).length;
+
+          // Calculate percentile (0 to 100)
+          const percentile = (usersWithLessTime / totalUsers) * 100;
+          // E.g., if you beat 90% of people, you are Top 10%
+          const topPercent = Math.max(1, Math.round(100 - percentile)); 
+          teamInfluence = `Top ${topPercent}%`;
+        } else {
+          // If they are the only user with data
+          teamInfluence = 'Top 1%';
+        }
+      }
 
       return {
         completionRate: `${completionRate}%`,
         timeSpent: `${timeSpentHours}h`,
-        resourceReach: `${resourcesAccessed}/${totalAvailableResources || 25}`,
+        resourceReach: `${resourcesAccessed}/${totalAvailableResources || 1}`,
         teamInfluence,
       };
     } catch (error) {
@@ -41,7 +67,7 @@ export class AnalyticsService {
     }
   }
 
-  async getConsumptionPatterns(userId: string, period: string) {
+  async getConsumptionPatterns(userId: string) {
     const days = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i)); 
@@ -65,7 +91,7 @@ export class AnalyticsService {
 
     const data = days.map((day) => ({
       day,
-      value: dayTotals[day] || 0, // No more random data, strictly 0 if no data
+      value: dayTotals[day] || 0,
     }));
 
     return data;
