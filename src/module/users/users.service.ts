@@ -17,7 +17,7 @@ export class UsersService {
         roles: {
           where: { isActive: true },
           include: {
-            role: true,
+            role: true, 
           },
         },
         // ইউজারটির লেটেস্ট অ্যাক্টিভ অথবা ট্রায়াল সাবস্ক্রিপশনটি বের করার জন্য
@@ -53,6 +53,7 @@ export class UsersService {
       firstName: user.firstName,
       lastName: user.lastName,
       fullName: user.fullName,
+      avatarUrl: user.avatarUrl,
       phone: user.phone,
       status: user.status,
       roles: user.roles.map((item) => item.role.code),
