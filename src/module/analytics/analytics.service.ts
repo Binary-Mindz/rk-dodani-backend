@@ -42,7 +42,11 @@ export class AnalyticsService {
   }
 
   async getConsumptionPatterns(userId: string, period: string) {
-    const days = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const days = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i)); 
+      return d.toLocaleDateString('en-US', { weekday: 'short' });
+    });
     
     const logs = await this.prisma.userActivityLog.findMany({
       where: {
@@ -61,7 +65,7 @@ export class AnalyticsService {
 
     const data = days.map((day) => ({
       day,
-      value: dayTotals[day] || Math.floor(Math.random() * 200 + 50), 
+      value: dayTotals[day] || 0, // No more random data, strictly 0 if no data
     }));
 
     return data;
