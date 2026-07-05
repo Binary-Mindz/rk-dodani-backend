@@ -20,7 +20,8 @@ import { FileModule } from './module/file/file.module';
 import { UserManagementModule } from './module/user-management/user-management.module';
 import { TicketsModule } from './module/ticket/tickets.module';
 import { ChatModule } from './module/chat/chat.module';
-
+import { NotificationModule } from './module/notification/notification.module';
+import { AnalyticsModule } from './module/analytics/analytics.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -46,7 +47,9 @@ import { ChatModule } from './module/chat/chat.module';
     AuditModule,
     PatreonModule,
     MailModule,
-    ChatModule
+    ChatModule,
+    NotificationModule,
+    AnalyticsModule
   ],
   controllers: [AppController],
 })

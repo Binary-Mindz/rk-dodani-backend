@@ -493,4 +493,57 @@ export class ContentService {
 
     return this.serializeBigInt(content);
   }
+
+  async trackProgress(userId: string, contentItemId: string, dto: any) { // dto is TrackProgressDto
+    const content = await this.prisma.contentItem.findUnique({ where: { id: contentItemId } });
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    if (dto.actionType || dto.durationSec > 0) {
+      await this.prisma.userActivityLog.create({
+        data: {
+          userId,
+          contentItemId,
+          actionType: dto.actionType || 'VIEWED',
+          durationSec: dto.durationSec,
+        },
+      });
+    }
+
+    const existingProgress = await this.prisma.userContentProgress.findUnique({
+      where: {
+        userId_contentItemId: {
+          userId,
+          contentItemId,
+        },
+      },
+    });
+
+    if (existingProgress) {
+      return this.prisma.userContentProgress.update({
+        where: { id: existingProgress.id },
+        data: {
+          totalTimeSpentSec: { increment: dto.durationSec },
+          ...(dto.progressPercentage !== undefined && {
+            progressPercentage: dto.progressPercentage > existingProgress.progressPercentage 
+              ? dto.progressPercentage 
+              : existingProgress.progressPercentage,
+          }),
+          ...(dto.status !== undefined && { status: dto.status }),
+          lastAccessedAt: new Date(),
+        },
+      });
+    } else {
+      return this.prisma.userContentProgress.create({
+        data: {
+          userId,
+          contentItemId,
+          totalTimeSpentSec: dto.durationSec,
+          progressPercentage: dto.progressPercentage || 0,
+          status: dto.status || 'IN_PROGRESS',
+        },
+      });
+    }
+  }
 }

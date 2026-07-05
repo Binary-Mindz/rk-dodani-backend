@@ -21,6 +21,7 @@ import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
+import { TrackProgressDto } from './dto/track-progress.dto';
 
 @ApiTags('Content')
 @Controller()
@@ -165,6 +166,23 @@ export class ContentController {
     return {
       statusCode: 200,
       message: 'Content fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('content/:id/track-progress')
+  @ApiOperation({ summary: 'Track user progress and time spent on content' })
+  async trackProgress(
+    @CurrentUser('id') userId: string,
+    @Param('id') contentItemId: string,
+    @Body() dto: TrackProgressDto,
+  ) {
+    const data = await this.service.trackProgress(userId, contentItemId, dto);
+    return {
+      statusCode: 200,
+      message: 'Progress tracked successfully',
       data,
     };
   }

@@ -32,31 +32,33 @@ model User {
   deletedAt         DateTime?
 
   // Relations
-  roles                  UserRole[]
-  authProviders          AuthProvider[]
-  sessions               UserSession[]
-  userOtps               UserOtp[]
-  subscriptions          Subscription[]
-  entitlements           Entitlement[]
-  patreonConnection      PatreonConnection?
-  assignedInquiries      ContactInquiry[]     @relation("InquiryAssignedTo")
-  relatedInquiries       ContactInquiry[]     @relation("InquiryRelatedUser")
-  inquiryActivities      InquiryActivity[]
-  createdServices        Service[]            @relation("ServiceCreatedBy")
-  updatedServices        Service[]            @relation("ServiceUpdatedBy")
-  grantedEntitlements    Entitlement[]        @relation("EntitlementGrantedBy")
-  revokedEntitlements    Entitlement[]        @relation("EntitlementRevokedBy")
-  updatedSettings        AppSetting[]         @relation("AppSettingUpdatedBy")
-  emailLogs              EmailLog[]
-  auditLogs              AuditLog[]
-  passwordResetTokens    PasswordResetToken[]
-  subscriptionEvents     SubscriptionEvent[]
+  roles                 UserRole[]
+  authProviders         AuthProvider[]
+  sessions              UserSession[]
+  userOtps              UserOtp[]
+  subscriptions         Subscription[]
+  entitlements          Entitlement[]
+  patreonConnection     PatreonConnection?
+  assignedInquiries     ContactInquiry[]      @relation("InquiryAssignedTo")
+  relatedInquiries      ContactInquiry[]      @relation("InquiryRelatedUser")
+  inquiryActivities     InquiryActivity[]
+  createdServices       Service[]             @relation("ServiceCreatedBy")
+  updatedServices       Service[]             @relation("ServiceUpdatedBy")
+  grantedEntitlements   Entitlement[]         @relation("EntitlementGrantedBy")
+  revokedEntitlements   Entitlement[]         @relation("EntitlementRevokedBy")
+  updatedSettings       AppSetting[]          @relation("AppSettingUpdatedBy")
+  emailLogs             EmailLog[]
+  auditLogs             AuditLog[]
+  passwordResetTokens   PasswordResetToken[]
+  subscriptionEvents    SubscriptionEvent[]
   notifications         Notification[]
   notificationTokens    NotificationToken[]
   notificationSetting   NotificationSetting?
   conversationMembers   ConversationMember[]
   messages              Message[]
   readReceipts          MessageReadReceipt[]
+  userContentProgresses UserContentProgress[]
+  userActivityLogs      UserActivityLog[]
 }
 
 model Role {
@@ -174,10 +176,10 @@ model AuthProvider {
 
 model Plan {
   id              String          @id @default(uuid())
-  code            String          @unique 
-  name            String         
-  description     String?         
-  targetAudience  PlanAudience    @default(B2C) 
+  code            String          @unique
+  name            String
+  description     String?
+  targetAudience  PlanAudience    @default(B2C)
   billingProvider BillingProvider @default(STRIPE)
   stripeProductId String?
   stripePriceId   String?
@@ -185,12 +187,12 @@ model Plan {
   currency        String
   priceAmount     Decimal         @db.Decimal(12, 2)
   isPerUser       Boolean         @default(false)
-  trialDays       Int             @default(0)     
+  trialDays       Int             @default(0)
   isPublic        Boolean         @default(true)
   isActive        Boolean         @default(true)
-  isFeatured      Boolean         @default(false) 
+  isFeatured      Boolean         @default(false)
   sortOrder       Int             @default(0)
-  features        Json?          
+  features        Json?
   metadata        Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -323,49 +325,51 @@ model Entitlement {
 // ৩. কনটেন্ট ও ক্যাটাগরি মডেল (Content & CMS)
 // ==========================================
 model ContentItem {
-  id                         String             @id @default(uuid())
-  contentTypeId              String
-  slug                       String             @unique
-  title                      String
-  subtitle                   String?
-  excerpt                    String?
-  summary                    String?
-  plainTextBody              String?
-  authorDisplayName          String?
-  coverImageUrl              String?
-  thumbnailUrl               String?
-  status                     PublishStatus      @default(DRAFT)
-  visibility                 ContentVisibility  @default(PUBLIC)
-  accessModel                ContentAccessModel @default(PUBLIC)
-  contentFormat              String?
-  externalUrl                String?
-  externalEmbedCode          String?
-  readingTimeMinutes         Int?
-  publishedAt                DateTime?
-  scheduledAt                DateTime?
-  archivedAt                 DateTime?
-  isFeatured                 Boolean            @default(false)
-  isPinned                   Boolean            @default(false)
-  allowComments              Boolean            @default(false)
-  viewCount                  BigInt             @default(0)
-  downloadCount              BigInt             @default(0)
-  createdById                String?
-  updatedById                String?
-  publishedById              String?
-  createdAt                  DateTime           @default(now())
-  updatedAt                  DateTime           @updatedAt
-  deletedAt                  DateTime?
+  id                 String             @id @default(uuid())
+  contentTypeId      String
+  slug               String             @unique
+  title              String
+  subtitle           String?
+  excerpt            String?
+  summary            String?
+  plainTextBody      String?
+  authorDisplayName  String?
+  coverImageUrl      String?
+  thumbnailUrl       String?
+  status             PublishStatus      @default(DRAFT)
+  visibility         ContentVisibility  @default(PUBLIC)
+  accessModel        ContentAccessModel @default(PUBLIC)
+  contentFormat      String?
+  externalUrl        String?
+  externalEmbedCode  String?
+  readingTimeMinutes Int?
+  publishedAt        DateTime?
+  scheduledAt        DateTime?
+  archivedAt         DateTime?
+  isFeatured         Boolean            @default(false)
+  isPinned           Boolean            @default(false)
+  allowComments      Boolean            @default(false)
+  viewCount          BigInt             @default(0)
+  downloadCount      BigInt             @default(0)
+  createdById        String?
+  updatedById        String?
+  publishedById      String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
 
-  fileUrl                    String?                      
-  isDownloadable             Boolean            @default(true)
-  downloadRequiresAcceptance Boolean            @default(false)
+  fileUrl                    String?
+  isDownloadable             Boolean @default(true)
+  downloadRequiresAcceptance Boolean @default(false)
   termsText                  String?
 
-  contentType   ContentType @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
-  contentCategories ContentCategory[]
-  contentTags       ContentTag[]
-  accessRules       ContentAccessRule[]
-  entitlements      Entitlement[]
+  contentType           ContentType           @relation(fields: [contentTypeId], references: [id], onDelete: Restrict)
+  contentCategories     ContentCategory[]
+  contentTags           ContentTag[]
+  accessRules           ContentAccessRule[]
+  entitlements          Entitlement[]
+  userContentProgresses UserContentProgress[]
+  userActivityLogs      UserActivityLog[]
 
   @@index([contentTypeId])
   @@index([status, publishedAt])
@@ -390,13 +394,13 @@ model ContentCategory {
 }
 
 model Category {
-  id           String   @id @default(uuid())
-  name         String
-  slug         String   @unique
-  description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   contentItems ContentCategory[]
 
@@ -418,13 +422,13 @@ model ContentTag {
 }
 
 model Tag {
-  id          String       @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  slug        String       @unique
+  slug        String   @unique
   description String?
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   contentTags ContentTag[]
 
@@ -642,21 +646,21 @@ model EmailLog {
 }
 
 model Notification {
-  id          String           @id @default(uuid())
-  userId      String
-  type        NotificationType @default(SYSTEM_ALERT)
-  title       String           // Example: "Course Completed", "Sarah (CTO)"
-  body        String           // Example: "You completed AI Architecture Fundamentals!"
-  isRead      Boolean          @default(false)
-  readAt      DateTime?
-  
+  id     String           @id @default(uuid())
+  userId String
+  type   NotificationType @default(SYSTEM_ALERT)
+  title  String // Example: "Course Completed", "Sarah (CTO)"
+  body   String // Example: "You completed AI Architecture Fundamentals!"
+  isRead Boolean          @default(false)
+  readAt DateTime?
+
   // JSON payload deep-linking o metadata-r jonno (e.g., courseId, inquiryId, routing path)
-  payload     Json?            
-  
-  createdAt   DateTime         @default(now())
+  payload Json?
+
+  createdAt DateTime @default(now())
 
   // Relation
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
@@ -664,78 +668,77 @@ model Notification {
 }
 
 model NotificationToken {
-  id           String     @id @default(uuid())
-  userId       String
-  deviceToken  String     @unique // Firebase FCM Device Registration Token
-  deviceType   DeviceType @default(WEB)
-  deviceName   String?    // Browser ba Mobile model tracking
-  isActive     Boolean    // Invalid/expired tokens clean korar jonno
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  userId      String
+  deviceToken String     @unique // Firebase FCM Device Registration Token
+  deviceType  DeviceType @default(WEB)
+  deviceName  String? // Browser ba Mobile model tracking
+  isActive    Boolean // Invalid/expired tokens clean korar jonno
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // Relation
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isActive])
 }
 
 model NotificationSetting {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  allowPush       Boolean  @default(true)
-  allowEmail      Boolean  @default(true)
-  allowSms        Boolean  @default(false)
-  updatedAt       DateTime @updatedAt
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  allowPush  Boolean  @default(true)
+  allowEmail Boolean  @default(true)
+  allowSms   Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
 
   // Relation
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
 
 // Chat System
 
-model Conversation{
-  id String @id @default(uuid())
-  type ConversationType @default(DIRECT)
-  name String?
-  title String?
+model Conversation {
+  id          String               @id @default(uuid())
+  type        ConversationType     @default(DIRECT)
+  name        String?
+  title       String?
   description String?
-  avatar String?
-  createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  members ConversationMember[]
-  messages Message[]
+  avatar      String?
+  createdBy   String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  members     ConversationMember[]
+  messages    Message[]
 }
 
-model ConversationMember{
-  id String @id @default(uuid())
+model ConversationMember {
+  id             String           @id @default(uuid())
   conversationId String
-  userId String
-  role ConversationRole @default(MEMBER)
-  joinedAt DateTime @default(now())
-  leftAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  role           ConversationRole @default(MEMBER)
+  joinedAt       DateTime         @default(now())
+  leftAt         DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
-model Message{
-  id String @id @default(uuid())
+model Message {
+  id             String   @id @default(uuid())
   conversationId String
-  senderId String
-  content String
-  mediaUrl String?
-  mediaType String?
-  fileUrl String?
-  fileType String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  senderId       String
+  content        String
+  mediaUrl       String?
+  mediaType      String?
+  fileUrl        String?
+  fileType       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
   readReceipts MessageReadReceipt[]
 }
 
@@ -1012,4 +1015,56 @@ enum ConversationRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+model UserContentProgress {
+  id                 String                @id @default(uuid())
+  userId             String
+  contentItemId      String
+  status             ContentProgressStatus @default(NOT_STARTED)
+  progressPercentage Float                 @default(0.0)
+  totalTimeSpentSec  Int                   @default(0)
+  lastAccessedAt     DateTime              @default(now())
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId])
+  @@index([contentItemId])
+  @@index([status])
+}
+
+model UserActivityLog {
+  id            String             @id @default(uuid())
+  userId        String
+  contentItemId String?
+  actionType    ActivityActionType
+  durationSec   Int                @default(0)
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([contentItemId])
+  @@index([actionType])
+  @@index([createdAt])
+}
+
+enum ContentProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ActivityActionType {
+  VIEWED
+  WATCHED
+  DOWNLOADED
+  LIKED
+  SHARED
 }
