@@ -138,7 +138,9 @@ export class TicketsService {
 
                     adminNotes: dto.replyMessage ? dto.replyMessage : existingTicket.adminNotes,
                     respondedAt: dto.replyMessage ? new Date() : existingTicket.respondedAt,
-                    closedAt: dto.status === InquiryStatus.CLOSED ? new Date() : existingTicket.closedAt,
+                    closedAt: dto.status 
+                        ? (dto.status === InquiryStatus.CLOSED ? new Date() : null)
+                        : existingTicket.closedAt,
                 },
             });
 
@@ -146,7 +148,9 @@ export class TicketsService {
                 await tx.inquiryActivity.create({
                     data: {
                         inquiryId: id,
-                        actionType: InquiryActivityType.STATUS_CHANGED,
+                        actionType: dto.status === InquiryStatus.CLOSED 
+                            ? InquiryActivityType.CLOSED 
+                            : InquiryActivityType.STATUS_CHANGED,
                         oldValue: { status: existingTicket.status },
                         newValue: { status: dto.status },
                         performedById: adminId,
