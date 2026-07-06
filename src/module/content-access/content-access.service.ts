@@ -423,9 +423,6 @@ export class ContentAccessService {
         slug: contentSlug,
         deletedAt: null,
         status: PublishStatus.PUBLISHED,
-        publishedAt: {
-          lte: new Date(),
-        },
       },
       include: {
         contentType: true,
@@ -651,9 +648,6 @@ export class ContentAccessService {
         slug: contentSlug,
         deletedAt: null,
         status: PublishStatus.PUBLISHED,
-        publishedAt: {
-          lte: new Date(),
-        },
       },
       include: {
         contentType: true,

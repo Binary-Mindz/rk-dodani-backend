@@ -275,7 +275,7 @@ export class ContentService {
       const slugExists = await this.prisma.contentItem.findUnique({
         where: { slug },
       });
-      if (slugExists) {
+      if (slugExists && slugExists.id !== id) {
         throw new BadRequestException('Content slug already exists (generated from updated title)');
       }
     }
@@ -298,9 +298,9 @@ export class ContentService {
           ...(dto.thumbnailUrl !== undefined && { thumbnailUrl: dto.thumbnailUrl }),
           ...(dto.status !== undefined && { 
             status: dto.status,
-            ...(dto.status === PublishStatus.PUBLISHED && !existing.publishedAt && {
-              publishedAt: new Date(),
-              publishedById: userId,
+            ...(dto.status === PublishStatus.PUBLISHED && {
+              publishedAt: existing.publishedAt ?? new Date(),
+              publishedById: existing.publishedById ?? userId,
               archivedAt: null,
             }),
             ...(dto.status === PublishStatus.ARCHIVED && {
@@ -367,6 +367,7 @@ export class ContentService {
 
     if (dto.status === PublishStatus.PUBLISHED) {
       updateData.publishedAt = existing.publishedAt ?? new Date();
+      updateData.publishedById = existing.publishedById ?? userId;
       updateData.archivedAt = null;
     } else if (dto.status === PublishStatus.ARCHIVED) {
       updateData.archivedAt = new Date();
@@ -403,7 +404,6 @@ export class ContentService {
     const where: Prisma.ContentItemWhereInput = {
       deletedAt: null,
       status: PublishStatus.PUBLISHED,
-      publishedAt: { lte: new Date() },
 
       ...(query.search && {
         OR: [
@@ -483,7 +483,6 @@ export class ContentService {
         slug,
         deletedAt: null,
         status: PublishStatus.PUBLISHED,
-        publishedAt: { lte: new Date() },
       },
       include: {
         contentType: true,
