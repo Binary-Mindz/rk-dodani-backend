@@ -884,6 +884,7 @@ enum ContentAssetRole {
 enum BillingProvider {
   STRIPE
   PATREON
+  MANUAL
 }
 
 enum BillingInterval {

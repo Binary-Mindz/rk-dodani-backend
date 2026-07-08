@@ -30,9 +30,7 @@ export class SubscriptionService {
 
     // B2B Validation
     if (plan.targetAudience === PlanAudience.B2B) {
-      if (!seats || seats < 1 || seats > plan.maxUsers) {
-        throw new BadRequestException(`Seats count must be between 1 and ${plan.maxUsers} for this plan.`);
-      }
+      throw new BadRequestException('B2B plans can only be manually assigned by administrators. Please contact support to request a plan.');
     }
 
     // ✅ FREE PLAN DIRECT ACTIVATION (NO STRIPE GATEWAY INVOLVED)
@@ -54,7 +52,7 @@ export class SubscriptionService {
           unit_amount: unitAmount,
           recurring: { interval: plan.billingInterval === 'YEARLY' ? 'year' : 'month' },
         },
-        quantity: plan.targetAudience === PlanAudience.B2B ? seats : 1,
+        quantity: 1,
       }],
       mode: 'subscription',
       subscription_data: {
@@ -66,7 +64,7 @@ export class SubscriptionService {
       metadata: { 
         userId: user.id, 
         planId: plan.id, 
-        seats: String(plan.targetAudience === PlanAudience.B2B ? seats : 1) 
+        seats: '1' 
       },
     });
 
@@ -247,5 +245,99 @@ export class SubscriptionService {
     if (interval === 'YEARLY') date.setFullYear(date.getFullYear() + 1);
     else date.setMonth(date.getMonth() + 1);
     return date;
+  }
+
+  async assignPlanManually(targetUserId: string, planId: string, seats: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!user) throw new NotFoundException('Target user not found');
+
+    const plan = await this.prisma.plan.findUnique({ where: { id: planId, isActive: true } });
+    if (!plan) throw new NotFoundException('Active plan not found');
+
+    if (plan.targetAudience === PlanAudience.B2B) {
+      if (!seats || seats < 1) {
+        throw new BadRequestException('Seats count must be at least 1 for a B2B plan.');
+      }
+    } else {
+      seats = 1;
+    }
+
+    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
+    if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+
+    const manualSubId = `manual_activation_${plan.code}_${Date.now()}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      // Deactivate any existing active subscriptions for this user
+      await tx.subscription.updateMany({
+        where: {
+          userId: targetUserId,
+          status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] },
+        },
+        data: {
+          status: SubscriptionStatus.CANCELED,
+          endedAt: new Date(),
+        },
+      });
+
+      // Deactivate active entitlements for this user
+      await tx.entitlement.updateMany({
+        where: {
+          userId: targetUserId,
+          status: EntitlementStatus.ACTIVE,
+        },
+        data: {
+          status: EntitlementStatus.REVOKED,
+          endsAt: new Date(),
+        },
+      });
+
+      // Create new manual subscription
+      const subscription = await tx.subscription.create({
+        data: {
+          userId: targetUserId,
+          planId: plan.id,
+          provider: BillingProvider.MANUAL,
+          providerSubscriptionId: manualSubId,
+          status: SubscriptionStatus.ACTIVE,
+          startedAt: new Date(),
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: this.calculatePeriodEnd(plan.billingInterval),
+          currency: plan.currency,
+          lastPaymentAt: new Date(),
+          lastPaymentAmount: new Prisma.Decimal('0.00'),
+          seats: seats,
+        },
+      });
+
+      // Create entitlement
+      await tx.entitlement.create({
+        data: {
+          userId: targetUserId,
+          planId: plan.id,
+          sourceType: EntitlementSourceType.SUBSCRIPTION,
+          entitlementType: EntitlementType.PLAN_ACCESS,
+          status: EntitlementStatus.ACTIVE,
+          startsAt: new Date(),
+          endsAt: this.calculatePeriodEnd(plan.billingInterval),
+        },
+      });
+
+      // Deactivate all previous roles
+      await tx.userRole.updateMany({
+        where: { userId: targetUserId, isActive: true },
+        data: { isActive: false },
+      });
+
+      // Activate target B2B or B2C role
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: targetUserId, roleId: roleRecord.id } },
+        update: { isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
+        create: { userId: targetUserId, roleId: roleRecord.id, isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
+      });
+
+      return subscription;
+    });
   }
 }

@@ -1,7 +1,11 @@
 import { Body, Controller, Post, Get, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { AssignPlanDto } from './dto/assign-plan.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { RolesGuard } from 'common/guards/roles.guard';
+import { Roles } from 'common/decorators/roles.decorator';
+import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { SubscriptionService } from './subscription.service';
 
@@ -46,6 +50,22 @@ export class SubscriptionController {
       statusCode: 200,
       message: 'Payment verified and security role updated.',
       data: { verified: true }
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Post('assign')
+  @ApiOperation({ summary: 'Manually assign a subscription plan to a user (Super Admin only, bypassing Stripe)' })
+  async assignSubscription(
+    @Body() dto: AssignPlanDto,
+  ) {
+    const data = await this.subscriptionService.assignPlanManually(dto.userId, dto.planId, dto.seats || 1);
+    return {
+      statusCode: 200,
+      message: 'Subscription plan manually assigned successfully',
+      data,
     };
   }
 }
