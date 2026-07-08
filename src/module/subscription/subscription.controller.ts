@@ -18,7 +18,7 @@ export class SubscriptionController {
     @CurrentUser('id') userId: string,
     @Body() dto: CreateCheckoutDto,
   ) {
-    const result = await this.subscriptionService.createCheckoutSession(userId, dto.planId);
+    const result = await this.subscriptionService.createCheckoutSession(userId, dto.planId, dto.seats);
     
     if (result.isFreeActivation) {
       return {

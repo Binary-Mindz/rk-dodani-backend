@@ -22,6 +22,7 @@ import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { TrackProgressDto } from './dto/track-progress.dto';
+import { CreateRatingDto } from './dto/create-rating.dto';
 
 @ApiTags('Content')
 @Controller()
@@ -183,6 +184,23 @@ export class ContentController {
     return {
       statusCode: 200,
       message: 'Progress tracked successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('content/:id/rate')
+  @ApiOperation({ summary: 'Submit or update user rating for a content item (1-5 stars)' })
+  async rateContent(
+    @CurrentUser('id') userId: string,
+    @Param('id') contentItemId: string,
+    @Body() dto: CreateRatingDto,
+  ) {
+    const data = await this.service.rateContent(userId, contentItemId, dto);
+    return {
+      statusCode: 200,
+      message: 'Content rated successfully',
       data,
     };
   }

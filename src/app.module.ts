@@ -22,6 +22,8 @@ import { TicketsModule } from './module/ticket/tickets.module';
 import { ChatModule } from './module/chat/chat.module';
 import { NotificationModule } from './module/notification/notification.module';
 import { AnalyticsModule } from './module/analytics/analytics.module';
+import { TeamModule } from './module/team/team.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -49,7 +51,8 @@ import { AnalyticsModule } from './module/analytics/analytics.module';
     MailModule,
     ChatModule,
     NotificationModule,
-    AnalyticsModule
+    AnalyticsModule,
+    TeamModule
   ],
   controllers: [AppController],
 })

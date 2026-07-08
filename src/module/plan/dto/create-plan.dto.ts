@@ -154,4 +154,43 @@ export class CreatePlanDto {
   })
   @IsOptional()
   metadata?: any;
+
+  @ApiPropertyOptional({
+    description: 'Maximum user capacity for B2B seats.',
+    default: 1,
+    example: 10,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxUsers?: number;
+
+  @ApiPropertyOptional({
+    description: 'Subtitle context description.',
+    example: 'Ideal for teams',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  subtitle?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional separate price for monthly subscription choice.',
+    example: 19.99,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  priceAmountMonthly?: number;
+
+  @ApiPropertyOptional({
+    description: 'Optional separate price for yearly subscription choice.',
+    example: 199.99,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  priceAmountYearly?: number;
 }

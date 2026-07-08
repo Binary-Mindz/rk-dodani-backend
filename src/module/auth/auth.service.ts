@@ -10,6 +10,7 @@ import {
   OtpPurpose,
   UserRoleCode,
   UserStatus,
+  InvitationStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -64,6 +65,22 @@ export class AuthService {
       throw new BadRequestException('Email already exists');
     }
 
+    // Check invitation token if provided
+    let invitation: any = null;
+    if (dto.invitationToken) {
+      invitation = await this.prisma.teamInvitation.findUnique({
+        where: { token: dto.invitationToken },
+      });
+
+      if (!invitation || invitation.status !== InvitationStatus.PENDING || invitation.expiresAt < new Date()) {
+        throw new BadRequestException('Invalid or expired invitation token');
+      }
+
+      if (normalizedEmail !== invitation.email.toLowerCase()) {
+        throw new BadRequestException('Invitation email mismatch');
+      }
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
     const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
 
@@ -77,10 +94,39 @@ export class AuthService {
             lastName: dto.lastName ?? null,
             fullName,
             phone: dto.phone ?? null,
-            status: UserStatus.PENDING_VERIFICATION,
+            status: invitation ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION,
+            emailVerified: invitation ? true : false,
+            emailVerifiedAt: invitation ? new Date() : null,
             signupSource: AuthProviderType.LOCAL,
+            parentUserId: invitation ? invitation.invitedById : null,
+            teamRole: invitation ? invitation.role : null,
           },
         });
+
+        if (invitation) {
+          // Accept the invitation
+          await tx.teamInvitation.update({
+            where: { id: invitation.id },
+            data: { status: InvitationStatus.ACCEPTED },
+          });
+
+          // Assign default student/user role
+          const studentRole = await tx.role.findUnique({ where: { code: UserRoleCode.STUDENT } });
+          if (studentRole) {
+            await tx.userRole.create({
+              data: { userId: user.id, roleId: studentRole.id, isActive: true },
+            });
+          }
+
+          return {
+            message: 'Registration successful. Invitation accepted and joined team.',
+            data: {
+              userId: user.id,
+              email: user.email,
+              status: user.status,
+            },
+          };
+        }
 
         await this.createAndSendOtpWithTx(
           tx,

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID, IsOptional, IsInt, Min } from 'class-validator';
 
 export class CreateCheckoutDto {
   @ApiProperty({
@@ -11,4 +11,14 @@ export class CreateCheckoutDto {
   @IsString({ message: 'Plan ID must be a valid string' })
   @IsUUID('4', { message: 'Plan ID must be a valid UUID v4 format' })
   planId!: string;
+
+  @ApiProperty({
+    description: 'The number of seats (users) for B2B plans.',
+    example: 25,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  seats?: number;
 }

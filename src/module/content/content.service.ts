@@ -9,6 +9,7 @@ import { UpdateContentDto } from './dto/update-content.dto';
 import { QueryAdminContentDto } from './dto/query-admin-content.dto';
 import { QueryPublicContentDto } from './dto/query-public-content.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
+import { CreateRatingDto } from './dto/create-rating.dto';
 import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
@@ -22,7 +23,6 @@ export class ContentService {
       ),
     );
   }
-
 
   private generateSlug(title: string): string {
     return title
@@ -554,5 +554,33 @@ export class ContentService {
         },
       });
     }
+  }
+
+  async rateContent(userId: string, contentItemId: string, dto: CreateRatingDto) {
+    const content = await this.prisma.contentItem.findUnique({ where: { id: contentItemId } });
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    const rating = await this.prisma.contentRating.upsert({
+      where: {
+        userId_contentItemId: {
+          userId,
+          contentItemId,
+        },
+      },
+      create: {
+        userId,
+        contentItemId,
+        rating: dto.rating,
+        review: dto.review ?? null,
+      },
+      update: {
+        rating: dto.rating,
+        review: dto.review ?? null,
+      },
+    });
+
+    return rating;
   }
 }

@@ -35,4 +35,9 @@ export class RegisterDto {
   @IsString()
   @MaxLength(50)
   phone?: string;
+
+  @ApiPropertyOptional({ example: 'invitation-token-uuid-or-hash' })
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
 }

@@ -181,9 +181,16 @@ export class ContentAccessService {
   private async getActiveEntitlements(userId: string) {
     const now = new Date();
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { parentUserId: true },
+    });
+
+    const targetUserId = user?.parentUserId || userId;
+
     return this.prisma.entitlement.findMany({
       where: {
-        userId,
+        userId: targetUserId,
         status: EntitlementStatus.ACTIVE,
         OR: [{ endsAt: null }, { endsAt: { gt: now } }],
       },

@@ -59,7 +59,16 @@ model User {
   readReceipts          MessageReadReceipt[]
   userContentProgresses UserContentProgress[]
   userActivityLogs      UserActivityLog[]
+  ratings               ContentRating[]
+  parentUserId          String?
+  parentUser            User?                 @relation("TeamMembers", fields: [parentUserId], references: [id], onDelete: SetNull)
+  teamMembers           User[]                @relation("TeamMembers")
+  teamInvitations       TeamInvitation[]
+  teamRole              TeamRole?
+  joinRequests          TeamJoinRequest[]     @relation("UserJoinRequests")
+  adminJoinRequests     TeamJoinRequest[]     @relation("AdminJoinRequests")
 }
+
 
 model Role {
   id          String       @id @default(uuid())
@@ -175,27 +184,33 @@ model AuthProvider {
 // ==========================================
 
 model Plan {
-  id              String          @id @default(uuid())
-  code            String          @unique
-  name            String
-  description     String?
-  targetAudience  PlanAudience    @default(B2C)
-  billingProvider BillingProvider @default(STRIPE)
-  stripeProductId String?
-  stripePriceId   String?
-  billingInterval BillingInterval
-  currency        String
-  priceAmount     Decimal         @db.Decimal(12, 2)
-  isPerUser       Boolean         @default(false)
-  trialDays       Int             @default(0)
-  isPublic        Boolean         @default(true)
-  isActive        Boolean         @default(true)
-  isFeatured      Boolean         @default(false)
-  sortOrder       Int             @default(0)
-  features        Json?
-  metadata        Json?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                   String          @id @default(uuid())
+  code                 String          @unique
+  name                 String
+  description          String?
+  targetAudience       PlanAudience    @default(B2C)
+  billingProvider      BillingProvider @default(STRIPE)
+  stripeProductId      String?
+  stripePriceId        String?
+  billingInterval      BillingInterval
+  currency             String
+  priceAmount          Decimal         @db.Decimal(12, 2)
+  isPerUser            Boolean         @default(false)
+  trialDays            Int             @default(0)
+  isPublic             Boolean         @default(true)
+  isActive             Boolean         @default(true)
+  isFeatured           Boolean         @default(false)
+  sortOrder            Int             @default(0)
+  maxUsers             Int             @default(1)
+  subtitle             String?
+  stripePriceIdMonthly String?
+  stripePriceIdYearly  String?
+  priceAmountMonthly   Decimal?        @db.Decimal(12, 2)
+  priceAmountYearly    Decimal?        @db.Decimal(12, 2)
+  features             Json?
+  metadata             Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   subscriptions Subscription[]
   entitlements  Entitlement[]
@@ -228,6 +243,7 @@ model Subscription {
   lastPaymentAmount      Decimal?           @db.Decimal(12, 2)
   currency               String?
   failureReason          String?
+  seats                  Int                @default(1)
   metadata               Json?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
@@ -370,6 +386,7 @@ model ContentItem {
   entitlements          Entitlement[]
   userContentProgresses UserContentProgress[]
   userActivityLogs      UserActivityLog[]
+  ratings               ContentRating[]
 
   @@index([contentTypeId])
   @@index([status, publishedAt])
@@ -1068,3 +1085,69 @@ enum ActivityActionType {
   LIKED
   SHARED
 }
+
+model TeamInvitation {
+  id          String           @id @default(uuid())
+  email       String
+  role        TeamRole         @default(MEMBER)
+  token       String           @unique
+  status      InvitationStatus @default(PENDING)
+  invitedById String
+  createdAt   DateTime         @default(now())
+  expiresAt   DateTime
+
+  invitedBy   User             @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([invitedById])
+  @@index([token])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum TeamRole {
+  ADMIN
+  MEMBER
+}
+
+model ContentRating {
+  id            String      @id @default(uuid())
+  userId        String
+  contentItemId String
+  rating        Int         // 1 to 5 stars
+  review        String?     // Optional text review comment
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([contentItemId])
+}
+
+model TeamJoinRequest {
+  id           String        @id @default(uuid())
+  userId       String
+  parentUserId String
+  status       RequestStatus @default(PENDING)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  user         User          @relation("UserJoinRequests", fields: [userId], references: [id], onDelete: Cascade)
+  parentUser   User          @relation("AdminJoinRequests", fields: [parentUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, parentUserId])
+  @@index([parentUserId])
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+

@@ -21,12 +21,19 @@ export class SubscriptionService {
     this.stripe = new StripeConstructor(stripeSecretKey);
   }
 
-  async createCheckoutSession(userId: string, planId: string): Promise<Record<string, any>> {
-    this.logger.log(`Initiating sub context processor for userId: ${userId}, planId: ${planId}`);
+  async createCheckoutSession(userId: string, planId: string, seats?: number): Promise<Record<string, any>> {
+    this.logger.log(`Initiating sub context processor for userId: ${userId}, planId: ${planId}, seats: ${seats}`);
     const plan = await this.prisma.plan.findFirst({ where: { id: planId, isActive: true } });
     if (!plan) throw new NotFoundException('Plan not found');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+
+    // B2B Validation
+    if (plan.targetAudience === PlanAudience.B2B) {
+      if (!seats || seats < 1 || seats > plan.maxUsers) {
+        throw new BadRequestException(`Seats count must be between 1 and ${plan.maxUsers} for this plan.`);
+      }
+    }
 
     // ✅ FREE PLAN DIRECT ACTIVATION (NO STRIPE GATEWAY INVOLVED)
     if (Number(plan.priceAmount) === 0) {
@@ -45,22 +52,29 @@ export class SubscriptionService {
           currency: plan.currency.toLowerCase(),
           product_data: { name: plan.name, description: plan.description || undefined },
           unit_amount: unitAmount,
-          recurring: { interval: 'month' },
+          recurring: { interval: plan.billingInterval === 'YEARLY' ? 'year' : 'month' },
         },
-        quantity: 1,
+        quantity: plan.targetAudience === PlanAudience.B2B ? seats : 1,
       }],
       mode: 'subscription',
+      subscription_data: {
+        trial_period_days: plan.trialDays > 0 ? plan.trialDays : 14,
+      },
       customer_email: user.email,
       success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/pricing`,
-      metadata: { userId: user.id, planId: plan.id },
+      metadata: { 
+        userId: user.id, 
+        planId: plan.id, 
+        seats: String(plan.targetAudience === PlanAudience.B2B ? seats : 1) 
+      },
     });
 
     return session;
   }
 
   private async executeInstantFreeActivation(user: any, plan: any): Promise<void> {
-    const targetRoleCode = PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
     const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
     if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
 
@@ -80,6 +94,7 @@ export class SubscriptionService {
           currency: plan.currency,
           lastPaymentAt: new Date(),
           lastPaymentAmount: new Prisma.Decimal('0.00'),
+          seats: 1,
         },
       });
 
@@ -158,6 +173,7 @@ export class SubscriptionService {
     const sessionId = session.id;
     const userId = session.metadata?.userId;
     const planId = session.metadata?.planId;
+    const seats = Number(session.metadata?.seats || 1);
 
     if (!userId || !planId) throw new BadRequestException('Missing session metadata payloads');
 
@@ -192,6 +208,7 @@ export class SubscriptionService {
             currency: plan.currency,
             lastPaymentAt: new Date(),
             lastPaymentAmount: new Prisma.Decimal(plan.priceAmount),
+            seats: seats,
           },
         });
 
