@@ -4,10 +4,12 @@ import { AnalyticsService } from './analytics.service';
 import { SuperAdminOverviewController } from './super-admin-overview.controller';
 import { SuperAdminOverviewService } from './super-admin-overview.service';
 import { PrismaModule } from 'prisma/prisma.module';
+import { TeamModule } from 'module/team/team.module';
+import { DashboardController } from './dashboard.controller';
 
 @Module({
-  imports: [PrismaModule],
-  controllers: [AnalyticsController, SuperAdminOverviewController],
+  imports: [PrismaModule, TeamModule],
+  controllers: [AnalyticsController, SuperAdminOverviewController, DashboardController],
   providers: [AnalyticsService, SuperAdminOverviewService],
   exports: [AnalyticsService, SuperAdminOverviewService],
 })

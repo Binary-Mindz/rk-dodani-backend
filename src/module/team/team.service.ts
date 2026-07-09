@@ -1116,4 +1116,343 @@ export class TeamService {
       },
     });
   }
+
+  async getMemberDashboardPageData(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        fullName: true,
+        email: true,
+        lastLoginAt: true,
+        parentUserId: true,
+        emailVerified: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    // 1. Calculate Onboarding Journey Steps
+    const isProfileSetupCompleted = !!(user.firstName && user.lastName);
+
+    const progressCount = await this.prisma.userContentProgress.count({
+      where: { userId },
+    });
+    const isOrientationCompleted = isProfileSetupCompleted && (progressCount > 0 || user.lastLoginAt !== null);
+
+    const downloadCount = await this.prisma.userActivityLog.count({
+      where: { userId, actionType: 'DOWNLOADED' },
+    });
+    const isFirstDownloadCompleted = downloadCount > 0;
+
+    const ratingCount = await this.prisma.contentRating.count({
+      where: { userId },
+    });
+    const isTeamContributionCompleted = ratingCount > 0;
+
+    const steps = [
+      {
+        id: 1,
+        title: 'Profile Setup',
+        status: isProfileSetupCompleted ? 'COMPLETED' : 'IN_PROGRESS',
+      },
+      {
+        id: 2,
+        title: 'Orientation',
+        status: isOrientationCompleted
+          ? 'COMPLETED'
+          : (isProfileSetupCompleted ? 'IN_PROGRESS' : 'NOT_STARTED'),
+      },
+      {
+        id: 3,
+        title: 'First Download',
+        status: isFirstDownloadCompleted
+          ? 'COMPLETED'
+          : (isOrientationCompleted ? 'IN_PROGRESS' : 'NOT_STARTED'),
+      },
+      {
+        id: 4,
+        title: 'Team Contribution',
+        status: isTeamContributionCompleted
+          ? 'COMPLETED'
+          : (isFirstDownloadCompleted ? 'IN_PROGRESS' : 'NOT_STARTED'),
+      },
+    ];
+
+    let currentStep = 1;
+    for (const step of steps) {
+      if (step.status === 'IN_PROGRESS') {
+        currentStep = step.id;
+        break;
+      }
+    }
+    if (steps.every((s) => s.status === 'COMPLETED')) {
+      currentStep = 4;
+    }
+
+    const onboardingJourney = {
+      currentStep,
+      steps,
+    };
+
+    const ratingsAgg = await this.prisma.contentRating.aggregate({
+      where: { userId },
+      _avg: { rating: true },
+    });
+    const systemRatingsAgg = await this.prisma.contentRating.aggregate({
+      _avg: { rating: true },
+    });
+    const averageRating = ratingsAgg._avg.rating !== null 
+      ? Math.round(ratingsAgg._avg.rating * 10) / 10 
+      : (systemRatingsAgg._avg.rating !== null ? Math.round(systemRatingsAgg._avg.rating * 10) / 10 : 0.0);
+    const stars = Math.round(averageRating * 2) / 2;
+
+    const interactedAssetsCount = await this.prisma.userContentProgress.count({
+      where: { userId },
+    });
+    const personalContributionAssets = interactedAssetsCount;
+
+    const avgContentRating = {
+      score: averageRating,
+      maxScore: 5.0,
+      stars: stars,
+      personalContributionAssets,
+    };
+
+    // 3. Trending in the Team
+    const parentUserId = user.parentUserId || userId;
+    const teamMembers = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { id: parentUserId },
+          { parentUserId: parentUserId },
+        ],
+      },
+      select: { id: true },
+    });
+    const teamUserIds = teamMembers.map((m) => m.id);
+
+    const trendingGroup = await this.prisma.userActivityLog.groupBy({
+      by: ['contentItemId'],
+      where: {
+        userId: { in: teamUserIds },
+        contentItemId: { not: null },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+      take: 3,
+    });
+
+    const trendingInTeam: { id: string; title: string; reads: number }[] = [];
+    for (const group of trendingGroup) {
+      if (group.contentItemId) {
+        const content = await this.prisma.contentItem.findUnique({
+          where: { id: group.contentItemId },
+          select: { id: true, title: true },
+        });
+        if (content) {
+          trendingInTeam.push({
+            id: content.id,
+            title: content.title,
+            reads: group._count.id,
+          });
+        }
+      }
+    }
+
+    if (trendingInTeam.length < 3) {
+      const popularContents = await this.prisma.contentItem.findMany({
+        where: { status: 'PUBLISHED', deletedAt: null },
+        orderBy: { viewCount: 'desc' },
+        select: { id: true, title: true, viewCount: true },
+        take: 3,
+      });
+
+      for (const content of popularContents) {
+        if (trendingInTeam.length < 3 && !trendingInTeam.some((item) => item.id === content.id)) {
+          trendingInTeam.push({
+            id: content.id,
+            title: content.title,
+            reads: Number(content.viewCount) || 0,
+          });
+        }
+      }
+    }
+
+    // 4. Recommended for You (Next Best Action)
+    const completedProgresses = await this.prisma.userContentProgress.findMany({
+      where: { userId, status: 'COMPLETED' },
+      select: { contentItemId: true },
+    });
+    const completedIds = completedProgresses.map((p) => p.contentItemId);
+
+    // Let's find top category of user interest
+    const userProgressWithCategories = await this.prisma.userContentProgress.findMany({
+      where: { userId },
+      select: {
+        contentItem: {
+          select: {
+            contentCategories: {
+              select: {
+                category: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let topCategory = 'Agentic Architecture';
+    const categoryCounts: Record<string, number> = {};
+    for (const p of userProgressWithCategories) {
+      if (p.contentItem?.contentCategories) {
+        for (const cc of p.contentItem.contentCategories) {
+          if (cc.category) {
+            categoryCounts[cc.category.name] = (categoryCounts[cc.category.name] || 0) + 1;
+          }
+        }
+      }
+    }
+    const sortedCategories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+    if (sortedCategories.length > 0) {
+      topCategory = sortedCategories[0][0];
+    }
+
+    let recommendedItem = await this.prisma.contentItem.findFirst({
+      where: {
+        status: 'PUBLISHED',
+        deletedAt: null,
+        id: { notIn: completedIds },
+        contentCategories: {
+          some: {
+            category: { name: topCategory },
+          },
+        },
+      },
+      select: { id: true, title: true, slug: true, excerpt: true, summary: true },
+    });
+
+    if (!recommendedItem) {
+      recommendedItem = await this.prisma.contentItem.findFirst({
+        where: {
+          status: 'PUBLISHED',
+          deletedAt: null,
+          id: { notIn: completedIds },
+        },
+        select: { id: true, title: true, slug: true, excerpt: true, summary: true },
+      });
+    }
+
+    const recommendedContent = recommendedItem ? {
+      id: recommendedItem.id,
+      title: recommendedItem.title,
+      slug: recommendedItem.slug,
+      description: recommendedItem.excerpt || recommendedItem.summary || `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
+      tag: 'NEXT BEST ACTION',
+    } : null;
+
+    // 5. Value Vault Assets
+    const valueVaultItems = await this.prisma.contentItem.findMany({
+      where: { status: 'PUBLISHED', deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+      include: {
+        contentCategories: {
+          include: { category: true },
+        },
+        contentType: true,
+        ratings: true,
+      },
+    });
+
+    const valueVault = valueVaultItems.map((item) => {
+      const category = item.contentCategories[0]?.category?.name || 'TECHNICAL';
+      const type = item.contentType?.name || 'Visio/PDF';
+      const ratingsCount = item.ratings.length;
+      const avgRating = ratingsCount > 0
+        ? Math.round((item.ratings.reduce((sum, r) => sum + r.rating, 0) / ratingsCount) * 10) / 10
+        : 0.0;
+
+      return {
+        id: item.id,
+        title: item.title,
+        category: category.toUpperCase(),
+        type,
+        rating: avgRating,
+        slug: item.slug,
+        isDownloadable: item.isDownloadable,
+        fileUrl: item.fileUrl,
+      };
+    });
+
+    // 6. Team Discussion Chat Messages
+    let teamDiscussion: {
+      id: string;
+      senderName: string;
+      senderRole: string;
+      senderAvatar: string | null;
+      content: string;
+      timeAgo: string;
+      createdAt: Date;
+    }[] = [];
+    const teamConversation = await this.prisma.conversation.findFirst({
+      where: {
+        type: 'GROUP',
+        members: {
+          some: { userId },
+        },
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            sender: {
+              select: { id: true, fullName: true, firstName: true, lastName: true, avatarUrl: true, teamRole: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (teamConversation && teamConversation.messages.length > 0) {
+      teamDiscussion = teamConversation.messages.map((msg) => {
+        const senderName = msg.sender.fullName || `${msg.sender.firstName || ''} ${msg.sender.lastName || ''}`.trim() || 'Team Member';
+        
+        // Calculate dynamic relative time (e.g. 10M AGO)
+        const diffMs = Date.now() - msg.createdAt.getTime();
+        const diffMins = Math.max(1, Math.round(diffMs / 60000));
+        const timeAgo = diffMins < 60 ? `${diffMins}M AGO` : `${Math.round(diffMins / 60)}H AGO`;
+
+        return {
+          id: msg.id,
+          senderName,
+          senderRole: msg.sender.teamRole || 'MEMBER',
+          senderAvatar: msg.sender.avatarUrl,
+          content: msg.content,
+          timeAgo,
+          createdAt: msg.createdAt,
+        };
+      }).reverse(); // Order from oldest to newest in front-end
+    }
+
+    return {
+      onboardingJourney,
+      avgContentRating,
+      trendingInTeam,
+      recommendedContent,
+      valueVault,
+      teamDiscussion,
+    };
+  }
 }

@@ -15,17 +15,6 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 export class TeamDashboardController {
   constructor(private readonly teamService: TeamService) {}
 
-  @ApiBearerAuth()
-  @Get('dashboard')
-  @ApiOperation({ summary: 'Get aggregated data for CTO dashboard page (metrics and team members list)' })
-  async getCTODashboardPageData(@CurrentUser('id') userId: string) {
-    const data = await this.teamService.getCTODashboardPageData(userId);
-    return {
-      statusCode: 200,
-      message: 'CTO dashboard page data fetched successfully',
-      data,
-    };
-  }
 
   @ApiBearerAuth()
   @Get('metrics')
