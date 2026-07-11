@@ -12,10 +12,10 @@ import { TeamService } from 'module/team/team.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DashboardController {
-  constructor(private readonly teamService: TeamService) {}
+  constructor(private readonly teamService: TeamService) { }
 
   @Get('dashboard')
-  @Roles(UserRoleCode.ENTERPRISE)
+  @Roles(UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get aggregated data for CTO dashboard page' })
   async getCTODashboardPageData(@CurrentUser('id') userId: string) {
     const data = await this.teamService.getCTODashboardPageData(userId);
