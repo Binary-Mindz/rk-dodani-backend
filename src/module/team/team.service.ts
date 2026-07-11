@@ -461,13 +461,22 @@ export class TeamService {
     };
 
     const now = new Date();
-    const pending = await this.prisma.teamInvitation.count({
+    const pendingInvitesCount = await this.prisma.teamInvitation.count({
       where: {
         invitedById: parentUserId,
         status: InvitationStatus.PENDING,
         expiresAt: { gt: now },
       },
     });
+
+    const pendingRequestsCount = await this.prisma.teamJoinRequest.count({
+      where: {
+        parentUserId,
+        status: RequestStatus.PENDING,
+      },
+    });
+
+    const pending = pendingInvitesCount + pendingRequestsCount;
 
     const onboardingFunnel = {
       onboarded: usedSeats,
@@ -1094,7 +1103,7 @@ export class TeamService {
 
     const potentialParents = await this.prisma.user.findMany({
       where: {
-        email: { endsWith: `@${domain}` },
+        email: { endsWith: `@${domain}`, mode: 'insensitive' },
         id: { not: userId },
         roles: {
           some: {
@@ -1103,9 +1112,20 @@ export class TeamService {
             },
           },
         },
-        subscriptions: {
-          some: { status: SubscriptionStatus.ACTIVE },
-        },
+        OR: [
+          {
+            roles: {
+              some: {
+                role: { code: UserRoleCode.SUPER_ADMIN },
+              },
+            },
+          },
+          {
+            subscriptions: {
+              some: { status: SubscriptionStatus.ACTIVE },
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -1136,7 +1156,7 @@ export class TeamService {
     const parentUser = await this.prisma.user.findFirst({
       where: {
         id: ctoUserId,
-        email: { endsWith: `@${domain}` },
+        email: { endsWith: `@${domain}`, mode: 'insensitive' },
         roles: {
           some: {
             role: {
@@ -1144,9 +1164,20 @@ export class TeamService {
             },
           },
         },
-        subscriptions: {
-          some: { status: SubscriptionStatus.ACTIVE },
-        },
+        OR: [
+          {
+            roles: {
+              some: {
+                role: { code: UserRoleCode.SUPER_ADMIN },
+              },
+            },
+          },
+          {
+            subscriptions: {
+              some: { status: SubscriptionStatus.ACTIVE },
+            },
+          },
+        ],
       },
     });
 
