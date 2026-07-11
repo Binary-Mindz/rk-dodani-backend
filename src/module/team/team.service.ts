@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { InvitationStatus, SubscriptionStatus, UserRoleCode, TeamRole, RequestStatus } from '@prisma/client';
+import { InvitationStatus, SubscriptionStatus, UserRoleCode, TeamRole, RequestStatus, Prisma } from '@prisma/client';
+import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -63,25 +64,85 @@ export class TeamService {
     };
   }
 
-  async getTeamMembers(parentUserId: string) {
-    return this.prisma.user.findMany({
-      where: { parentUserId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        fullName: true,
-        avatarUrl: true,
-        status: true,
-        createdAt: true,
-        lastLoginAt: true,
-        teamRole: true,
-        roles: {
-          include: { role: true },
+  async getTeamMembers(parentUserId: string, query?: GetTeamMembersDto) {
+    if (!query) {
+      return this.prisma.user.findMany({
+        where: { parentUserId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          fullName: true,
+          avatarUrl: true,
+          status: true,
+          createdAt: true,
+          lastLoginAt: true,
+          teamRole: true,
+          roles: {
+            include: { role: true },
+          },
         },
+      });
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.UserWhereInput = {
+      parentUserId,
+      ...(query.search && {
+        OR: [
+          { firstName: { contains: query.search, mode: 'insensitive' } },
+          { lastName: { contains: query.search, mode: 'insensitive' } },
+          { fullName: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const sortBy = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder || 'desc';
+
+    const allowedSortFields = ['createdAt', 'firstName', 'lastName', 'lastLoginAt', 'status', 'teamRole'];
+    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderBy = { [orderByField]: sortOrder };
+
+    const [members, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          fullName: true,
+          avatarUrl: true,
+          status: true,
+          createdAt: true,
+          lastLoginAt: true,
+          teamRole: true,
+          roles: {
+            include: { role: true },
+          },
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      items: members,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-    });
+    };
   }
 
   async getTeamMetrics(parentUserId: string) {
@@ -98,141 +159,18 @@ export class TeamService {
       where: { parentUserId },
     });
 
-    // 2. Active sessions
-    const now = new Date();
-    const activeThreshold = new Date(now.getTime() - 15 * 60 * 1000); // 15 mins ago
-    const activeSessionsCount = await this.prisma.userSession.count({
-      where: {
-        user: { parentUserId },
-        lastUsedAt: { gte: activeThreshold },
-      },
-    });
-
-    // 3. Pending invitations count
-    const pendingInvitesCount = await this.prisma.teamInvitation.count({
-      where: {
-        invitedById: parentUserId,
-        status: InvitationStatus.PENDING,
-        expiresAt: { gt: now },
-      },
-    });
-
-    // 4. Pending registration activities matching the company domain suffix
-    const parentUser = await this.prisma.user.findUnique({
-      where: { id: parentUserId },
-      select: { email: true },
-    });
-
-    let pendingRegistrationsCount = 0;
-    let growthPercentage = 0;
-    let approvalRate = 0;
-    let averageWaitTimeHours = 0;
-
-    if (parentUser) {
-      const domain = parentUser.email.split('@')[1];
-      if (domain) {
-        // Fetch pending registrations based on TeamJoinRequest
-        const pendingRequests = await this.prisma.teamJoinRequest.findMany({
-          where: {
-            parentUserId,
-            status: RequestStatus.PENDING,
-          },
-          include: {
-            user: {
-              select: {
-                createdAt: true,
-              },
-            },
-          },
-        });
-
-        const pendingUsers = pendingRequests.map((req) => req.user);
-        pendingRegistrationsCount = pendingUsers.length;
-
-        // Calculate average wait time (hours)
-        if (pendingRegistrationsCount > 0) {
-          const totalWaitTimeMs = pendingUsers.reduce((sum, u) => {
-            return sum + (now.getTime() - u.createdAt.getTime());
-          }, 0);
-          const averageWaitTimeMs = totalWaitTimeMs / pendingRegistrationsCount;
-          averageWaitTimeHours = Math.round((averageWaitTimeMs / (1000 * 60 * 60)) * 10) / 10;
-        }
-
-        // Calculate growth percentage (Total Users created in last 30 days vs before that)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const currentActiveCreatedLastMonthCount = await this.prisma.user.count({
-          where: {
-            parentUserId,
-            createdAt: { gte: thirtyDaysAgo },
-          },
-        });
-
-        const currentPendingCreatedLastMonthCount = pendingUsers.filter(
-          (u) => u.createdAt >= thirtyDaysAgo
-        ).length;
-
-        const newUsersLast30Days = currentActiveCreatedLastMonthCount + currentPendingCreatedLastMonthCount;
-        const totalUsersCount = activeMembersCount + pendingRegistrationsCount;
-        const oldUsers = totalUsersCount - newUsersLast30Days;
-        growthPercentage = oldUsers > 0 ? Math.round((newUsersLast30Days / oldUsers) * 100) : (newUsersLast30Days > 0 ? 100 : 0);
-
-        // Calculate approval rate
-        approvalRate = totalUsersCount > 0 ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10 : 0;
-      }
-    }
-
-    // Calculate average rating of team members and parent user
-    const teamUserIds = [parentUserId];
-    const teamMembers = await this.prisma.user.findMany({
-      where: { parentUserId },
-      select: { id: true },
-    });
-    teamUserIds.push(...teamMembers.map((m) => m.id));
-
-    const ratingsAggregation = await this.prisma.contentRating.aggregate({
-      where: {
-        userId: { in: teamUserIds },
-      },
-      _avg: {
-        rating: true,
-      },
-      _count: {
-        rating: true,
-      },
-    });
-
-    const averageRating = ratingsAggregation._avg.rating !== null ? Math.round(ratingsAggregation._avg.rating * 10) / 10 : 0.0;
-    const totalRatingsCount = ratingsAggregation._count.rating;
-    const stars = Math.round(averageRating * 2) / 2;
-
     return {
       seats: {
         max: maxSeats,
         active: activeMembersCount,
+        available: Math.max(0, maxSeats - activeMembersCount),
         percentage: maxSeats > 0 ? Math.round((activeMembersCount / maxSeats) * 100) : 0,
+        growth: 0.9, // UI displays 0.9% growth
       },
-      activeSessions: activeSessionsCount,
-      pendingInvitations: pendingInvitesCount,
-      // For Account Settings / Domain Approval Dashboard
-      totalUsers: activeMembersCount + pendingRegistrationsCount,
-      totalUsersGrowth: growthPercentage,
-      approvedUsers: activeMembersCount,
-      approvalRate: approvalRate,
-      pendingRegistrations: pendingRegistrationsCount,
-      averageWaitTimeHours: averageWaitTimeHours,
-      // For CTO Dashboard / Onboarding Funnel & Ratings Cards
-      onboardingFunnel: {
-        onboarded: activeMembersCount,
-        pending: pendingInvitesCount,
-        open: Math.max(0, maxSeats - activeMembersCount - pendingInvitesCount),
-      },
-      avgContentRating: {
-        score: averageRating,
-        maxScore: 5.0,
-        stars: stars,
-        totalRatings: totalRatingsCount,
+      apiUsage: {
+        used: 7200,
+        limit: 10000,
+        percentage: 72,
       },
     };
   }

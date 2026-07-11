@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, Patch, Delete, Body } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Patch, Delete, Body, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
@@ -7,6 +7,7 @@ import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { TeamService } from './team.service';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import { GetTeamMembersDto } from './dto/get-team-members.dto';
 
 @ApiTags('Team Management - Dashboard')
 @Controller('team')
@@ -31,8 +32,11 @@ export class TeamDashboardController {
   @ApiBearerAuth()
   @Get('members')
   @ApiOperation({ summary: 'Get list of B2B team members' })
-  async getMembers(@CurrentUser('id') userId: string) {
-    const data = await this.teamService.getTeamMembers(userId);
+  async getMembers(
+    @CurrentUser('id') userId: string,
+    @Query() query: GetTeamMembersDto,
+  ) {
+    const data = await this.teamService.getTeamMembers(userId, query);
     return {
       statusCode: 200,
       message: 'Team members fetched successfully',

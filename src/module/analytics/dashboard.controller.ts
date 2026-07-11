@@ -15,8 +15,8 @@ export class DashboardController {
   constructor(private readonly teamService: TeamService) {}
 
   @Get('dashboard')
-  @Roles(UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get aggregated data for CTO dashboard page (metrics and team members list)' })
+  @Roles(UserRoleCode.ENTERPRISE)
+  @ApiOperation({ summary: 'Get aggregated data for CTO dashboard page' })
   async getCTODashboardPageData(@CurrentUser('id') userId: string) {
     const data = await this.teamService.getCTODashboardPageData(userId);
     return {
