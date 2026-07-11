@@ -353,8 +353,7 @@ export class TeamService {
 
     const pendingRegistrationsCount = pendingUsers.length;
 
-    // Calculate average wait time (hours)
-    let averageWaitTimeHours = 0;
+   let averageWaitTimeHours = 0;
     if (pendingRegistrationsCount > 0) {
       const totalWaitTimeMs = pendingUsers.reduce((sum, u) => {
         return sum + (now.getTime() - u.createdAt.getTime());
@@ -363,7 +362,6 @@ export class TeamService {
       averageWaitTimeHours = Math.round((averageWaitTimeMs / (1000 * 60 * 60)) * 10) / 10;
     }
 
-    // Calculate growth percentage (Total Users created in last 30 days vs before that)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -383,11 +381,9 @@ export class TeamService {
     const oldUsers = totalUsersCount - newUsersLast30Days;
     const growthPercentage = oldUsers > 0 ? Math.round((newUsersLast30Days / oldUsers) * 100) : (newUsersLast30Days > 0 ? 100 : 0);
 
-    // Calculate approval rate
-    const approvalRate = totalUsersCount > 0 ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10 : 0;
+   const approvalRate = totalUsersCount > 0 ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10 : 0;
 
-    // Calculate Onboarding Activity (Last 7 days spikes based on user updatedAt field)
-    const sevenDaysAgo = new Date();
+   const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const recentlyOnboardedUsers = await this.prisma.user.findMany({
@@ -564,7 +560,6 @@ export class TeamService {
       ? `Active peak times occur on ${peakDay.day} with ${peakDay.value} user interaction sessions recorded.`
       : 'Active peak times are calculated based on your team\'s weekly interactions.';
 
-    // 3. Value Area Distribution (Categories percentages)
     const progresses = await this.prisma.userContentProgress.findMany({
       where: {
         userId: { in: targetUserIds },
@@ -744,7 +739,6 @@ export class TeamService {
       throw new BadRequestException('Invitation email mismatch');
     }
 
-    // Verify seat capacity of inviter
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         userId: invitation.invitedById,
