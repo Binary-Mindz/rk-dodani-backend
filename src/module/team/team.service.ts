@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { InvitationStatus, SubscriptionStatus, UserRoleCode, TeamRole, RequestStatus, Prisma } from '@prisma/client';
+import { InvitationStatus, SubscriptionStatus, UserRoleCode, TeamRole, RequestStatus, Prisma, UserStatus } from '@prisma/client';
 import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import * as crypto from 'crypto';
 
@@ -429,14 +429,51 @@ export class TeamService {
   }
 
   async getCTODashboardPageData(parentUserId: string) {
-    const metrics = await this.getTeamMetrics(parentUserId);
-    const members = await this.getTeamMembers(parentUserId);
-
-    // Calculate Top 5 Research Categories based on content progress of team members
-    const activeCategories = await this.prisma.category.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true },
+    const user = await this.prisma.user.findUnique({
+      where: { id: parentUserId },
+      include: {
+        subscriptions: {
+          where: { status: SubscriptionStatus.ACTIVE },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
     });
+
+    const activeSub = user?.subscriptions[0] || null;
+    const totalSeats = activeSub ? activeSub.seats : 1;
+
+    const usedSeats = await this.prisma.user.count({
+      where: {
+        parentUserId,
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    const availableSeats = Math.max(0, totalSeats - usedSeats);
+    const percentage = totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
+
+    const seatUtilization = {
+      percentage,
+      usedSeats,
+      totalSeats,
+      availableSeats,
+    };
+
+    const now = new Date();
+    const pending = await this.prisma.teamInvitation.count({
+      where: {
+        invitedById: parentUserId,
+        status: InvitationStatus.PENDING,
+        expiresAt: { gt: now },
+      },
+    });
+
+    const onboardingFunnel = {
+      onboarded: usedSeats,
+      pending,
+      open: Math.max(0, totalSeats - usedSeats - pending),
+    };
 
     const teamUserIds = [parentUserId];
     const teamMembers = await this.prisma.user.findMany({
@@ -444,6 +481,117 @@ export class TeamService {
       select: { id: true },
     });
     teamUserIds.push(...teamMembers.map((m) => m.id));
+
+    const activeThreshold = new Date(now.getTime() - 15 * 60 * 1000); // 15 mins ago
+    const activeResearchSessions = await this.prisma.userSession.count({
+      where: {
+        userId: { in: teamUserIds },
+        lastUsedAt: { gte: activeThreshold },
+      },
+    });
+
+    const trend: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${date}`;
+      trend.push({
+        date: dateString,
+        count: 0,
+      });
+    }
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const logs = await this.prisma.userActivityLog.findMany({
+      where: {
+        userId: { in: teamUserIds },
+        createdAt: { gte: sevenDaysAgo },
+      },
+      select: { createdAt: true },
+    });
+
+    for (const log of logs) {
+      const logDate = new Date(log.createdAt);
+      const year = logDate.getFullYear();
+      const month = String(logDate.getMonth() + 1).padStart(2, '0');
+      const date = String(logDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${date}`;
+
+      const trendDay = trend.find((t) => t.date === dateString);
+      if (trendDay) {
+        trendDay.count += 1;
+      }
+    }
+
+    const activeEngagement = {
+      activeResearchSessions,
+      trend,
+    };
+
+    const ratingsAggregation = await this.prisma.contentRating.aggregate({
+      where: {
+        userId: { in: teamUserIds },
+      },
+      _avg: {
+        rating: true,
+      },
+      _count: {
+        rating: true,
+      },
+    });
+
+    const score = ratingsAggregation._avg.rating !== null ? Math.round(ratingsAggregation._avg.rating * 10) / 10 : 0.0;
+    const totalRatings = ratingsAggregation._count.rating;
+    const stars = Math.round(score * 2) / 2;
+
+    const avgContentRating = {
+      score,
+      maxScore: 5,
+      stars,
+      totalRatings,
+    };
+
+    const featuredContentRaw = await this.prisma.contentItem.findFirst({
+      where: {
+        isFeatured: true,
+        status: 'PUBLISHED',
+        deletedAt: null,
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        subtitle: true,
+        excerpt: true,
+        summary: true,
+        coverImageUrl: true,
+        thumbnailUrl: true,
+      },
+    });
+
+    const featuredContent = featuredContentRaw
+      ? {
+          id: featuredContentRaw.id,
+          slug: featuredContentRaw.slug,
+          title: featuredContentRaw.title,
+          subtitle: featuredContentRaw.subtitle || featuredContentRaw.excerpt || featuredContentRaw.summary || '',
+          coverImageUrl: featuredContentRaw.coverImageUrl || featuredContentRaw.thumbnailUrl || null,
+        }
+      : null;
+
+    const activeCategories = await this.prisma.category.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+    });
 
     const progresses = await this.prisma.userContentProgress.findMany({
       where: {
@@ -487,40 +635,16 @@ export class TeamService {
     }
 
     const topCategories = Object.values(categoryCounts)
+      .filter((c) => c.count > 0)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    const featuredContent = await this.prisma.contentItem.findFirst({
-      where: {
-        isFeatured: true,
-        status: 'PUBLISHED',
-        deletedAt: null,
-      },
-      orderBy: {
-        publishedAt: 'desc',
-      },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        subtitle: true,
-        excerpt: true,
-        summary: true,
-        coverImageUrl: true,
-        thumbnailUrl: true,
-      },
-    });
-
     return {
-      metrics,
-      members,
-      featuredContent: featuredContent ? {
-        id: featuredContent.id,
-        slug: featuredContent.slug,
-        title: featuredContent.title,
-        subtitle: featuredContent.subtitle || featuredContent.excerpt || featuredContent.summary || '',
-        coverImageUrl: featuredContent.coverImageUrl || featuredContent.thumbnailUrl || null,
-      } : null,
+      seatUtilization,
+      onboardingFunnel,
+      activeEngagement,
+      avgContentRating,
+      featuredContent,
       topCategories,
     };
   }
