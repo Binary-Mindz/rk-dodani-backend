@@ -2,7 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateRandomMembersDto } from './dto/create-random-members.dto';
-import { faker } from '@faker-js/faker';
+
 import * as bcrypt from 'bcrypt';
 import { UserStatus, TeamRole, Prisma } from '@prisma/client';
 
@@ -32,9 +32,10 @@ export class TeamTestController {
     const newUsers: Prisma.UserCreateManyInput[] = [];
 
     for (let i = 0; i < count; i++) {
-      const firstName = faker.person.firstName();
-      const lastName = faker.person.lastName();
-      const email = faker.internet.email({ firstName, lastName, provider: 'test-team.com' });
+      const randomId = Math.floor(Math.random() * 1000000);
+      const firstName = `TestUser${randomId}`;
+      const lastName = `Member${i}`;
+      const email = `testuser${randomId}_${i}@test-team.com`;
 
       newUsers.push({
         email,
@@ -45,7 +46,7 @@ export class TeamTestController {
         status: UserStatus.ACTIVE,
         teamRole: TeamRole.MEMBER,
         parentUserId,
-        avatarUrl: faker.image.avatar(),
+        avatarUrl: `https://ui-avatars.com/api/?name=${firstName}+${lastName}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
