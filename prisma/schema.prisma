@@ -69,7 +69,6 @@ model User {
   adminJoinRequests     TeamJoinRequest[]     @relation("AdminJoinRequests")
 }
 
-
 model Role {
   id          String       @id @default(uuid())
   code        UserRoleCode @unique
@@ -1092,12 +1091,13 @@ model TeamInvitation {
   email       String
   role        TeamRole         @default(MEMBER)
   token       String           @unique
+  message     String?
   status      InvitationStatus @default(PENDING)
   invitedById String
   createdAt   DateTime         @default(now())
   expiresAt   DateTime
 
-  invitedBy   User             @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  invitedBy User @relation(fields: [invitedById], references: [id], onDelete: Cascade)
 
   @@index([invitedById])
   @@index([token])
@@ -1116,16 +1116,16 @@ enum TeamRole {
 }
 
 model ContentRating {
-  id            String      @id @default(uuid())
+  id            String   @id @default(uuid())
   userId        String
   contentItemId String
-  rating        Int         // 1 to 5 stars
-  review        String?     // Optional text review comment
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  rating        Int // 1 to 5 stars
+  review        String? // Optional text review comment
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
 
   @@unique([userId, contentItemId])
   @@index([contentItemId])
@@ -1139,8 +1139,8 @@ model TeamJoinRequest {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  user         User          @relation("UserJoinRequests", fields: [userId], references: [id], onDelete: Cascade)
-  parentUser   User          @relation("AdminJoinRequests", fields: [parentUserId], references: [id], onDelete: Cascade)
+  user       User @relation("UserJoinRequests", fields: [userId], references: [id], onDelete: Cascade)
+  parentUser User @relation("AdminJoinRequests", fields: [parentUserId], references: [id], onDelete: Cascade)
 
   @@unique([userId, parentUserId])
   @@index([parentUserId])
@@ -1151,4 +1151,3 @@ enum RequestStatus {
   APPROVED
   REJECTED
 }
-

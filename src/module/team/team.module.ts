@@ -5,6 +5,7 @@ import { TeamDashboardController } from './team-dashboard.controller';
 import { UsageEngagementController } from './usage-engagement.controller';
 import { TeamOnboardingController } from './team-onboarding.controller';
 import { TeamTestController } from './team-test.controller';
+import { MailerModule } from '@nestjs-modules/mailer';
 
 @Module({
   controllers: [
@@ -13,6 +14,7 @@ import { TeamTestController } from './team-test.controller';
     UsageEngagementController,
     TeamOnboardingController,
     TeamTestController,
+    MailerModule
   ],
   providers: [TeamService],
   exports: [TeamService],

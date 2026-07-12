@@ -16,7 +16,6 @@ export class TeamTestController {
   async createRandomMembers(@Body() dto: CreateRandomMembersDto) {
     const { parentUserId, count = 5 } = dto;
 
-    // Verify parent user exists
     const parentUser = await this.prisma.user.findUnique({
       where: { id: parentUserId },
     });

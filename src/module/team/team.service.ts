@@ -3,17 +3,20 @@ import { PrismaService } from 'prisma/prisma.service';
 import { InvitationStatus, SubscriptionStatus, UserRoleCode, TeamRole, RequestStatus, Prisma, UserStatus } from '@prisma/client';
 import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import * as crypto from 'crypto';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { MailService } from '../../common/mail/mail.service';
 
 @Injectable()
 export class TeamService {
   private readonly logger = new Logger(TeamService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private readonly mailService: MailService) { }
 
   async getUsers(query: GetTeamMembersDto) {
 
     let where: Prisma.UserWhereInput = {
-      status: UserStatus.ACTIVE,
+      status: query.status || UserStatus.ACTIVE,
+      ...(query.teamRole && { teamRole: query.teamRole }),
     };
 
     if (query.search) {
@@ -72,8 +75,8 @@ export class TeamService {
   }
 
 
-  async inviteMember(invitedById: string, email: string, role: TeamRole) {
-    this.logger.log(`Inviting team member: ${email} by parentUserId: ${invitedById}`);
+  async inviteMember(invitedById: string, dto: InviteMemberDto) {
+    this.logger.log(`Inviting team member: ${dto.email} by parentUserId: ${invitedById}`);
 
     const subscription = await this.prisma.subscription.findFirst({
       where: {
@@ -96,7 +99,7 @@ export class TeamService {
       throw new BadRequestException(`Seat limit reached. You have utilized all ${allowedSeats} allowed seats.`);
     }
 
-    const existingMember = await this.prisma.user.findFirst({ where: { email } });
+    const existingMember = await this.prisma.user.findFirst({ where: { email: dto.email } });
     if (existingMember && existingMember.parentUserId === invitedById) {
       throw new BadRequestException('User is already a member of your team.');
     }
@@ -107,14 +110,18 @@ export class TeamService {
 
     const invitation = await this.prisma.teamInvitation.create({
       data: {
-        email,
-        role,
+        email: dto.email,
+        role: dto.role,
         token,
+        message: dto.message,
         status: InvitationStatus.PENDING,
         invitedById,
         expiresAt,
       },
     });
+
+
+    await this.mailService.sendTeamInvitation(dto.email, existingMember?.fullName || "", token, dto.role);
 
     return {
       message: 'Invitation generated successfully',
@@ -151,6 +158,8 @@ export class TeamService {
 
     const where: Prisma.UserWhereInput = {
       parentUserId,
+      ...(query.teamRole && { teamRole: query.teamRole }),
+      ...(query.status && { status: query.status }),
       ...(query.search && {
         OR: [
           { firstName: { contains: query.search, mode: 'insensitive' } },
@@ -223,7 +232,7 @@ export class TeamService {
         active: activeMembersCount,
         available: Math.max(0, maxSeats - activeMembersCount),
         percentage: maxSeats > 0 ? Math.round((activeMembersCount / maxSeats) * 100) : 0,
-        growth: 0.9, 
+        growth: 0.9,
       },
       apiUsage: {
         used: 7200,
@@ -1572,7 +1581,7 @@ export class TeamService {
           timeAgo,
           createdAt: msg.createdAt,
         };
-      }).reverse(); 
+      }).reverse();
     }
 
     return {

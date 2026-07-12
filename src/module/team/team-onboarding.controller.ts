@@ -24,7 +24,7 @@ export class TeamOnboardingController {
     @CurrentUser('id') userId: string,
     @Body() dto: InviteMemberDto,
   ) {
-    const data = await this.teamService.inviteMember(userId, dto.email, dto.role);
+    const data = await this.teamService.inviteMember(userId, dto);
     return {
       statusCode: 201,
       message: 'Team member invited successfully',

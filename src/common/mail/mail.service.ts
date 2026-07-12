@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { InquiryDto } from './dto/inquiry.dto';
+import { TeamRole } from '@prisma/client';
 
 @Injectable()
 export class MailService {
@@ -297,4 +298,97 @@ export class MailService {
       </div>
     `;
   }
+
+  async sendTeamInvitation(
+    email: string,
+    name: string,
+    token: string,
+    role: TeamRole,
+    message?: string
+  ) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Invitation to join team on AgentArum',
+      html: this.templateToSendTeamInvitation(email, name, token, role, message),
+    });
+  }
+
+  private templateToSendTeamInvitation(
+    email: string,
+    name: string,
+    token: string,
+    role: TeamRole,
+    message?: string
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const invitationLink = `${frontendUrl}/accept-invitation?token=${token}`;
+
+    return `
+      <div style="margin:0; padding:0; background-color:#f4f7fb; font-family:Arial, Helvetica, sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f7fb; margin:0; padding:30px 0;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px; background:#ffffff; border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.08);">
+                
+                <tr>
+                  <td style="background:#2563eb; padding:28px 32px; text-align:center;">
+                    <h1 style="margin:0; color:#ffffff; font-size:26px; font-weight:700; letter-spacing:0.3px;">
+                      AgentArum
+                    </h1>
+                    <p style="margin:8px 0 0; color:#dbeafe; font-size:14px;">
+                      You have been invited to join a team!
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:40px 32px 24px;">
+                    <h2 style="margin:0 0 20px; font-size:20px; color:#111827; font-weight:700;">
+                      Hello ${name ? name : email.split('@')[0]},
+                    </h2>
+
+                    <p style="margin:0 0 20px; font-size:16px; color:#4b5563; line-height:1.6;">
+                      You have been invited to join an organization team on AgentArum with the role of <strong>${role}</strong>.
+                    </p>
+
+                    ${message ? `
+                    <div style="margin:0 0 24px; padding:16px 18px; background:#f9fafb; border-left:4px solid #2563eb; border-radius:10px;">
+                      <p style="margin:0 0 5px; font-size:13px; font-weight:bold; color:#4b5563; text-transform:uppercase;">Message from sender:</p>
+                      <p style="margin:0; font-size:15px; line-height:1.6; color:#374151; font-style:italic;">
+                        "${message}"
+                      </p>
+                    </div>
+                    ` : ''}
+
+                    <div style="text-align:center; margin:35px 0;">
+                      <a href="${invitationLink}" style="display:inline-block; padding:14px 32px; background-color:#2563eb; color:#ffffff; font-size:16px; font-weight:700; text-decoration:none; border-radius:8px; box-shadow:0 4px 12px rgba(37, 99, 235, 0.3);">
+                        Accept Invitation
+                      </a>
+                    </div>
+
+                    <p style="margin:0 0 10px; font-size:14px; color:#6b7280; line-height:1.6; text-align:center;">
+                      Or copy and paste this URL into your browser:
+                    </p>
+                    <p style="margin:0; font-size:14px; color:#2563eb; text-align:center; word-break: break-all;">
+                      <a href="${invitationLink}" style="color:#2563eb; text-decoration:underline;">${invitationLink}</a>
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:22px 32px; background:#f9fafb; text-align:center; border-top:1px solid #e5e7eb;">
+                    <p style="margin:0; font-size:13px; color:#9ca3af; line-height:1.6;">
+                      © ${new Date().getFullYear()} AgentArum. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+  
 }

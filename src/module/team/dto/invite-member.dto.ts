@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { TeamRole } from '@prisma/client';
 
 export class InviteMemberDto {
@@ -20,6 +20,15 @@ export class InviteMemberDto {
   })
   @IsNotEmpty({ message: 'Role is required' })
   @IsEnum(TeamRole)
-  role!: TeamRole;
+  role: TeamRole;
+
+  @ApiProperty({
+    description: 'Message to be sent with the invitation.',
+    example: 'You are invited to join the team.',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  message?: string;
 }
 
