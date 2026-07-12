@@ -17,6 +17,19 @@ export class TeamDashboardController {
   constructor(private readonly teamService: TeamService) {}
 
   @ApiBearerAuth()
+  @Get('users')
+  @ApiOperation({ summary: 'Get list of users' })
+  async getUsers(@Query() query: GetTeamMembersDto) {
+    const data = await this.teamService.getUsers(query);
+    return {
+      statusCode: 200,
+      message: 'Users fetched successfully',
+      data,
+    };
+  }
+
+
+  @ApiBearerAuth()
   @Get('metrics')
   @ApiOperation({ summary: 'Get B2B team metrics (seat utilization, active sessions)' })
   async getMetrics(@CurrentUser('id') userId: string) {

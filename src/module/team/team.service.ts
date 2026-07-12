@@ -8,7 +8,69 @@ import * as crypto from 'crypto';
 export class TeamService {
   private readonly logger = new Logger(TeamService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+
+  async getUsers(query: GetTeamMembersDto) {
+
+    let where: Prisma.UserWhereInput = {
+      status: UserStatus.ACTIVE,
+    };
+
+    if (query.search) {
+      where.OR = [
+        {
+          email: { contains: query.search, mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: query.search, mode: 'insensitive' },
+        },
+        {
+          lastName: { contains: query.search, mode: 'insensitive' },
+        },
+      ]
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const sortBy = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder || 'desc';
+
+    const allowedSortFields = ['createdAt', 'firstName', 'lastName', 'lastLoginAt', 'status', 'teamRole'];
+    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderBy = { [orderByField]: sortOrder };
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        ...where,
+        roles: {
+          none: { role: { code: { in: [UserRoleCode.SUPER_ADMIN, UserRoleCode.ENTERPRISE] } } }
+        }
+      },
+      include: {
+        roles: { include: { role: true } }
+      },
+      skip,
+      take: limit,
+      orderBy,
+    });
+
+    if (!users) {
+      return {
+        data: [],
+        message: "No users found"
+      }
+    }
+
+    return {
+      data: users,
+      message: "Users fetched successfully"
+    }
+
+
+  }
+
 
   async inviteMember(invitedById: string, email: string, role: TeamRole) {
     this.logger.log(`Inviting team member: ${email} by parentUserId: ${invitedById}`);
@@ -353,7 +415,7 @@ export class TeamService {
 
     const pendingRegistrationsCount = pendingUsers.length;
 
-   let averageWaitTimeHours = 0;
+    let averageWaitTimeHours = 0;
     if (pendingRegistrationsCount > 0) {
       const totalWaitTimeMs = pendingUsers.reduce((sum, u) => {
         return sum + (now.getTime() - u.createdAt.getTime());
@@ -381,9 +443,9 @@ export class TeamService {
     const oldUsers = totalUsersCount - newUsersLast30Days;
     const growthPercentage = oldUsers > 0 ? Math.round((newUsersLast30Days / oldUsers) * 100) : (newUsersLast30Days > 0 ? 100 : 0);
 
-   const approvalRate = totalUsersCount > 0 ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10 : 0;
+    const approvalRate = totalUsersCount > 0 ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10 : 0;
 
-   const sevenDaysAgo = new Date();
+    const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const recentlyOnboardedUsers = await this.prisma.user.findMany({
@@ -589,12 +651,12 @@ export class TeamService {
 
     const featuredContent = featuredContentRaw
       ? {
-          id: featuredContentRaw.id,
-          slug: featuredContentRaw.slug,
-          title: featuredContentRaw.title,
-          subtitle: featuredContentRaw.subtitle || featuredContentRaw.excerpt || featuredContentRaw.summary || '',
-          coverImageUrl: featuredContentRaw.coverImageUrl || featuredContentRaw.thumbnailUrl || null,
-        }
+        id: featuredContentRaw.id,
+        slug: featuredContentRaw.slug,
+        title: featuredContentRaw.title,
+        subtitle: featuredContentRaw.subtitle || featuredContentRaw.excerpt || featuredContentRaw.summary || '',
+        coverImageUrl: featuredContentRaw.coverImageUrl || featuredContentRaw.thumbnailUrl || null,
+      }
       : null;
 
     const activeCategories = await this.prisma.category.findMany({
@@ -644,8 +706,8 @@ export class TeamService {
     }
 
     const topCategories = Object.values(categoryCounts)
-  .sort((a, b) => b.count - a.count)
-  .slice(0, 5);
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     return {
       seatUtilization,
@@ -1290,8 +1352,8 @@ export class TeamService {
     const systemRatingsAgg = await this.prisma.contentRating.aggregate({
       _avg: { rating: true },
     });
-    const averageRating = ratingsAgg._avg.rating !== null 
-      ? Math.round(ratingsAgg._avg.rating * 10) / 10 
+    const averageRating = ratingsAgg._avg.rating !== null
+      ? Math.round(ratingsAgg._avg.rating * 10) / 10
       : (systemRatingsAgg._avg.rating !== null ? Math.round(systemRatingsAgg._avg.rating * 10) / 10 : 0.0);
     const stars = Math.round(averageRating * 2) / 2;
 
@@ -1514,7 +1576,7 @@ export class TeamService {
     if (teamConversation && teamConversation.messages.length > 0) {
       teamDiscussion = teamConversation.messages.map((msg) => {
         const senderName = msg.sender.fullName || `${msg.sender.firstName || ''} ${msg.sender.lastName || ''}`.trim() || 'Team Member';
-        
+
         // Calculate dynamic relative time (e.g. 10M AGO)
         const diffMs = Date.now() - msg.createdAt.getTime();
         const diffMins = Math.max(1, Math.round(diffMs / 60000));
