@@ -120,7 +120,6 @@ export class TeamService {
       },
     });
 
-
     await this.mailService.sendTeamInvitation(dto.email, existingMember?.fullName || "", token, dto.role);
 
     return {
@@ -1221,10 +1220,6 @@ export class TeamService {
 
     if (!cto) {
       throw new NotFoundException('The selected CTO/Admin does not exist.');
-    }
-
-    if (!cto.email.toLowerCase().endsWith(`@${domain.toLowerCase()}`)) {
-      throw new BadRequestException('The selected CTO/Admin does not match your organization domain.');
     }
 
     const hasEnterpriseRole = cto.roles.some((r) => r.role.code === UserRoleCode.ENTERPRISE);
