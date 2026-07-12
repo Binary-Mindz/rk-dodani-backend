@@ -49,6 +49,19 @@ export class TeamOnboardingController {
   }
 
   @ApiBearerAuth()
+  @Roles(UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
+  @Post("bulk-approve")
+  @ApiOperation({summary:"Accept all pending members"})
+  async bulkApprove(@CurrentUser('id') userId:string){
+    const data = await this.teamService.bulkApprove(userId);
+    return {
+      statusCode: 200,
+      message: 'Team members approved successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
   @Roles(UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
   @Get('discover')
   @ApiOperation({ summary: 'Discover active B2B teams/CTOs matching the user\'s email domain suffix' })

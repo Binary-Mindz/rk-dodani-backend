@@ -1583,4 +1583,103 @@ export class TeamService {
       teamDiscussion,
     };
   }
+
+  async bulkApprove(userId: string) {
+    const parentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!parentUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        status: SubscriptionStatus.ACTIVE,
+      },
+    });
+
+    if (!subscription) {
+      throw new BadRequestException('You do not have an active B2B subscription to add team members.');
+    }
+
+    const pendingRequests = await this.prisma.teamJoinRequest.findMany({
+      where: {
+        parentUserId: userId,
+        status: RequestStatus.PENDING,
+      },
+      include: {
+        user: { select: { id: true, email: true } },
+      },
+    });
+
+    if (pendingRequests.length === 0) {
+      return {
+        message: 'No pending requests to approve',
+        totalApproved: 0,
+      };
+    }
+
+    const activeSeatsCount = await this.prisma.user.count({
+      where: { parentUserId: userId },
+    });
+
+    const availableSeats = subscription.seats - activeSeatsCount;
+
+    if (availableSeats <= 0) {
+      throw new BadRequestException('Cannot approve members. Seat capacity limit reached.');
+    }
+
+    const requestsToApprove = pendingRequests.slice(0, availableSeats);
+    const userIdsToApprove = requestsToApprove.map((req) => req.userId);
+    const userEmailsToApprove = requestsToApprove.map((req) => req.user.email);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.teamInvitation.updateMany({
+        where: {
+          email: { in: userEmailsToApprove },
+          status: InvitationStatus.PENDING,
+        },
+        data: { status: InvitationStatus.ACCEPTED },
+      });
+
+      await tx.teamJoinRequest.updateMany({
+        where: {
+          userId: { in: userIdsToApprove },
+          parentUserId: userId,
+          status: RequestStatus.PENDING,
+        },
+        data: { status: RequestStatus.APPROVED },
+      });
+
+      await tx.user.updateMany({
+        where: { id: { in: userIdsToApprove } },
+        data: {
+          parentUserId: userId,
+          teamRole: TeamRole.MEMBER,
+        },
+      });
+    });
+
+    const approvedUsers = await this.prisma.user.findMany({
+      where: { id: { in: userIdsToApprove } },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        teamRole: true,
+      },
+    });
+
+    return {
+      message: `Successfully approved ${requestsToApprove.length} team members`,
+      approvedRequests: approvedUsers,
+      totalApproved: approvedUsers.length,
+      ignoredCount: pendingRequests.length - requestsToApprove.length,
+    };
+  }
 }
