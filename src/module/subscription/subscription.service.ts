@@ -28,12 +28,6 @@ export class SubscriptionService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    // B2B Validation
-    if (plan.targetAudience === PlanAudience.B2B) {
-      throw new BadRequestException('B2B plans can only be manually assigned by administrators. Please contact support to request a plan.');
-    }
-
-    // ✅ FREE PLAN DIRECT ACTIVATION (NO STRIPE GATEWAY INVOLVED)
     if (Number(plan.priceAmount) === 0) {
       this.logger.log(`Triggering instant deployment schema for free plan tier: ${plan.code}`);
       await this.executeInstantFreeActivation(user, plan);
