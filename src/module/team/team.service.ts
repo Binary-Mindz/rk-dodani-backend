@@ -135,7 +135,7 @@ export class TeamService {
     ]);
 
     return {
-      items: members,
+      members,
       meta: {
         page,
         limit,
