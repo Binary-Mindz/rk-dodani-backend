@@ -16,7 +16,6 @@ import { GetTeamMembersDto } from './dto/get-team-members.dto';
 export class TeamDashboardController {
   constructor(private readonly teamService: TeamService) {}
 
-
   @ApiBearerAuth()
   @Get('metrics')
   @ApiOperation({ summary: 'Get B2B team metrics (seat utilization, active sessions)' })

@@ -644,9 +644,8 @@ export class TeamService {
     }
 
     const topCategories = Object.values(categoryCounts)
-      .filter((c) => c.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+  .sort((a, b) => b.count - a.count)
+  .slice(0, 5);
 
     return {
       seatUtilization,
