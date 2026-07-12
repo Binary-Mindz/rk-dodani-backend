@@ -2,8 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from 'prisma/prisma.service';
 import { QueryUserManagementDto } from './dto/query-user-management.dto';
 import { UpdateUserManagementDto } from './dto/update-user-management.dto';
-import { AuditAction, BillingProvider, Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
+import { AuditAction, BillingProvider, Prisma, SubscriptionStatus, UserRoleCode, UserStatus, PlanAudience, EntitlementStatus, EntitlementSourceType, EntitlementType } from '@prisma/client';
 import { ToggleSuspendDto } from './dto/suspend.dto';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 
 @Injectable()
 export class UserManagementService {
@@ -240,10 +241,10 @@ export class UserManagementService {
             entityType: 'USER_ACCOUNT',
             entityId: id,
             action: AuditAction.UPDATE,
-            newValues: { 
-              status: UserStatus.BLOCKED, 
-              reason: dto.reason, 
-              context: 'Account suspended by SuperAdmin' 
+            newValues: {
+              status: UserStatus.BLOCKED,
+              reason: dto.reason,
+              context: 'Account suspended by SuperAdmin'
             },
           },
         });
@@ -266,10 +267,10 @@ export class UserManagementService {
             entityType: 'USER_ACCOUNT',
             entityId: id,
             action: AuditAction.UPDATE,
-            newValues: { 
-              status: UserStatus.ACTIVE, 
-              reason: dto.reason, 
-              context: 'Account unsuspended/restored by SuperAdmin' 
+            newValues: {
+              status: UserStatus.ACTIVE,
+              reason: dto.reason,
+              context: 'Account unsuspended/restored by SuperAdmin'
             },
           },
         });
@@ -293,7 +294,7 @@ export class UserManagementService {
                 userId: id,
                 planId: freePlan.id,
                 status: SubscriptionStatus.ACTIVE,
-                provider: BillingProvider.STRIPE, 
+                provider: BillingProvider.STRIPE,
                 currentPeriodStart: new Date(),
                 currentPeriodEnd: periodEnd,
               },
@@ -314,5 +315,122 @@ export class UserManagementService {
 
       return updatedUser;
     });
+  }
+
+  async updateUserSubscription(userId: string, dto: UpdateSubscriptionDto, adminId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: dto.planId },
+    });
+    if (!plan) {
+      throw new NotFoundException('Plan not found');
+    }
+
+    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    const roleRecord = await this.prisma.role.findUnique({
+      where: { code: targetRoleCode },
+    });
+    if (!roleRecord) {
+      throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+    }
+
+    const currentPeriodEnd = new Date();
+    if (dto.billingInterval === 'YEARLY') {
+      currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+    } else {
+      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+    }
+
+    const existingActiveSub = await this.prisma.subscription.findFirst({
+      where: { userId: userId, status: SubscriptionStatus.ACTIVE },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const updatedSubscription = await this.prisma.$transaction(async (tx) => {
+      if (existingActiveSub) {
+        await tx.subscription.update({
+          where: { id: existingActiveSub.id },
+          data: {
+            status: SubscriptionStatus.EXPIRED,
+            endedAt: new Date(),
+          },
+        });
+      }
+
+      const newSubscription = await tx.subscription.create({
+        data: {
+          userId: user.id,
+          planId: plan.id,
+          status: SubscriptionStatus.ACTIVE,
+          provider: plan.billingProvider || 'ADMIN',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: currentPeriodEnd,
+          startedAt: new Date(),
+        },
+      });
+
+      await tx.entitlement.updateMany({
+        where: {
+          userId: user.id,
+          status: EntitlementStatus.ACTIVE,
+        },
+        data: {
+          status: EntitlementStatus.REVOKED,
+          endsAt: new Date(),
+        },
+      });
+
+      await tx.entitlement.create({
+        data: {
+          userId: user.id,
+          planId: plan.id,
+          sourceType: EntitlementSourceType.SUBSCRIPTION,
+          entitlementType: EntitlementType.PLAN_ACCESS,
+          status: EntitlementStatus.ACTIVE,
+          startsAt: new Date(),
+          endsAt: currentPeriodEnd,
+        },
+      });
+
+      await tx.userRole.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: { isActive: false },
+      });
+
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: roleRecord.id } },
+        create: {
+          userId: user.id,
+          roleId: roleRecord.id,
+          isActive: true,
+        },
+        update: {
+          isActive: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: adminId,
+          entityType: 'SUBSCRIPTION',
+          entityId: newSubscription.id,
+          action: existingActiveSub ? AuditAction.UPDATE : AuditAction.CREATE,
+          newValues: { planId: plan.id, billingInterval: dto.billingInterval },
+        },
+      });
+
+      return newSubscription;
+    });
+
+    return {
+      subscription: updatedSubscription,
+      message: existingActiveSub ? 'Subscription updated successfully' : 'Subscription created successfully',
+    };
   }
 }

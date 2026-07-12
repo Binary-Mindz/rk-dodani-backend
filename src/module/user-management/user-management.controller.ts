@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserManagementService } from './user-management.service';
 import { QueryUserManagementDto } from './dto/query-user-management.dto';
 import { UpdateUserManagementDto } from './dto/update-user-management.dto';
@@ -9,6 +9,7 @@ import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ToggleSuspendDto } from './dto/suspend.dto';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 
 @ApiTags('SuperAdmin User Management')
 @ApiBearerAuth()
@@ -57,6 +58,26 @@ export class UserManagementController {
     return {
       statusCode: 200,
       message: `User account status has been successfully changed to ${data.status}.`,
+      data,
+    };
+  }
+
+  @Patch('update-subscription/:id')
+  @ApiOperation({ summary: 'Update user subscription plan and billing cycle' })
+  @ApiResponse({ status: 200, description: 'User subscription updated successfully.' })
+  @ApiParam({
+    name:"id",
+    example:"6913b56c-1455-4e3f-821f-89234b051c59"
+  })
+  async updateSubscription(
+    @Param('id') id: string,
+    @Body() dto: UpdateSubscriptionDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    const data = await this.userManagementService.updateUserSubscription(id, dto, adminId);
+    return {
+      statusCode: 200,
+      message: 'User subscription updated successfully.',
       data,
     };
   }
