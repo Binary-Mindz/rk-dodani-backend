@@ -1211,36 +1211,31 @@ export class TeamService {
     const domain = user.email.split('@')[1];
     if (!domain) throw new BadRequestException('Invalid email address format.');
 
-    const parentUser = await this.prisma.user.findFirst({
-      where: {
-        id: ctoUserId,
-        email: { endsWith: `@${domain}`, mode: 'insensitive' },
-        roles: {
-          some: {
-            role: {
-              code: { in: [UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN] },
-            },
-          },
-        },
-        OR: [
-          {
-            roles: {
-              some: {
-                role: { code: UserRoleCode.SUPER_ADMIN },
-              },
-            },
-          },
-          {
-            subscriptions: {
-              some: { status: SubscriptionStatus.ACTIVE },
-            },
-          },
-        ],
+    const cto = await this.prisma.user.findUnique({
+      where: { id: ctoUserId },
+      include: {
+        roles: { include: { role: true } },
+        subscriptions: { where: { status: SubscriptionStatus.ACTIVE } },
       },
     });
 
-    if (!parentUser) {
-      throw new BadRequestException('The selected CTO/Admin is not active or does not match your organization.');
+    if (!cto) {
+      throw new NotFoundException('The selected CTO/Admin does not exist.');
+    }
+
+    if (!cto.email.toLowerCase().endsWith(`@${domain.toLowerCase()}`)) {
+      throw new BadRequestException('The selected CTO/Admin does not match your organization domain.');
+    }
+
+    const hasEnterpriseRole = cto.roles.some((r) => r.role.code === UserRoleCode.ENTERPRISE);
+    const hasSuperAdminRole = cto.roles.some((r) => r.role.code === UserRoleCode.SUPER_ADMIN);
+
+    if (!hasEnterpriseRole && !hasSuperAdminRole) {
+      throw new BadRequestException('The selected user does not have the required ENTERPRISE or SUPER_ADMIN role.');
+    }
+
+    if (!hasSuperAdminRole && cto.subscriptions.length === 0) {
+      throw new BadRequestException('The selected CTO/Admin does not have an active B2B subscription.');
     }
 
     return this.prisma.teamJoinRequest.upsert({
