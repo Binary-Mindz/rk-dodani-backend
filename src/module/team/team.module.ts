@@ -5,16 +5,16 @@ import { TeamDashboardController } from './team-dashboard.controller';
 import { UsageEngagementController } from './usage-engagement.controller';
 import { TeamOnboardingController } from './team-onboarding.controller';
 import { TeamTestController } from './team-test.controller';
-import { MailerModule } from '@nestjs-modules/mailer';
+import { MailModule } from '../../common/mail/mail.module';
 
 @Module({
+  imports: [MailModule],
   controllers: [
     AccountSettingsController,
     TeamDashboardController,
     UsageEngagementController,
     TeamOnboardingController,
-    TeamTestController,
-    MailerModule
+    TeamTestController
   ],
   providers: [TeamService],
   exports: [TeamService],
