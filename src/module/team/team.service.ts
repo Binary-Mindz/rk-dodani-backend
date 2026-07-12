@@ -75,7 +75,6 @@ export class TeamService {
   async inviteMember(invitedById: string, email: string, role: TeamRole) {
     this.logger.log(`Inviting team member: ${email} by parentUserId: ${invitedById}`);
 
-    // Verify parent user has an active subscription
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         userId: invitedById,
@@ -87,7 +86,6 @@ export class TeamService {
       throw new BadRequestException('You must have an active subscription to invite team members.');
     }
 
-    // Verify seat capacity
     const activeSeatsCount = await this.prisma.user.count({
       where: { parentUserId: invitedById },
     });
@@ -98,7 +96,6 @@ export class TeamService {
       throw new BadRequestException(`Seat limit reached. You have utilized all ${allowedSeats} allowed seats.`);
     }
 
-    // Check if user is already invited or a member
     const existingMember = await this.prisma.user.findFirst({ where: { email } });
     if (existingMember && existingMember.parentUserId === invitedById) {
       throw new BadRequestException('User is already a member of your team.');
@@ -106,7 +103,7 @@ export class TeamService {
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // Expiry in 7 days
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     const invitation = await this.prisma.teamInvitation.create({
       data: {
@@ -208,7 +205,6 @@ export class TeamService {
   }
 
   async getTeamMetrics(parentUserId: string) {
-    // 1. Seat Utilization
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         userId: parentUserId,
@@ -227,7 +223,7 @@ export class TeamService {
         active: activeMembersCount,
         available: Math.max(0, maxSeats - activeMembersCount),
         percentage: maxSeats > 0 ? Math.round((activeMembersCount / maxSeats) * 100) : 0,
-        growth: 0.9, // UI displays 0.9% growth
+        growth: 0.9, 
       },
       apiUsage: {
         used: 7200,
@@ -248,7 +244,6 @@ export class TeamService {
     const domain = parentUser.email.split('@')[1];
     if (!domain) throw new BadRequestException('Invalid email domain suffix');
 
-    // Return users who have submitted a PENDING join request to this parent user
     const pendingRequests = await this.prisma.teamJoinRequest.findMany({
       where: {
         parentUserId,
@@ -393,7 +388,6 @@ export class TeamService {
 
     const now = new Date();
 
-    // Fetch pending registrations based on TeamJoinRequest
     const pendingRequests = await this.prisma.teamJoinRequest.findMany({
       where: {
         parentUserId,
@@ -553,7 +547,7 @@ export class TeamService {
     });
     teamUserIds.push(...teamMembers.map((m) => m.id));
 
-    const activeThreshold = new Date(now.getTime() - 15 * 60 * 1000); // 15 mins ago
+    const activeThreshold = new Date(now.getTime() - 15 * 60 * 1000);
     const activeResearchSessions = await this.prisma.userSession.count({
       where: {
         userId: { in: teamUserIds },
@@ -720,7 +714,7 @@ export class TeamService {
   }
 
   async getUsageEngagementData(currentUserId: string, mode: 'self' | 'team' = 'team') {
-    // 1. Identify targets
+
     const targetUserIds = [currentUserId];
     if (mode === 'team') {
       const teamMembers = await this.prisma.user.findMany({
@@ -730,7 +724,6 @@ export class TeamService {
       targetUserIds.push(...teamMembers.map((m) => m.id));
     }
 
-    // 2. Active Engagement Session Spikes (7-day trend)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const logs = await this.prisma.userActivityLog.findMany({
@@ -795,7 +788,6 @@ export class TeamService {
       }))
       .sort((a, b) => b.percentage - a.percentage);
 
-    // 4. Self & Team Utility Patterns
     const users = await this.prisma.user.findMany({
       where: {
         id: { in: targetUserIds },
@@ -983,7 +975,6 @@ export class TeamService {
       throw new BadRequestException('User is not a member of your team.');
     }
 
-    // 1. Calculate stats: alignment, totalHours, focusArea
     const userProgresses = await this.prisma.userContentProgress.findMany({
       where: { userId },
       select: {
@@ -1024,10 +1015,9 @@ export class TeamService {
     }
     const focusArea = Object.entries(userCategoryCounts).reduce(
       (max, current) => (current[1] > max[1] ? current : max),
-      ['Blueprints', 0] // fallback to blueprints
+      ['Blueprints', 0]
     )[0];
 
-    // 2. Format interactions activity logs
     const userLogs = await this.prisma.userActivityLog.findMany({
       where: { userId },
       include: { contentItem: true },
@@ -1066,7 +1056,6 @@ export class TeamService {
       };
     });
 
-    // Provide nice sample activity logs if user has no actual logs yet
     if (formattedLogs.length === 0) {
       formattedLogs = [
         {
@@ -1092,7 +1081,6 @@ export class TeamService {
       ];
     }
 
-    // 3. Recommended Skill Coaching Paths (Published items user hasn't completed yet)
     const completedProgresses = await this.prisma.userContentProgress.findMany({
       where: {
         userId,
@@ -1282,7 +1270,6 @@ export class TeamService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    // 1. Calculate Onboarding Journey Steps
     const isProfileSetupCompleted = !!(user.firstName && user.lastName);
 
     const progressCount = await this.prisma.userContentProgress.count({
@@ -1369,7 +1356,6 @@ export class TeamService {
       personalContributionAssets,
     };
 
-    // 3. Trending in the Team
     const parentUserId = user.parentUserId || userId;
     const teamMembers = await this.prisma.user.findMany({
       where: {
@@ -1435,14 +1421,12 @@ export class TeamService {
       }
     }
 
-    // 4. Recommended for You (Next Best Action)
     const completedProgresses = await this.prisma.userContentProgress.findMany({
       where: { userId, status: 'COMPLETED' },
       select: { contentItemId: true },
     });
     const completedIds = completedProgresses.map((p) => p.contentItemId);
 
-    // Let's find top category of user interest
     const userProgressWithCategories = await this.prisma.userContentProgress.findMany({
       where: { userId },
       select: {
@@ -1509,7 +1493,6 @@ export class TeamService {
       tag: 'NEXT BEST ACTION',
     } : null;
 
-    // 5. Value Vault Assets
     const valueVaultItems = await this.prisma.contentItem.findMany({
       where: { status: 'PUBLISHED', deletedAt: null },
       orderBy: { createdAt: 'desc' },
@@ -1543,7 +1526,6 @@ export class TeamService {
       };
     });
 
-    // 6. Team Discussion Chat Messages
     let teamDiscussion: {
       id: string;
       senderName: string;
@@ -1577,7 +1559,6 @@ export class TeamService {
       teamDiscussion = teamConversation.messages.map((msg) => {
         const senderName = msg.sender.fullName || `${msg.sender.firstName || ''} ${msg.sender.lastName || ''}`.trim() || 'Team Member';
 
-        // Calculate dynamic relative time (e.g. 10M AGO)
         const diffMs = Date.now() - msg.createdAt.getTime();
         const diffMins = Math.max(1, Math.round(diffMs / 60000));
         const timeAgo = diffMins < 60 ? `${diffMins}M AGO` : `${Math.round(diffMins / 60)}H AGO`;
@@ -1591,7 +1572,7 @@ export class TeamService {
           timeAgo,
           createdAt: msg.createdAt,
         };
-      }).reverse(); // Order from oldest to newest in front-end
+      }).reverse(); 
     }
 
     return {

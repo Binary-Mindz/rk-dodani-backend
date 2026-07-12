@@ -4,6 +4,7 @@ import { AccountSettingsController } from './account-settings.controller';
 import { TeamDashboardController } from './team-dashboard.controller';
 import { UsageEngagementController } from './usage-engagement.controller';
 import { TeamOnboardingController } from './team-onboarding.controller';
+import { TeamTestController } from './team-test.controller';
 
 @Module({
   controllers: [
@@ -11,6 +12,7 @@ import { TeamOnboardingController } from './team-onboarding.controller';
     TeamDashboardController,
     UsageEngagementController,
     TeamOnboardingController,
+    TeamTestController,
   ],
   providers: [TeamService],
   exports: [TeamService],
