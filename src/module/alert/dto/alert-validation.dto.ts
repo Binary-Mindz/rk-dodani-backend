@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { AlertMethod, AlertType } from '@prisma/client';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
+// create alert
 export class CreateAlertDto {
     @ApiProperty({ enum: AlertType, default: AlertType.INFO })
     @IsEnum(AlertType)
@@ -18,3 +19,7 @@ export class CreateAlertDto {
     @IsOptional()
     alertMethod?: AlertMethod;
 }
+
+
+// update alert
+export class UpdateAlertDto extends PartialType(CreateAlertDto) { }
