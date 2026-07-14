@@ -1151,3 +1151,29 @@ enum RequestStatus {
   APPROVED
   REJECTED
 }
+
+// Alert system --- only for admin
+enum AlertType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  SYSTEM
+  MAINTENANCE
+}
+
+enum AlertMethod {
+  PUSH
+  EMAIL
+  SMS
+}
+
+model Alert {
+  id          String      @id @default(uuid())
+  alertType   AlertType   @default(INFO)
+  message     String
+  alertMethod AlertMethod @default(PUSH)
+  isEdited    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}

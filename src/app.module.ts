@@ -23,6 +23,9 @@ import { ChatModule } from './module/chat/chat.module';
 import { NotificationModule } from './module/notification/notification.module';
 import { AnalyticsModule } from './module/analytics/analytics.module';
 import { TeamModule } from './module/team/team.module';
+import { AlertController } from './module/alert/alert.controller';
+import { AlertService } from './module/alert/alert.service';
+import { AlertModule } from './module/alert/alert.module';
 
 @Module({
   imports: [
@@ -52,8 +55,10 @@ import { TeamModule } from './module/team/team.module';
     ChatModule,
     NotificationModule,
     AnalyticsModule,
-    TeamModule
+    TeamModule,
+    AlertModule
   ],
-  controllers: [AppController],
+  controllers: [AppController, AlertController],
+  providers: [AlertService],
 })
 export class AppModule {}
