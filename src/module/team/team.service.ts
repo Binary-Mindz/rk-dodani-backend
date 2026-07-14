@@ -1,6 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { InvitationStatus, SubscriptionStatus, UserRoleCode, TeamRole, RequestStatus, Prisma, UserStatus } from '@prisma/client';
+import {
+  InvitationStatus,
+  SubscriptionStatus,
+  UserRoleCode,
+  TeamRole,
+  RequestStatus,
+  Prisma,
+  UserStatus,
+} from '@prisma/client';
 import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import * as crypto from 'crypto';
 import { InviteMemberDto } from './dto/invite-member.dto';
@@ -10,10 +23,12 @@ import { MailService } from '../../common/mail/mail.service';
 export class TeamService {
   private readonly logger = new Logger(TeamService.name);
 
-  constructor(private readonly prisma: PrismaService, private readonly mailService: MailService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   async getUsers(query: GetTeamMembersDto) {
-
     let where: Prisma.UserWhereInput = {
       status: query.status || UserStatus.ACTIVE,
       ...(query.teamRole && { teamRole: query.teamRole }),
@@ -30,7 +45,7 @@ export class TeamService {
         {
           lastName: { contains: query.search, mode: 'insensitive' },
         },
-      ]
+      ];
     }
 
     const page = query.page ?? 1;
@@ -40,19 +55,32 @@ export class TeamService {
     const sortBy = query.sortBy || 'createdAt';
     const sortOrder = query.sortOrder || 'desc';
 
-    const allowedSortFields = ['createdAt', 'firstName', 'lastName', 'lastLoginAt', 'status', 'teamRole'];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const allowedSortFields = [
+      'createdAt',
+      'firstName',
+      'lastName',
+      'lastLoginAt',
+      'status',
+      'teamRole',
+    ];
+    const orderByField = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
     const orderBy = { [orderByField]: sortOrder };
 
     const users = await this.prisma.user.findMany({
       where: {
         ...where,
         roles: {
-          none: { role: { code: { in: [UserRoleCode.SUPER_ADMIN, UserRoleCode.ENTERPRISE] } } }
-        }
+          none: {
+            role: {
+              code: { in: [UserRoleCode.SUPER_ADMIN, UserRoleCode.ENTERPRISE] },
+            },
+          },
+        },
       },
       include: {
-        roles: { include: { role: true } }
+        roles: { include: { role: true } },
       },
       skip,
       take: limit,
@@ -62,21 +90,20 @@ export class TeamService {
     if (!users) {
       return {
         data: [],
-        message: "No users found"
-      }
+        message: 'No users found',
+      };
     }
 
     return {
       data: users,
-      message: "Users fetched successfully"
-    }
-
-
+      message: 'Users fetched successfully',
+    };
   }
 
-
   async inviteMember(invitedById: string, dto: InviteMemberDto) {
-    this.logger.log(`Inviting team member: ${dto.email} by parentUserId: ${invitedById}`);
+    this.logger.log(
+      `Inviting team member: ${dto.email} by parentUserId: ${invitedById}`,
+    );
 
     const subscription = await this.prisma.subscription.findFirst({
       where: {
@@ -86,7 +113,9 @@ export class TeamService {
     });
 
     if (!subscription) {
-      throw new BadRequestException('You must have an active subscription to invite team members.');
+      throw new BadRequestException(
+        'You must have an active subscription to invite team members.',
+      );
     }
 
     const activeSeatsCount = await this.prisma.user.count({
@@ -96,10 +125,14 @@ export class TeamService {
     const allowedSeats = subscription.seats;
 
     if (activeSeatsCount >= allowedSeats) {
-      throw new BadRequestException(`Seat limit reached. You have utilized all ${allowedSeats} allowed seats.`);
+      throw new BadRequestException(
+        `Seat limit reached. You have utilized all ${allowedSeats} allowed seats.`,
+      );
     }
 
-    const existingMember = await this.prisma.user.findFirst({ where: { email: dto.email } });
+    const existingMember = await this.prisma.user.findFirst({
+      where: { email: dto.email },
+    });
     if (existingMember && existingMember.parentUserId === invitedById) {
       throw new BadRequestException('User is already a member of your team.');
     }
@@ -120,7 +153,12 @@ export class TeamService {
       },
     });
 
-    await this.mailService.sendTeamInvitation(dto.email, existingMember?.fullName || "", token, dto.role);
+    await this.mailService.sendTeamInvitation(
+      dto.email,
+      existingMember?.fullName || '',
+      token,
+      dto.role,
+    );
 
     return {
       message: 'Invitation generated successfully',
@@ -131,7 +169,7 @@ export class TeamService {
 
   async getTeamMembers(parentUserId: string, query?: GetTeamMembersDto) {
     if (!query) {
-      return this.prisma.user.findMany({
+      const members = await this.prisma.user.findMany({
         where: { parentUserId },
         select: {
           id: true,
@@ -149,6 +187,10 @@ export class TeamService {
           },
         },
       });
+      return members.map((member) => ({
+        ...member,
+        lastLogin: member.lastLoginAt,
+      }));
     }
 
     const page = query.page ?? 1;
@@ -172,8 +214,17 @@ export class TeamService {
     const sortBy = query.sortBy || 'createdAt';
     const sortOrder = query.sortOrder || 'desc';
 
-    const allowedSortFields = ['createdAt', 'firstName', 'lastName', 'lastLoginAt', 'status', 'teamRole'];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const allowedSortFields = [
+      'createdAt',
+      'firstName',
+      'lastName',
+      'lastLoginAt',
+      'status',
+      'teamRole',
+    ];
+    const orderByField = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
     const orderBy = { [orderByField]: sortOrder };
 
     const [members, total] = await this.prisma.$transaction([
@@ -201,8 +252,27 @@ export class TeamService {
       this.prisma.user.count({ where }),
     ]);
 
+    const teamMemberWithRating = await Promise.all(
+      members.map(async (member) => {
+        const review = await this.prisma.contentRating.findMany({
+          where: { userId: member.id },
+        });
+
+        const average =
+          review.length > 0
+            ? review.reduce((acc, item) => acc + item.rating, 0) / review.length
+            : 0;
+
+        return {
+          ...member,
+          lastLogin: member.lastLoginAt,
+          contentRating: average,
+        };
+      }),
+    );
+
     return {
-      members,
+      members: teamMemberWithRating,
       meta: {
         page,
         limit,
@@ -230,7 +300,8 @@ export class TeamService {
         max: maxSeats,
         active: activeMembersCount,
         available: Math.max(0, maxSeats - activeMembersCount),
-        percentage: maxSeats > 0 ? Math.round((activeMembersCount / maxSeats) * 100) : 0,
+        percentage:
+          maxSeats > 0 ? Math.round((activeMembersCount / maxSeats) * 100) : 0,
         growth: 0.9,
       },
       apiUsage: {
@@ -278,7 +349,8 @@ export class TeamService {
       select: { email: true },
     });
 
-    if (!userToApprove) throw new NotFoundException('User to approve not found');
+    if (!userToApprove)
+      throw new NotFoundException('User to approve not found');
 
     const subscription = await this.prisma.subscription.findFirst({
       where: {
@@ -288,7 +360,9 @@ export class TeamService {
     });
 
     if (!subscription) {
-      throw new BadRequestException('You do not have an active B2B subscription to add team members.');
+      throw new BadRequestException(
+        'You do not have an active B2B subscription to add team members.',
+      );
     }
 
     const activeSeatsCount = await this.prisma.user.count({
@@ -296,7 +370,9 @@ export class TeamService {
     });
 
     if (activeSeatsCount >= subscription.seats) {
-      throw new BadRequestException('Cannot approve member. Seat capacity limit reached.');
+      throw new BadRequestException(
+        'Cannot approve member. Seat capacity limit reached.',
+      );
     }
 
     const invitation = await this.prisma.teamInvitation.findFirst({
@@ -338,7 +414,9 @@ export class TeamService {
   }
 
   async rejectTeamMember(parentUserId: string, userId: string) {
-    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
     if (!targetUser) throw new NotFoundException('User not found');
 
     const pendingJoinRequest = await this.prisma.teamJoinRequest.findFirst({
@@ -350,7 +428,9 @@ export class TeamService {
     });
 
     if (targetUser.parentUserId !== parentUserId && !pendingJoinRequest) {
-      throw new BadRequestException('User is not part of your team or pending requests.');
+      throw new BadRequestException(
+        'User is not part of your team or pending requests.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -423,7 +503,8 @@ export class TeamService {
         return sum + (now.getTime() - u.createdAt.getTime());
       }, 0);
       const averageWaitTimeMs = totalWaitTimeMs / pendingRegistrationsCount;
-      averageWaitTimeHours = Math.round((averageWaitTimeMs / (1000 * 60 * 60)) * 10) / 10;
+      averageWaitTimeHours =
+        Math.round((averageWaitTimeMs / (1000 * 60 * 60)) * 10) / 10;
     }
 
     const thirtyDaysAgo = new Date();
@@ -437,15 +518,24 @@ export class TeamService {
     });
 
     const currentPendingCreatedLastMonthCount = pendingUsers.filter(
-      (u) => u.createdAt >= thirtyDaysAgo
+      (u) => u.createdAt >= thirtyDaysAgo,
     ).length;
 
-    const newUsersLast30Days = currentActiveCreatedLastMonthCount + currentPendingCreatedLastMonthCount;
+    const newUsersLast30Days =
+      currentActiveCreatedLastMonthCount + currentPendingCreatedLastMonthCount;
     const totalUsersCount = activeMembersCount + pendingRegistrationsCount;
     const oldUsers = totalUsersCount - newUsersLast30Days;
-    const growthPercentage = oldUsers > 0 ? Math.round((newUsersLast30Days / oldUsers) * 100) : (newUsersLast30Days > 0 ? 100 : 0);
+    const growthPercentage =
+      oldUsers > 0
+        ? Math.round((newUsersLast30Days / oldUsers) * 100)
+        : newUsersLast30Days > 0
+          ? 100
+          : 0;
 
-    const approvalRate = totalUsersCount > 0 ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10 : 0;
+    const approvalRate =
+      totalUsersCount > 0
+        ? Math.round((activeMembersCount / totalUsersCount) * 1000) / 10
+        : 0;
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -458,7 +548,15 @@ export class TeamService {
       select: { updatedAt: true },
     });
 
-    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const daysOfWeek = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
     const onboardingSpikes = daysOfWeek.map((day) => ({ day, value: 0 }));
 
     for (const u of recentlyOnboardedUsers) {
@@ -515,7 +613,8 @@ export class TeamService {
     });
 
     const availableSeats = Math.max(0, totalSeats - usedSeats);
-    const percentage = totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
+    const percentage =
+      totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
 
     const seatUtilization = {
       percentage,
@@ -619,7 +718,10 @@ export class TeamService {
       },
     });
 
-    const score = ratingsAggregation._avg.rating !== null ? Math.round(ratingsAggregation._avg.rating * 10) / 10 : 0.0;
+    const score =
+      ratingsAggregation._avg.rating !== null
+        ? Math.round(ratingsAggregation._avg.rating * 10) / 10
+        : 0.0;
     const totalRatings = ratingsAggregation._count.rating;
     const stars = Math.round(score * 2) / 2;
 
@@ -653,12 +755,19 @@ export class TeamService {
 
     const featuredContent = featuredContentRaw
       ? {
-        id: featuredContentRaw.id,
-        slug: featuredContentRaw.slug,
-        title: featuredContentRaw.title,
-        subtitle: featuredContentRaw.subtitle || featuredContentRaw.excerpt || featuredContentRaw.summary || '',
-        coverImageUrl: featuredContentRaw.coverImageUrl || featuredContentRaw.thumbnailUrl || null,
-      }
+          id: featuredContentRaw.id,
+          slug: featuredContentRaw.slug,
+          title: featuredContentRaw.title,
+          subtitle:
+            featuredContentRaw.subtitle ||
+            featuredContentRaw.excerpt ||
+            featuredContentRaw.summary ||
+            '',
+          coverImageUrl:
+            featuredContentRaw.coverImageUrl ||
+            featuredContentRaw.thumbnailUrl ||
+            null,
+        }
       : null;
 
     const activeCategories = await this.prisma.category.findMany({
@@ -721,8 +830,10 @@ export class TeamService {
     };
   }
 
-  async getUsageEngagementData(currentUserId: string, mode: 'self' | 'team' = 'team') {
-
+  async getUsageEngagementData(
+    currentUserId: string,
+    mode: 'self' | 'team' = 'team',
+  ) {
     const targetUserIds = [currentUserId];
     if (mode === 'team') {
       const teamMembers = await this.prisma.user.findMany({
@@ -742,7 +853,15 @@ export class TeamService {
       select: { createdAt: true },
     });
 
-    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const daysOfWeek = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
     const spikes = daysOfWeek.map((day) => ({ day, value: 0 }));
 
     for (const log of logs) {
@@ -750,10 +869,14 @@ export class TeamService {
       spikes[dayIndex].value += 1;
     }
 
-    const peakDay = spikes.reduce((max, current) => (current.value > max.value ? current : max), spikes[0]);
-    const insight = logs.length > 0
-      ? `Active peak times occur on ${peakDay.day} with ${peakDay.value} user interaction sessions recorded.`
-      : 'Active peak times are calculated based on your team\'s weekly interactions.';
+    const peakDay = spikes.reduce(
+      (max, current) => (current.value > max.value ? current : max),
+      spikes[0],
+    );
+    const insight =
+      logs.length > 0
+        ? `Active peak times occur on ${peakDay.day} with ${peakDay.value} user interaction sessions recorded.`
+        : "Active peak times are calculated based on your team's weekly interactions.";
 
     const progresses = await this.prisma.userContentProgress.findMany({
       where: {
@@ -782,7 +905,8 @@ export class TeamService {
       if (p.contentItem?.contentCategories) {
         for (const cc of p.contentItem.contentCategories) {
           if (cc.category) {
-            categoryDistribution[cc.category.name] = (categoryDistribution[cc.category.name] || 0) + 1;
+            categoryDistribution[cc.category.name] =
+              (categoryDistribution[cc.category.name] || 0) + 1;
             totalInteractions += 1;
           }
         }
@@ -792,7 +916,10 @@ export class TeamService {
     const valueAreaDistribution = Object.entries(categoryDistribution)
       .map(([name, count]) => ({
         name,
-        percentage: totalInteractions > 0 ? Math.round((count / totalInteractions) * 100) : 0,
+        percentage:
+          totalInteractions > 0
+            ? Math.round((count / totalInteractions) * 100)
+            : 0,
       }))
       .sort((a, b) => b.percentage - a.percentage);
 
@@ -835,8 +962,14 @@ export class TeamService {
         },
       });
 
-      const totalProgress = userProgresses.reduce((sum, p) => sum + p.progressPercentage, 0);
-      const alignment = userProgresses.length > 0 ? Math.round(totalProgress / userProgresses.length) : 100;
+      const totalProgress = userProgresses.reduce(
+        (sum, p) => sum + p.progressPercentage,
+        0,
+      );
+      const alignment =
+        userProgresses.length > 0
+          ? Math.round(totalProgress / userProgresses.length)
+          : 100;
 
       const userLogs = await this.prisma.userActivityLog.findMany({
         where: {
@@ -845,10 +978,15 @@ export class TeamService {
         },
         select: { createdAt: true },
       });
-      const uniqueDays = new Set(userLogs.map((log) => log.createdAt.toDateString()));
+      const uniqueDays = new Set(
+        userLogs.map((log) => log.createdAt.toDateString()),
+      );
       const activeDaysCount = uniqueDays.size;
 
-      const totalSeconds = userProgresses.reduce((sum, p) => sum + p.totalTimeSpentSec, 0);
+      const totalSeconds = userProgresses.reduce(
+        (sum, p) => sum + p.totalTimeSpentSec,
+        0,
+      );
       const interactionHours = Math.round((totalSeconds / 3600) * 10) / 10;
 
       const userCategoryCounts: Record<string, number> = {};
@@ -856,21 +994,25 @@ export class TeamService {
         if (p.contentItem?.contentCategories) {
           for (const cc of p.contentItem.contentCategories) {
             if (cc.category) {
-              userCategoryCounts[cc.category.name] = (userCategoryCounts[cc.category.name] || 0) + 1;
+              userCategoryCounts[cc.category.name] =
+                (userCategoryCounts[cc.category.name] || 0) + 1;
             }
           }
         }
       }
       const mostVisitedCategory = Object.entries(userCategoryCounts).reduce(
         (max, current) => (current[1] > max[1] ? current : max),
-        ['None', 0]
+        ['None', 0],
       )[0];
 
       utilityPatterns.push({
         id: user.id,
         fullName: user.fullName || 'No Name',
         email: user.email,
-        role: user.id === currentUserId ? 'Chief Technology Officer' : 'Research Analyst',
+        role:
+          user.id === currentUserId
+            ? 'Chief Technology Officer'
+            : 'Research Analyst',
         primaryAlignment: `${alignment}% ALIGNMENT`,
         activeDays: `${activeDaysCount} / 30 Days`,
         totalInteractionHours: `${interactionHours} Hours`,
@@ -901,7 +1043,11 @@ export class TeamService {
     });
   }
 
-  async updateTeamMemberRole(parentUserId: string, userId: string, role: TeamRole) {
+  async updateTeamMemberRole(
+    parentUserId: string,
+    userId: string,
+    role: TeamRole,
+  ) {
     const member = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!member || member.parentUserId !== parentUserId) {
       throw new BadRequestException('User is not a member of your team.');
@@ -925,7 +1071,11 @@ export class TeamService {
       where: { token },
     });
 
-    if (!invitation || invitation.status !== InvitationStatus.PENDING || invitation.expiresAt < new Date()) {
+    if (
+      !invitation ||
+      invitation.status !== InvitationStatus.PENDING ||
+      invitation.expiresAt < new Date()
+    ) {
       throw new BadRequestException('Invalid or expired invitation token');
     }
 
@@ -941,7 +1091,9 @@ export class TeamService {
     });
 
     if (!subscription) {
-      throw new BadRequestException('The inviter does not have an active B2B subscription.');
+      throw new BadRequestException(
+        'The inviter does not have an active B2B subscription.',
+      );
     }
 
     const activeSeatsCount = await this.prisma.user.count({
@@ -949,7 +1101,9 @@ export class TeamService {
     });
 
     if (activeSeatsCount >= subscription.seats) {
-      throw new BadRequestException('Cannot accept invitation. Seat capacity limit reached.');
+      throw new BadRequestException(
+        'Cannot accept invitation. Seat capacity limit reached.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -1004,10 +1158,19 @@ export class TeamService {
       },
     });
 
-    const totalProgress = userProgresses.reduce((sum, p) => sum + p.progressPercentage, 0);
-    const alignment = userProgresses.length > 0 ? Math.round(totalProgress / userProgresses.length) : 95;
+    const totalProgress = userProgresses.reduce(
+      (sum, p) => sum + p.progressPercentage,
+      0,
+    );
+    const alignment =
+      userProgresses.length > 0
+        ? Math.round(totalProgress / userProgresses.length)
+        : 95;
 
-    const totalSeconds = userProgresses.reduce((sum, p) => sum + p.totalTimeSpentSec, 0);
+    const totalSeconds = userProgresses.reduce(
+      (sum, p) => sum + p.totalTimeSpentSec,
+      0,
+    );
     const interactionHours = Math.round((totalSeconds / 3600) * 10) / 10;
     const totalHours = interactionHours > 0 ? interactionHours : 142; // fallback to screenshot value if 0
 
@@ -1016,14 +1179,15 @@ export class TeamService {
       if (p.contentItem?.contentCategories) {
         for (const cc of p.contentItem.contentCategories) {
           if (cc.category) {
-            userCategoryCounts[cc.category.name] = (userCategoryCounts[cc.category.name] || 0) + 1;
+            userCategoryCounts[cc.category.name] =
+              (userCategoryCounts[cc.category.name] || 0) + 1;
           }
         }
       }
     }
     const focusArea = Object.entries(userCategoryCounts).reduce(
       (max, current) => (current[1] > max[1] ? current : max),
-      ['Blueprints', 0]
+      ['Blueprints', 0],
     )[0];
 
     const userLogs = await this.prisma.userActivityLog.findMany({
@@ -1034,7 +1198,15 @@ export class TeamService {
     });
 
     const formatActivityDate = (date: Date): string => {
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const days = [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+      ];
       const dayName = days[date.getDay()];
       let hours = date.getHours();
       const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -1068,22 +1240,26 @@ export class TeamService {
       formattedLogs = [
         {
           id: 'log-1',
-          description: "Searched for 'AI Agentic Orchestration' blueprints (Focus match)",
+          description:
+            "Searched for 'AI Agentic Orchestration' blueprints (Focus match)",
           date: 'Monday 09:12 AM',
         },
         {
           id: 'log-2',
-          description: "Downloaded and evaluated the 'OCI Deployments Visio' file",
+          description:
+            "Downloaded and evaluated the 'OCI Deployments Visio' file",
           date: 'Monday 10:45 AM',
         },
         {
           id: 'log-3',
-          description: 'Shared platform code snippet review with engineering pod',
+          description:
+            'Shared platform code snippet review with engineering pod',
           date: 'Tuesday 02:14 PM',
         },
         {
           id: 'log-4',
-          description: "Completed comprehensive review rating of 'Risk Strategy' blueprint",
+          description:
+            "Completed comprehensive review rating of 'Risk Strategy' blueprint",
           date: 'Wednesday 04:30 PM',
         },
       ];
@@ -1120,13 +1296,23 @@ export class TeamService {
     if (recommendations.length < 2) {
       if (recommendations.length === 0) {
         recommendations.push(
-          { id: 'rec-1', title: 'Recommend Agent Tutorial', actionText: 'Recommend Agent Tutorial' },
-          { id: 'rec-2', title: 'Recommend FinOps Guide', actionText: 'Recommend FinOps Guide' }
+          {
+            id: 'rec-1',
+            title: 'Recommend Agent Tutorial',
+            actionText: 'Recommend Agent Tutorial',
+          },
+          {
+            id: 'rec-2',
+            title: 'Recommend FinOps Guide',
+            actionText: 'Recommend FinOps Guide',
+          },
         );
       } else {
-        recommendations.push(
-          { id: 'rec-2', title: 'Recommend FinOps Guide', actionText: 'Recommend FinOps Guide' }
-        );
+        recommendations.push({
+          id: 'rec-2',
+          title: 'Recommend FinOps Guide',
+          actionText: 'Recommend FinOps Guide',
+        });
       }
     }
 
@@ -1135,7 +1321,10 @@ export class TeamService {
         id: member.id,
         fullName: member.fullName || 'No Name',
         email: member.email,
-        role: member.id === parentUserId ? 'Chief Technology Officer' : 'Research Analyst',
+        role:
+          member.id === parentUserId
+            ? 'Chief Technology Officer'
+            : 'Research Analyst',
       },
       stats: {
         alignment: `${alignment}%`,
@@ -1205,7 +1394,8 @@ export class TeamService {
     });
 
     if (!user) throw new NotFoundException('User not found');
-    if (user.parentUserId) throw new BadRequestException('You are already part of a B2B team.');
+    if (user.parentUserId)
+      throw new BadRequestException('You are already part of a B2B team.');
 
     const domain = user.email.split('@')[1];
     if (!domain) throw new BadRequestException('Invalid email address format.');
@@ -1222,15 +1412,23 @@ export class TeamService {
       throw new NotFoundException('The selected CTO/Admin does not exist.');
     }
 
-    const hasEnterpriseRole = cto.roles.some((r) => r.role.code === UserRoleCode.ENTERPRISE);
-    const hasSuperAdminRole = cto.roles.some((r) => r.role.code === UserRoleCode.SUPER_ADMIN);
+    const hasEnterpriseRole = cto.roles.some(
+      (r) => r.role.code === UserRoleCode.ENTERPRISE,
+    );
+    const hasSuperAdminRole = cto.roles.some(
+      (r) => r.role.code === UserRoleCode.SUPER_ADMIN,
+    );
 
     if (!hasEnterpriseRole && !hasSuperAdminRole) {
-      throw new BadRequestException('The selected user does not have the required ENTERPRISE or SUPER_ADMIN role.');
+      throw new BadRequestException(
+        'The selected user does not have the required ENTERPRISE or SUPER_ADMIN role.',
+      );
     }
 
     if (!hasSuperAdminRole && cto.subscriptions.length === 0) {
-      throw new BadRequestException('The selected CTO/Admin does not have an active B2B subscription.');
+      throw new BadRequestException(
+        'The selected CTO/Admin does not have an active B2B subscription.',
+      );
     }
 
     return this.prisma.teamJoinRequest.upsert({
@@ -1274,7 +1472,9 @@ export class TeamService {
     const progressCount = await this.prisma.userContentProgress.count({
       where: { userId },
     });
-    const isOrientationCompleted = isProfileSetupCompleted && (progressCount > 0 || user.lastLoginAt !== null);
+    const isOrientationCompleted =
+      isProfileSetupCompleted &&
+      (progressCount > 0 || user.lastLoginAt !== null);
 
     const downloadCount = await this.prisma.userActivityLog.count({
       where: { userId, actionType: 'DOWNLOADED' },
@@ -1297,21 +1497,27 @@ export class TeamService {
         title: 'Orientation',
         status: isOrientationCompleted
           ? 'COMPLETED'
-          : (isProfileSetupCompleted ? 'IN_PROGRESS' : 'NOT_STARTED'),
+          : isProfileSetupCompleted
+            ? 'IN_PROGRESS'
+            : 'NOT_STARTED',
       },
       {
         id: 3,
         title: 'First Download',
         status: isFirstDownloadCompleted
           ? 'COMPLETED'
-          : (isOrientationCompleted ? 'IN_PROGRESS' : 'NOT_STARTED'),
+          : isOrientationCompleted
+            ? 'IN_PROGRESS'
+            : 'NOT_STARTED',
       },
       {
         id: 4,
         title: 'Team Contribution',
         status: isTeamContributionCompleted
           ? 'COMPLETED'
-          : (isFirstDownloadCompleted ? 'IN_PROGRESS' : 'NOT_STARTED'),
+          : isFirstDownloadCompleted
+            ? 'IN_PROGRESS'
+            : 'NOT_STARTED',
       },
     ];
 
@@ -1338,9 +1544,12 @@ export class TeamService {
     const systemRatingsAgg = await this.prisma.contentRating.aggregate({
       _avg: { rating: true },
     });
-    const averageRating = ratingsAgg._avg.rating !== null
-      ? Math.round(ratingsAgg._avg.rating * 10) / 10
-      : (systemRatingsAgg._avg.rating !== null ? Math.round(systemRatingsAgg._avg.rating * 10) / 10 : 0.0);
+    const averageRating =
+      ratingsAgg._avg.rating !== null
+        ? Math.round(ratingsAgg._avg.rating * 10) / 10
+        : systemRatingsAgg._avg.rating !== null
+          ? Math.round(systemRatingsAgg._avg.rating * 10) / 10
+          : 0.0;
     const stars = Math.round(averageRating * 2) / 2;
 
     const interactedAssetsCount = await this.prisma.userContentProgress.count({
@@ -1358,10 +1567,7 @@ export class TeamService {
     const parentUserId = user.parentUserId || userId;
     const teamMembers = await this.prisma.user.findMany({
       where: {
-        OR: [
-          { id: parentUserId },
-          { parentUserId: parentUserId },
-        ],
+        OR: [{ id: parentUserId }, { parentUserId: parentUserId }],
       },
       select: { id: true },
     });
@@ -1410,7 +1616,10 @@ export class TeamService {
       });
 
       for (const content of popularContents) {
-        if (trendingInTeam.length < 3 && !trendingInTeam.some((item) => item.id === content.id)) {
+        if (
+          trendingInTeam.length < 3 &&
+          !trendingInTeam.some((item) => item.id === content.id)
+        ) {
           trendingInTeam.push({
             id: content.id,
             title: content.title,
@@ -1426,22 +1635,23 @@ export class TeamService {
     });
     const completedIds = completedProgresses.map((p) => p.contentItemId);
 
-    const userProgressWithCategories = await this.prisma.userContentProgress.findMany({
-      where: { userId },
-      select: {
-        contentItem: {
-          select: {
-            contentCategories: {
-              select: {
-                category: {
-                  select: { name: true },
+    const userProgressWithCategories =
+      await this.prisma.userContentProgress.findMany({
+        where: { userId },
+        select: {
+          contentItem: {
+            select: {
+              contentCategories: {
+                select: {
+                  category: {
+                    select: { name: true },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      });
 
     let topCategory = 'Agentic Architecture';
     const categoryCounts: Record<string, number> = {};
@@ -1449,12 +1659,15 @@ export class TeamService {
       if (p.contentItem?.contentCategories) {
         for (const cc of p.contentItem.contentCategories) {
           if (cc.category) {
-            categoryCounts[cc.category.name] = (categoryCounts[cc.category.name] || 0) + 1;
+            categoryCounts[cc.category.name] =
+              (categoryCounts[cc.category.name] || 0) + 1;
           }
         }
       }
     }
-    const sortedCategories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+    const sortedCategories = Object.entries(categoryCounts).sort(
+      (a, b) => b[1] - a[1],
+    );
     if (sortedCategories.length > 0) {
       topCategory = sortedCategories[0][0];
     }
@@ -1470,7 +1683,13 @@ export class TeamService {
           },
         },
       },
-      select: { id: true, title: true, slug: true, excerpt: true, summary: true },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        summary: true,
+      },
     });
 
     if (!recommendedItem) {
@@ -1480,17 +1699,28 @@ export class TeamService {
           deletedAt: null,
           id: { notIn: completedIds },
         },
-        select: { id: true, title: true, slug: true, excerpt: true, summary: true },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          excerpt: true,
+          summary: true,
+        },
       });
     }
 
-    const recommendedContent = recommendedItem ? {
-      id: recommendedItem.id,
-      title: recommendedItem.title,
-      slug: recommendedItem.slug,
-      description: recommendedItem.excerpt || recommendedItem.summary || `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
-      tag: 'NEXT BEST ACTION',
-    } : null;
+    const recommendedContent = recommendedItem
+      ? {
+          id: recommendedItem.id,
+          title: recommendedItem.title,
+          slug: recommendedItem.slug,
+          description:
+            recommendedItem.excerpt ||
+            recommendedItem.summary ||
+            `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
+          tag: 'NEXT BEST ACTION',
+        }
+      : null;
 
     const valueVaultItems = await this.prisma.contentItem.findMany({
       where: { status: 'PUBLISHED', deletedAt: null },
@@ -1509,9 +1739,14 @@ export class TeamService {
       const category = item.contentCategories[0]?.category?.name || 'TECHNICAL';
       const type = item.contentType?.name || 'Visio/PDF';
       const ratingsCount = item.ratings.length;
-      const avgRating = ratingsCount > 0
-        ? Math.round((item.ratings.reduce((sum, r) => sum + r.rating, 0) / ratingsCount) * 10) / 10
-        : 0.0;
+      const avgRating =
+        ratingsCount > 0
+          ? Math.round(
+              (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
+                ratingsCount) *
+                10,
+            ) / 10
+          : 0.0;
 
       return {
         id: item.id,
@@ -1547,7 +1782,14 @@ export class TeamService {
           take: 5,
           include: {
             sender: {
-              select: { id: true, fullName: true, firstName: true, lastName: true, avatarUrl: true, teamRole: true },
+              select: {
+                id: true,
+                fullName: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                teamRole: true,
+              },
             },
           },
         },
@@ -1555,23 +1797,31 @@ export class TeamService {
     });
 
     if (teamConversation && teamConversation.messages.length > 0) {
-      teamDiscussion = teamConversation.messages.map((msg) => {
-        const senderName = msg.sender.fullName || `${msg.sender.firstName || ''} ${msg.sender.lastName || ''}`.trim() || 'Team Member';
+      teamDiscussion = teamConversation.messages
+        .map((msg) => {
+          const senderName =
+            msg.sender.fullName ||
+            `${msg.sender.firstName || ''} ${msg.sender.lastName || ''}`.trim() ||
+            'Team Member';
 
-        const diffMs = Date.now() - msg.createdAt.getTime();
-        const diffMins = Math.max(1, Math.round(diffMs / 60000));
-        const timeAgo = diffMins < 60 ? `${diffMins}M AGO` : `${Math.round(diffMins / 60)}H AGO`;
+          const diffMs = Date.now() - msg.createdAt.getTime();
+          const diffMins = Math.max(1, Math.round(diffMs / 60000));
+          const timeAgo =
+            diffMins < 60
+              ? `${diffMins}M AGO`
+              : `${Math.round(diffMins / 60)}H AGO`;
 
-        return {
-          id: msg.id,
-          senderName,
-          senderRole: msg.sender.teamRole || 'MEMBER',
-          senderAvatar: msg.sender.avatarUrl,
-          content: msg.content,
-          timeAgo,
-          createdAt: msg.createdAt,
-        };
-      }).reverse();
+          return {
+            id: msg.id,
+            senderName,
+            senderRole: msg.sender.teamRole || 'MEMBER',
+            senderAvatar: msg.sender.avatarUrl,
+            content: msg.content,
+            timeAgo,
+            createdAt: msg.createdAt,
+          };
+        })
+        .reverse();
     }
 
     return {
@@ -1601,7 +1851,9 @@ export class TeamService {
     });
 
     if (!subscription) {
-      throw new BadRequestException('You do not have an active B2B subscription to add team members.');
+      throw new BadRequestException(
+        'You do not have an active B2B subscription to add team members.',
+      );
     }
 
     const pendingRequests = await this.prisma.teamJoinRequest.findMany({
@@ -1628,7 +1880,9 @@ export class TeamService {
     const availableSeats = subscription.seats - activeSeatsCount;
 
     if (availableSeats <= 0) {
-      throw new BadRequestException('Cannot approve members. Seat capacity limit reached.');
+      throw new BadRequestException(
+        'Cannot approve members. Seat capacity limit reached.',
+      );
     }
 
     const requestsToApprove = pendingRequests.slice(0, availableSeats);
