@@ -19,4 +19,4 @@ import { MailModule } from '../../common/mail/mail.module';
   providers: [TeamService],
   exports: [TeamService],
 })
-export class TeamModule {}
+export class TeamModule { }

@@ -129,18 +129,40 @@ async log(dto: CreateAuditLogDto) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.AuditLogWhereInput = {
-      ...(query.entityType ? { entityType: query.entityType } : {}),
+      ...(query.entityType ? { entityType: { contains: query.entityType, mode: 'insensitive' } } : {}),
       ...(query.entityId ? { entityId: query.entityId } : {}),
       ...(query.action ? { action: query.action } : {}),
       ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
     };
+
+    if (query.startDate || query.endDate) {
+      where.createdAt = {};
+      if (query.startDate) where.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) where.createdAt.lte = new Date(query.endDate);
+    }
+
+    if (query.search) {
+      where.OR = [
+        { actorUser: { fullName: { contains: query.search, mode: 'insensitive' } } },
+        { entityType: { contains: query.search, mode: 'insensitive' } },
+        { entityId: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (query.status) {
+      if (query.status.toLowerCase() === 'failed') {
+        where.action = { in: ['DELETE', 'REVOKE'] };
+      } else if (query.status.toLowerCase() === 'success') {
+        where.action = { notIn: ['DELETE', 'REVOKE'] };
+      }
+    }
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.auditLog.findMany({
         where,
         include: {
           actorUser: {
-            select: { id: true, fullName: true, email: true },
+            select: { id: true, fullName: true, email: true, avatarUrl: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -150,8 +172,25 @@ async log(dto: CreateAuditLogDto) {
       this.prisma.auditLog.count({ where }),
     ]);
 
+    const formattedItems = items.map((log) => ({
+      id: log.id,
+      timestamp: log.createdAt,
+      admin: log.actorUser
+        ? {
+            id: log.actorUser.id,
+            fullName: log.actorUser.fullName,
+            email: log.actorUser.email,
+            avatarUrl: log.actorUser.avatarUrl,
+          }
+        : null,
+      action: this.formatAuditAction(log.action, log.entityType, log.newValues),
+      module: log.entityType,
+      ipAddress: log.ipAddress,
+      status: log.action === 'DELETE' || log.action === 'REVOKE' ? 'Failed' : 'Success',
+    }));
+
     return {
-      items,
+      items: formattedItems,
       meta: {
         page,
         limit,
@@ -159,6 +198,51 @@ async log(dto: CreateAuditLogDto) {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async exportLogs(query: QueryAuditLogDto) {
+    const unlimitedQuery = { ...query, page: 1, limit: 10000 };
+    const result = await this.findAll(unlimitedQuery);
+    return result.items;
+  }
+
+  private formatAuditAction(
+    action: string,
+    entityType: string,
+    newValues: any,
+  ): string {
+    const actionMap: Record<string, string> = {
+      CREATE: 'Created',
+      UPDATE: 'Updated',
+      DELETE: 'Deleted',
+      LOGIN: 'Logged in',
+      LOGOUT: 'Logged out',
+      PUBLISH: 'Published',
+      ARCHIVE: 'Archived',
+      ASSIGN: 'Assigned',
+      GRANT: 'Granted',
+      REVOKE: 'Revoked',
+    };
+
+    const actionVerb = actionMap[action] || action;
+    const entityLabel = entityType
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    let detail = `${actionVerb} ${entityLabel}`;
+
+    if (newValues && typeof newValues === 'object') {
+      const keys = Object.keys(newValues).slice(0, 2);
+      if (keys.length > 0) {
+        const summary = keys
+          .map((k) => `${k} to ${newValues[k]}`)
+          .join(', ');
+        detail += ` — ${summary}`;
+      }
+    }
+
+    return detail;
   }
 
   async findOne(id: string) {

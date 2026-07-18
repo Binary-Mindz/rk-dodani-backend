@@ -26,7 +26,7 @@ export class TeamService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async getUsers(query: GetTeamMembersDto) {
     let where: Prisma.UserWhereInput = {
@@ -755,19 +755,19 @@ export class TeamService {
 
     const featuredContent = featuredContentRaw
       ? {
-          id: featuredContentRaw.id,
-          slug: featuredContentRaw.slug,
-          title: featuredContentRaw.title,
-          subtitle:
-            featuredContentRaw.subtitle ||
-            featuredContentRaw.excerpt ||
-            featuredContentRaw.summary ||
-            '',
-          coverImageUrl:
-            featuredContentRaw.coverImageUrl ||
-            featuredContentRaw.thumbnailUrl ||
-            null,
-        }
+        id: featuredContentRaw.id,
+        slug: featuredContentRaw.slug,
+        title: featuredContentRaw.title,
+        subtitle:
+          featuredContentRaw.subtitle ||
+          featuredContentRaw.excerpt ||
+          featuredContentRaw.summary ||
+          '',
+        coverImageUrl:
+          featuredContentRaw.coverImageUrl ||
+          featuredContentRaw.thumbnailUrl ||
+          null,
+      }
       : null;
 
     const activeCategories = await this.prisma.category.findMany({
@@ -1711,15 +1711,15 @@ export class TeamService {
 
     const recommendedContent = recommendedItem
       ? {
-          id: recommendedItem.id,
-          title: recommendedItem.title,
-          slug: recommendedItem.slug,
-          description:
-            recommendedItem.excerpt ||
-            recommendedItem.summary ||
-            `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
-          tag: 'NEXT BEST ACTION',
-        }
+        id: recommendedItem.id,
+        title: recommendedItem.title,
+        slug: recommendedItem.slug,
+        description:
+          recommendedItem.excerpt ||
+          recommendedItem.summary ||
+          `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
+        tag: 'NEXT BEST ACTION',
+      }
       : null;
 
     const valueVaultItems = await this.prisma.contentItem.findMany({
@@ -1742,10 +1742,10 @@ export class TeamService {
       const avgRating =
         ratingsCount > 0
           ? Math.round(
-              (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
-                ratingsCount) *
-                10,
-            ) / 10
+            (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
+              ratingsCount) *
+            10,
+          ) / 10
           : 0.0;
 
       return {
