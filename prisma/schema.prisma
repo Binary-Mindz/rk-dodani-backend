@@ -78,7 +78,8 @@ model Role {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  userRoles UserRole[]
+  userRoles     UserRole[]
+  adminSettings AdminSettings?
 }
 
 model UserRole {
@@ -768,6 +769,16 @@ model MessageReadReceipt {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId])
+}
+
+model AdminSettings {
+  id                String  @id @default(uuid())
+  canManageUsers    Boolean @default(false)
+  canManageContent  Boolean @default(false)
+  canManageBilling  Boolean @default(false)
+  canManageSettings Boolean @default(false)
+
+  role Role @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
 // ==========================================

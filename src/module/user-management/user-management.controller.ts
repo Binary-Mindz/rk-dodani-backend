@@ -5,7 +5,9 @@ import { QueryUserManagementDto } from './dto/query-user-management.dto';
 import { UpdateUserManagementDto } from './dto/update-user-management.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
+import { PermissionGuard } from 'common/guards/permission.guard';
 import { Roles } from 'common/decorators/roles.decorator';
+import { PermissionSettings } from 'common/decorators/permission-settings.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ToggleSuspendDto } from './dto/suspend.dto';
@@ -32,6 +34,8 @@ export class UserManagementController {
   }
 
   @Patch(':id')
+  @UseGuards(PermissionGuard)
+  @PermissionSettings('users:manage')
   @ApiOperation({ summary: 'Edit Assigned Plan, change Billing Cycles & update core profile properties' })
   async update(
     @Param('id') id: string,
@@ -46,6 +50,8 @@ export class UserManagementController {
     };
   }
 
+  @UseGuards(PermissionGuard)
+  @PermissionSettings('users:manage')
 @Post(':id/toggle-suspend')
   @ApiOperation({ summary: 'Toggle status between Suspended (BLOCKED) and ACTIVE with accountability logs' })
   @ApiResponse({ status: 200, description: 'User account status toggled successfully.' })
@@ -62,6 +68,8 @@ export class UserManagementController {
     };
   }
 
+  @UseGuards(PermissionGuard)
+  @PermissionSettings('users:manage')
   @Patch('update-subscription/:id')
   @ApiOperation({ summary: 'Update user subscription plan and billing cycle' })
   @ApiResponse({ status: 200, description: 'User subscription updated successfully.' })
