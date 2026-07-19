@@ -40,6 +40,27 @@ export class RolesService {
     };
   }
 
+  async getRoles() {
+    const roles = await this.prisma.role.findMany({
+      include: { adminSettings: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return roles.map((role) => ({
+      roleId: role.id,
+      code: role.code,
+      name: role.name,
+      description: role.description,
+      isSystem: role.isSystem,
+      permissions: role.adminSettings || {
+        canManageUsers: false,
+        canManageContent: false,
+        canManageBilling: false,
+        canManageSettings: false,
+      },
+    }));
+  }
+
   async updateRolePermissions(roleId: string, permissions: {
     canManageUsers?: boolean;
     canManageContent?: boolean;

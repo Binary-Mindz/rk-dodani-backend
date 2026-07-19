@@ -40,6 +40,58 @@ async function seedRoles() {
   });
   console.log('🚀 3 Main roles seeded successfully');
 }
+
+async function seedRolePermissions() {
+  const superAdminRole = await prisma.role.findUnique({
+    where: { code: UserRoleCode.SUPER_ADMIN },
+  });
+
+  if (superAdminRole) {
+    await prisma.adminSettings.upsert({
+      where: { id: superAdminRole.id },
+      create: {
+        id: superAdminRole.id,
+        canManageUsers: true,
+        canManageContent: true,
+        canManageBilling: true,
+        canManageSettings: true,
+      },
+      update: {
+        canManageUsers: true,
+        canManageContent: true,
+        canManageBilling: true,
+        canManageSettings: true,
+      },
+    });
+  }
+
+  const otherRoles = await prisma.role.findMany({
+    where: { code: { in: [UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE] } },
+  });
+
+  for (const role of otherRoles) {
+    const existing = await prisma.adminSettings.findUnique({
+      where: { id: role.id },
+    });
+
+    if (existing) {
+      continue;
+    }
+
+    await prisma.adminSettings.create({
+      data: {
+        id: role.id,
+        canManageUsers: false,
+        canManageContent: false,
+        canManageBilling: false,
+        canManageSettings: false,
+      },
+    });
+  }
+
+  console.log('🚀 Role permissions seeded successfully');
+}
+
 async function seedContentTypes() {
   const count = await prisma.contentType.count();
 
@@ -160,7 +212,6 @@ async function seedPlans() {
   }
 
   const plansData = [
-    // === B2C PLANS ===
     {
       code: 'FREE_MONTHLY',
       name: 'FREE Plan',
@@ -221,7 +272,6 @@ async function seedPlans() {
       sortOrder: 4,
       features: ['Everything above', 'Custom audits', '1:1 office hours', 'Custom tool builds', 'Request for white paper/research', 'Priority white papers', 'Private podcast AMAs', 'Enterprise templates', 'Custom dashboards', '1:1 code reviews'],
     },
-    // === B2B PLANS ===
     {
       code: 'TEAM_MONTHLY',
       name: 'TEAM Plan',
@@ -277,6 +327,7 @@ async function seedPlans() {
 
 async function main() {
   await seedRoles();
+  await seedRolePermissions();
   await seedContentTypes();
   await seedSuperAdmin();
   await seedPlans();
@@ -285,5 +336,11 @@ async function main() {
 }
 
 main()
-  .catch(async (e) => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); await pool.end(); });
+  .catch(async (e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });

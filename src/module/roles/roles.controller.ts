@@ -18,6 +18,17 @@ import { PermissionSettings } from 'common/decorators/permission-settings.decora
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
+  @Get()
+  @ApiOperation({ summary: 'Get all roles and their permissions' })
+  async getRoles() {
+    const data = await this.rolesService.getRoles();
+    return {
+      statusCode: 200,
+      message: 'Roles fetched successfully',
+      data,
+    };
+  }
+
   @Get(':roleId/permissions')
   @ApiOperation({ summary: 'Get role admin permissions' })
   @ApiParam({ name: 'roleId', example: '6913b56c-1455-4e3f-821f-89234b051c59' })
