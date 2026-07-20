@@ -7,19 +7,42 @@ import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { QueryTagDto } from './dto/query-tag.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class TagService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   private generateSlug(name: string): string {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') 
-      .replace(/[\s_-]+/g, '-') 
-      .replace(/^-+|-+$/g, ''); 
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   async create(dto: CreateTagDto) {
@@ -33,7 +56,7 @@ export class TagService {
       throw new BadRequestException('Tag already exist with the same name');
     }
 
-    return this.prisma.tag.create({
+    const created = await this.prisma.tag.create({
       data: {
         name: dto.name,
         slug: slug,
@@ -41,6 +64,11 @@ export class TagService {
         isActive: dto.isActive ?? true,
       },
     });
+
+    this.audit(null, 'TAG', created.id, 'CREATE', undefined, {
+      name: dto.name,
+    });
+    return created;
   }
 
   async findAll(query: QueryTagDto) {
@@ -48,11 +76,11 @@ export class TagService {
       where: {
         ...(query.search
           ? {
-            OR: [
-              { name: { contains: query.search, mode: 'insensitive' } },
-              { slug: { contains: query.search, mode: 'insensitive' } },
-            ],
-          }
+              OR: [
+                { name: { contains: query.search, mode: 'insensitive' } },
+                { slug: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
           : {}),
         ...(typeof query.isActive === 'boolean'
           ? { isActive: query.isActive }
@@ -94,11 +122,13 @@ export class TagService {
       });
 
       if (slugExists) {
-        throw new BadRequestException('Tag slug already exists (generated from updated name)');
+        throw new BadRequestException(
+          'Tag slug already exists (generated from updated name)',
+        );
       }
     }
 
-    return this.prisma.tag.update({
+    const updated = await this.prisma.tag.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name, slug: slug }),
@@ -106,6 +136,15 @@ export class TagService {
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
+    this.audit(
+      null,
+      'TAG',
+      id,
+      'UPDATE',
+      { name: existing.name },
+      { name: updated.name },
+    );
+    return updated;
   }
 
   async remove(id: string) {
@@ -120,14 +159,17 @@ export class TagService {
       throw new NotFoundException('Tag not found');
     }
 
-    if (existing.contentTags.length > 0) { 
-      throw new BadRequestException('Cannot delete tag associated with content items');
+    if (existing.contentTags.length > 0) {
+      throw new BadRequestException(
+        'Cannot delete tag associated with content items',
+      );
     }
 
     await this.prisma.tag.delete({
       where: { id },
     });
 
+    this.audit(null, 'TAG', id, 'DELETE', { name: existing.name }, undefined);
     return { deleted: true };
   }
 }

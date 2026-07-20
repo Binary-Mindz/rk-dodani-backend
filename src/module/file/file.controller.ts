@@ -10,12 +10,14 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiParam } from '@nestjs/swagger';
 import { UploadFilesDto } from './dto/upload.file.dto';
 import { CloudinaryService } from '../../common/cloudinary/cloudinary.service';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('files')
 export class FileController {
   constructor(
     private readonly cloudinaryService: CloudinaryService,
-  ) { }
+    private readonly auditService: AuditService,
+  ) {}
 
   // ---------------------- CLOUDINARY UPLOAD ----------------------
   @Post('/upload')
@@ -23,7 +25,7 @@ export class FileController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: UploadFilesDto })
   async uploadToCloudinary(@UploadedFiles() files: Express.Multer.File[]) {
-    return Promise.all(
+    const uploaded = await Promise.all(
       files.map((file) =>
         this.cloudinaryService.uploadFileBuffer(
           file.buffer,
@@ -32,6 +34,17 @@ export class FileController {
         ),
       ),
     );
+    uploaded.forEach((file: any) => {
+      this.auditService
+        .logCreate({
+          actorUserId: null,
+          entityType: 'ASSET',
+          entityId: file?.id ?? file?.public_id ?? null,
+          newValues: file,
+        })
+        .catch(() => {});
+    });
+    return uploaded;
   }
 
   // ---------------------- CLOUDINARY DELETE ----------------------
@@ -43,6 +56,15 @@ export class FileController {
     example: '21805e86-b8f1-40db-9a9f-5d7eb20af97d',
   })
   async deleteFile(@Param('id') id: string) {
-    return this.cloudinaryService.deleteResource(id);
+    const result = await this.cloudinaryService.deleteResource(id);
+    this.auditService
+      .logDelete({
+        actorUserId: null,
+        entityType: 'ASSET',
+        entityId: id,
+        oldValues: { id },
+      })
+      .catch(() => {});
+    return result;
   }
 }

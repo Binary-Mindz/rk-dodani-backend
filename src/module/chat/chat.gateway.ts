@@ -12,6 +12,8 @@ import { ChatService } from './chat.service';
 import { UseGuards, Logger } from '@nestjs/common';
 import { WsJwtGuard } from './guards/ws-jwt.guard';
 import { CurrentUserData } from 'common/interfaces/current-user.interface';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @WebSocketGateway({ cors: true })
 @UseGuards(WsJwtGuard)
@@ -21,14 +23,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    try {
+      const token = this.extractToken(client);
+      if (!token) {
+        client.emit('error', 'Unauthorized');
+        client.disconnect();
+        return;
+      }
+
+      const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
+      const payload = this.jwtService.verify(token, { secret });
+      client.data.user = { id: payload.sub, email: payload.email, roles: payload.roles ?? [] };
+      this.logger.log(`Client connected: ${client.id} (user: ${payload.sub})`);
+    } catch {
+      client.emit('error', 'Unauthorized');
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
+  }
+
+  private extractToken(client: Socket): string | null {
+    const authHeader = client.handshake.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) return authHeader.split(' ')[1];
+    const token = client.handshake.auth?.token;
+    return token ? token.replace('Bearer ', '') : null;
   }
 
   @SubscribeMessage('joinRoom')

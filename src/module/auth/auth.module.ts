@@ -7,6 +7,7 @@ import { RolesModule } from '../roles/roles.module';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { MailModule } from 'common/mail/mail.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     RolesModule,
     MailModule,
     SubscriptionModule,
+    AuditModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

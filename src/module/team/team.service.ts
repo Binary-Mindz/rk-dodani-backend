@@ -19,6 +19,7 @@ import * as crypto from 'crypto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { MailService } from '../../common/mail/mail.service';
 import { ChatService } from '../chat/chat.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class TeamService {
@@ -28,7 +29,27 @@ export class TeamService {
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly chatService: ChatService,
-  ) { }
+    private readonly auditService: AuditService,
+  ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType: 'TEAM',
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   async getUsers(query: GetTeamMembersDto) {
     let where: Prisma.UserWhereInput = {
@@ -386,7 +407,7 @@ export class TeamService {
 
     const assignedRole = invitation?.role || TeamRole.MEMBER;
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       if (invitation) {
         await tx.teamInvitation.update({
           where: { id: invitation.id },
@@ -417,6 +438,11 @@ export class TeamService {
 
       return updatedUser;
     });
+    this.audit(parentUserId, userId, 'CREATE', undefined, {
+      parentUserId,
+      teamRole: result.teamRole,
+    });
+    return result;
   }
 
   async rejectTeamMember(parentUserId: string, userId: string) {
@@ -439,7 +465,7 @@ export class TeamService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.teamJoinRequest.updateMany({
         where: {
           userId,
@@ -463,6 +489,8 @@ export class TeamService {
 
       return targetUser;
     });
+    this.audit(parentUserId, userId, 'DELETE', { parentUserId }, undefined);
+    return result;
   }
 
   async getAccountSettingsPageData(parentUserId: string) {
@@ -761,19 +789,19 @@ export class TeamService {
 
     const featuredContent = featuredContentRaw
       ? {
-        id: featuredContentRaw.id,
-        slug: featuredContentRaw.slug,
-        title: featuredContentRaw.title,
-        subtitle:
-          featuredContentRaw.subtitle ||
-          featuredContentRaw.excerpt ||
-          featuredContentRaw.summary ||
-          '',
-        coverImageUrl:
-          featuredContentRaw.coverImageUrl ||
-          featuredContentRaw.thumbnailUrl ||
-          null,
-      }
+          id: featuredContentRaw.id,
+          slug: featuredContentRaw.slug,
+          title: featuredContentRaw.title,
+          subtitle:
+            featuredContentRaw.subtitle ||
+            featuredContentRaw.excerpt ||
+            featuredContentRaw.summary ||
+            '',
+          coverImageUrl:
+            featuredContentRaw.coverImageUrl ||
+            featuredContentRaw.thumbnailUrl ||
+            null,
+        }
       : null;
 
     const activeCategories = await this.prisma.category.findMany({
@@ -1040,13 +1068,21 @@ export class TeamService {
       throw new BadRequestException('User is not a member of your team.');
     }
 
-    return this.prisma.user.update({
+    const result = await this.prisma.user.update({
       where: { id: userId },
       data: {
         parentUserId: null,
         teamRole: null,
       },
     });
+    this.audit(
+      parentUserId,
+      userId,
+      'DELETE',
+      { teamRole: member.teamRole },
+      undefined,
+    );
+    return result;
   }
 
   async updateTeamMemberRole(
@@ -1059,12 +1095,20 @@ export class TeamService {
       throw new BadRequestException('User is not a member of your team.');
     }
 
-    return this.prisma.user.update({
+    const result = await this.prisma.user.update({
       where: { id: userId },
       data: {
         teamRole: role,
       },
     });
+    this.audit(
+      parentUserId,
+      userId,
+      'UPDATE',
+      { teamRole: member.teamRole },
+      { teamRole: role },
+    );
+    return result;
   }
 
   async acceptInvitation(userId: string, token: string) {
@@ -1717,15 +1761,15 @@ export class TeamService {
 
     const recommendedContent = recommendedItem
       ? {
-        id: recommendedItem.id,
-        title: recommendedItem.title,
-        slug: recommendedItem.slug,
-        description:
-          recommendedItem.excerpt ||
-          recommendedItem.summary ||
-          `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
-        tag: 'NEXT BEST ACTION',
-      }
+          id: recommendedItem.id,
+          title: recommendedItem.title,
+          slug: recommendedItem.slug,
+          description:
+            recommendedItem.excerpt ||
+            recommendedItem.summary ||
+            `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
+          tag: 'NEXT BEST ACTION',
+        }
       : null;
 
     const valueVaultItems = await this.prisma.contentItem.findMany({
@@ -1748,10 +1792,10 @@ export class TeamService {
       const avgRating =
         ratingsCount > 0
           ? Math.round(
-            (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
-              ratingsCount) *
-            10,
-          ) / 10
+              (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
+                ratingsCount) *
+                10,
+            ) / 10
           : 0.0;
 
       return {

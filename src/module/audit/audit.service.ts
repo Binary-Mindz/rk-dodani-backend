@@ -3,40 +3,41 @@ import { AuditAction, Prisma } from '@prisma/client';
 import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 import { QueryAuditLogDto } from './dto/query-audit-log.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { AuditEntityType } from './audit-entity-type.enum';
 
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-async log(dto: CreateAuditLogDto) {
-  return this.prisma.auditLog.create({
-    data: {
-      actorUserId: dto.actorUserId ?? null,
-      entityType: dto.entityType,
-      entityId: dto.entityId ?? null,
-      action: dto.action,
-      oldValues:
-        dto.oldValues !== undefined
-          ? ((dto.oldValues ?? Prisma.JsonNull) as
-              | Prisma.InputJsonValue
-              | typeof Prisma.JsonNull)
-          : undefined,
-      newValues:
-        dto.newValues !== undefined
-          ? ((dto.newValues ?? Prisma.JsonNull) as
-              | Prisma.InputJsonValue
-              | typeof Prisma.JsonNull)
-          : undefined,
-      ipAddress: dto.ipAddress ?? null,
-      userAgent: dto.userAgent ?? null,
-      requestId: dto.requestId ?? null,
-    },
-  });
-}
+  async log(dto: CreateAuditLogDto) {
+    return this.prisma.auditLog.create({
+      data: {
+        actorUserId: dto.actorUserId ?? null,
+        entityType: dto.entityType,
+        entityId: dto.entityId ?? null,
+        action: dto.action,
+        oldValues:
+          dto.oldValues !== undefined
+            ? ((dto.oldValues ?? Prisma.JsonNull) as
+                | Prisma.InputJsonValue
+                | typeof Prisma.JsonNull)
+            : undefined,
+        newValues:
+          dto.newValues !== undefined
+            ? ((dto.newValues ?? Prisma.JsonNull) as
+                | Prisma.InputJsonValue
+                | typeof Prisma.JsonNull)
+            : undefined,
+        ipAddress: dto.ipAddress ?? null,
+        userAgent: dto.userAgent ?? null,
+        requestId: dto.requestId ?? null,
+      },
+    });
+  }
 
   async logCreate(params: {
     actorUserId?: string | null;
-    entityType: string;
+    entityType: AuditEntityType | string;
     entityId?: string | null;
     newValues?: any;
     ipAddress?: string | null;
@@ -57,7 +58,7 @@ async log(dto: CreateAuditLogDto) {
 
   async logUpdate(params: {
     actorUserId?: string | null;
-    entityType: string;
+    entityType: AuditEntityType | string;
     entityId?: string | null;
     oldValues?: any;
     newValues?: any;
@@ -80,7 +81,7 @@ async log(dto: CreateAuditLogDto) {
 
   async logDelete(params: {
     actorUserId?: string | null;
-    entityType: string;
+    entityType: AuditEntityType | string;
     entityId?: string | null;
     oldValues?: any;
     ipAddress?: string | null;
@@ -101,7 +102,7 @@ async log(dto: CreateAuditLogDto) {
 
   async logCustom(params: {
     actorUserId?: string | null;
-    entityType: string;
+    entityType: AuditEntityType | string;
     entityId?: string | null;
     action: AuditAction;
     oldValues?: any;
@@ -129,7 +130,9 @@ async log(dto: CreateAuditLogDto) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.AuditLogWhereInput = {
-      ...(query.entityType ? { entityType: { contains: query.entityType, mode: 'insensitive' } } : {}),
+      ...(query.entityType
+        ? { entityType: { contains: query.entityType, mode: 'insensitive' } }
+        : {}),
       ...(query.entityId ? { entityId: query.entityId } : {}),
       ...(query.action ? { action: query.action } : {}),
       ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
@@ -143,7 +146,11 @@ async log(dto: CreateAuditLogDto) {
 
     if (query.search) {
       where.OR = [
-        { actorUser: { fullName: { contains: query.search, mode: 'insensitive' } } },
+        {
+          actorUser: {
+            fullName: { contains: query.search, mode: 'insensitive' },
+          },
+        },
         { entityType: { contains: query.search, mode: 'insensitive' } },
         { entityId: { contains: query.search, mode: 'insensitive' } },
       ];
@@ -186,7 +193,10 @@ async log(dto: CreateAuditLogDto) {
       action: this.formatAuditAction(log.action, log.entityType, log.newValues),
       module: log.entityType,
       ipAddress: log.ipAddress,
-      status: log.action === 'DELETE' || log.action === 'REVOKE' ? 'Failed' : 'Success',
+      status:
+        log.action === 'DELETE' || log.action === 'REVOKE'
+          ? 'Failed'
+          : 'Success',
     }));
 
     return {
@@ -235,9 +245,7 @@ async log(dto: CreateAuditLogDto) {
     if (newValues && typeof newValues === 'object') {
       const keys = Object.keys(newValues).slice(0, 2);
       if (keys.length > 0) {
-        const summary = keys
-          .map((k) => `${k} to ${newValues[k]}`)
-          .join(', ');
+        const summary = keys.map((k) => `${k} to ${newValues[k]}`).join(', ');
         detail += ` — ${summary}`;
       }
     }

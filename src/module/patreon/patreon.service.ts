@@ -6,6 +6,7 @@ import {
 import { PatreonSyncService } from './patreon-sync.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { PatreonOAuthService } from './patreon-oauth.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class PatreonService {
@@ -13,7 +14,27 @@ export class PatreonService {
     private readonly prisma: PrismaService,
     private readonly oauth: PatreonOAuthService,
     private readonly sync: PatreonSyncService,
+    private readonly auditService: AuditService,
   ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType: 'PATREON',
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   getConnectUrl(userId: string) {
     return {
@@ -28,9 +49,7 @@ export class PatreonService {
     error_description?: string;
   }) {
     if (query.error) {
-      throw new BadRequestException(
-        query.error_description ?? query.error,
-      );
+      throw new BadRequestException(query.error_description ?? query.error);
     }
 
     if (!query.code) {
@@ -62,6 +81,7 @@ export class PatreonService {
       tokenPayload,
       identityPayload,
     });
+    this.audit(userId, userId, 'CREATE', undefined, { connected: true });
 
     return {
       connected: true,
@@ -127,6 +147,14 @@ export class PatreonService {
   }
 
   async disconnect(userId: string) {
-    return this.sync.disconnect(userId);
+    const result = await this.sync.disconnect(userId);
+    this.audit(
+      userId,
+      userId,
+      'DELETE',
+      { connected: true },
+      { connected: false },
+    );
+    return result;
   }
 }

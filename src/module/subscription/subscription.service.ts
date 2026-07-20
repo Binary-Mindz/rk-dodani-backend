@@ -1,8 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { Stripe as StripeType } from 'stripe';
-import { UserRoleCode, SubscriptionStatus, EntitlementSourceType, EntitlementType, EntitlementStatus, BillingProvider, PlanAudience, Prisma } from '@prisma/client';
+import {
+  UserRoleCode,
+  SubscriptionStatus,
+  EntitlementSourceType,
+  EntitlementType,
+  EntitlementStatus,
+  BillingProvider,
+  PlanAudience,
+  Prisma,
+} from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -12,6 +27,7 @@ export class SubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
@@ -21,33 +37,75 @@ export class SubscriptionService {
     this.stripe = new StripeConstructor(stripeSecretKey);
   }
 
-  async createCheckoutSession(userId: string, planId: string, seats?: number): Promise<Record<string, any>> {
-    this.logger.log(`Initiating sub context processor for userId: ${userId}, planId: ${planId}, seats: ${seats}`);
-    const plan = await this.prisma.plan.findFirst({ where: { id: planId, isActive: true } });
+  private audit(
+    actorUserId: string | null,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType: 'SUBSCRIPTION',
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
+
+  async createCheckoutSession(
+    userId: string,
+    planId: string,
+    seats?: number,
+  ): Promise<Record<string, any>> {
+    this.logger.log(
+      `Initiating sub context processor for userId: ${userId}, planId: ${planId}, seats: ${seats}`,
+    );
+    const plan = await this.prisma.plan.findFirst({
+      where: { id: planId, isActive: true },
+    });
     if (!plan) throw new NotFoundException('Plan not found');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
     if (Number(plan.priceAmount) === 0) {
-      this.logger.log(`Triggering instant deployment schema for free plan tier: ${plan.code}`);
+      this.logger.log(
+        `Triggering instant deployment schema for free plan tier: ${plan.code}`,
+      );
       await this.executeInstantFreeActivation(user, plan);
+      this.audit(userId, planId, 'CREATE', undefined, {
+        planId,
+        seats: 1,
+        isFreeActivation: true,
+      });
       return { isFreeActivation: true };
     }
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const unitAmount = Math.round(Number(plan.priceAmount) * 100);
 
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: plan.currency.toLowerCase(),
-          product_data: { name: plan.name, description: plan.description || undefined },
-          unit_amount: unitAmount,
-          recurring: { interval: plan.billingInterval === 'YEARLY' ? 'year' : 'month' },
+      line_items: [
+        {
+          price_data: {
+            currency: plan.currency.toLowerCase(),
+            product_data: {
+              name: plan.name,
+              description: plan.description || undefined,
+            },
+            unit_amount: unitAmount,
+            recurring: {
+              interval: plan.billingInterval === 'YEARLY' ? 'year' : 'month',
+            },
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      }],
+      ],
       mode: 'subscription',
       subscription_data: {
         trial_period_days: plan.trialDays > 0 ? plan.trialDays : 14,
@@ -55,20 +113,34 @@ export class SubscriptionService {
       customer_email: user.email,
       success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/pricing`,
-      metadata: { 
-        userId: user.id, 
-        planId: plan.id, 
-        seats: '1' 
+      metadata: {
+        userId: user.id,
+        planId: plan.id,
+        seats: '1',
       },
     });
 
+    this.audit(userId, planId, 'CREATE', undefined, {
+      planId,
+      seats: seats ?? 1,
+      checkoutSessionId: session.id,
+    });
     return session;
   }
 
-  private async executeInstantFreeActivation(user: any, plan: any): Promise<void> {
-    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
-    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
-    if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+  private async executeInstantFreeActivation(
+    user: any,
+    plan: any,
+  ): Promise<void> {
+    const targetRoleCode =
+      plan.targetAudience === PlanAudience.B2C
+        ? UserRoleCode.STUDENT
+        : UserRoleCode.ENTERPRISE;
+    const roleRecord = await this.prisma.role.findUnique({
+      where: { code: targetRoleCode },
+    });
+    if (!roleRecord)
+      throw new NotFoundException(`Role ${targetRoleCode} config missing`);
 
     const fakeSessionId = `free_activation_${plan.code}_${Date.now()}`;
 
@@ -110,45 +182,61 @@ export class SubscriptionService {
 
       await tx.userRole.upsert({
         where: { userId_roleId: { userId: user.id, roleId: roleRecord.id } },
-        update: { isActive: true, expiresAt: this.calculatePeriodEnd('MONTHLY') },
-        create: { userId: user.id, roleId: roleRecord.id, isActive: true, expiresAt: this.calculatePeriodEnd('MONTHLY') },
+        update: {
+          isActive: true,
+          expiresAt: this.calculatePeriodEnd('MONTHLY'),
+        },
+        create: {
+          userId: user.id,
+          roleId: roleRecord.id,
+          isActive: true,
+          expiresAt: this.calculatePeriodEnd('MONTHLY'),
+        },
       });
     });
   }
 
   async ensureFreePlanForUser(userId: string): Promise<void> {
-    this.logger.log(`Checking baseline tier configuration for userId: ${userId}`);
+    this.logger.log(
+      `Checking baseline tier configuration for userId: ${userId}`,
+    );
 
     const existingActiveSub = await this.prisma.subscription.findFirst({
       where: {
         userId: userId,
         status: {
-          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]
-        }
-      }
+          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+        },
+      },
     });
 
     if (existingActiveSub) {
-      this.logger.log(`User ${userId} already has an active subscription. Skipping auto-free activation.`);
+      this.logger.log(
+        `User ${userId} already has an active subscription. Skipping auto-free activation.`,
+      );
       return;
     }
 
     const freePlan = await this.prisma.plan.findFirst({
       where: {
         isActive: true,
-        priceAmount: new Prisma.Decimal('0.00')
-      }
+        priceAmount: new Prisma.Decimal('0.00'),
+      },
     });
 
     if (!freePlan) {
-      this.logger.warn(`🚨 System failure: Default Free Plan model is missing in DB seeds.`);
+      this.logger.warn(
+        `🚨 System failure: Default Free Plan model is missing in DB seeds.`,
+      );
       return;
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User identity not found');
 
-    this.logger.log(`Auto-routing user ${userId} to baseline free tier: ${freePlan.code}`);
+    this.logger.log(
+      `Auto-routing user ${userId} to baseline free tier: ${freePlan.code}`,
+    );
 
     await this.executeInstantFreeActivation(user, freePlan);
   }
@@ -156,7 +244,9 @@ export class SubscriptionService {
   async verifySessionAndAssignRole(sessionId: string): Promise<void> {
     const session = await this.stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== 'paid') {
-      throw new BadRequestException('Payment validation error from automated gateway');
+      throw new BadRequestException(
+        'Payment validation error from automated gateway',
+      );
     }
     await this.handleSuccessfulCheckout(session);
   }
@@ -167,21 +257,33 @@ export class SubscriptionService {
     const planId = session.metadata?.planId;
     const seats = Number(session.metadata?.seats || 1);
 
-    if (!userId || !planId) throw new BadRequestException('Missing session metadata payloads');
+    if (!userId || !planId)
+      throw new BadRequestException('Missing session metadata payloads');
 
     const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!plan || !user) throw new NotFoundException('Context mapping execution faulted');
+    if (!plan || !user)
+      throw new NotFoundException('Context mapping execution faulted');
 
     // ✅ STRICT AUDIENCE ORIENTED ROLE MAPPING
-    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    const targetRoleCode =
+      plan.targetAudience === PlanAudience.B2C
+        ? UserRoleCode.STUDENT
+        : UserRoleCode.ENTERPRISE;
 
-    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
-    if (!roleRecord) throw new NotFoundException(`Role code configuration invalid`);
+    const roleRecord = await this.prisma.role.findUnique({
+      where: { code: targetRoleCode },
+    });
+    if (!roleRecord)
+      throw new NotFoundException(`Role code configuration invalid`);
 
-    const targetSubId = session.subscription ? String(session.subscription) : sessionId;
-    const existingSub = await this.prisma.subscription.findFirst({ where: { providerSubscriptionId: targetSubId } });
+    const targetSubId = session.subscription
+      ? String(session.subscription)
+      : sessionId;
+    const existingSub = await this.prisma.subscription.findFirst({
+      where: { providerSubscriptionId: targetSubId },
+    });
     if (existingSub) return;
 
     try {
@@ -192,7 +294,9 @@ export class SubscriptionService {
             planId: plan.id,
             provider: BillingProvider.STRIPE,
             providerSubscriptionId: targetSubId,
-            providerCustomerId: session.customer ? String(session.customer) : null,
+            providerCustomerId: session.customer
+              ? String(session.customer)
+              : null,
             status: SubscriptionStatus.ACTIVE,
             startedAt: new Date(),
             currentPeriodStart: new Date(),
@@ -224,12 +328,23 @@ export class SubscriptionService {
 
         await tx.userRole.upsert({
           where: { userId_roleId: { userId: user.id, roleId: roleRecord.id } },
-          update: { isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
-          create: { userId: user.id, roleId: roleRecord.id, isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
+          update: {
+            isActive: true,
+            expiresAt: this.calculatePeriodEnd(plan.billingInterval),
+          },
+          create: {
+            userId: user.id,
+            roleId: roleRecord.id,
+            isActive: true,
+            expiresAt: this.calculatePeriodEnd(plan.billingInterval),
+          },
         });
       });
     } catch (error) {
-      this.logger.error(`❌ DB Transaction failure inside gateway routing:`, error.stack);
+      this.logger.error(
+        `❌ DB Transaction failure inside gateway routing:`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -241,33 +356,51 @@ export class SubscriptionService {
     return date;
   }
 
-  async assignPlanManually(targetUserId: string, planId: string, seats: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+  async assignPlanManually(
+    targetUserId: string,
+    planId: string,
+    seats: number,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
     if (!user) throw new NotFoundException('Target user not found');
 
-    const plan = await this.prisma.plan.findUnique({ where: { id: planId, isActive: true } });
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: planId, isActive: true },
+    });
     if (!plan) throw new NotFoundException('Active plan not found');
 
     if (plan.targetAudience === PlanAudience.B2B) {
       if (!seats || seats < 1) {
-        throw new BadRequestException('Seats count must be at least 1 for a B2B plan.');
+        throw new BadRequestException(
+          'Seats count must be at least 1 for a B2B plan.',
+        );
       }
     } else {
       seats = 1;
     }
 
-    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
-    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
-    if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+    const targetRoleCode =
+      plan.targetAudience === PlanAudience.B2C
+        ? UserRoleCode.STUDENT
+        : UserRoleCode.ENTERPRISE;
+    const roleRecord = await this.prisma.role.findUnique({
+      where: { code: targetRoleCode },
+    });
+    if (!roleRecord)
+      throw new NotFoundException(`Role ${targetRoleCode} config missing`);
 
     const manualSubId = `manual_activation_${plan.code}_${Date.now()}`;
 
-    return this.prisma.$transaction(async (tx) => {
+    const subscription = await this.prisma.$transaction(async (tx) => {
       // Deactivate any existing active subscriptions for this user
       await tx.subscription.updateMany({
         where: {
           userId: targetUserId,
-          status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] },
+          status: {
+            in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+          },
         },
         data: {
           status: SubscriptionStatus.CANCELED,
@@ -326,12 +459,27 @@ export class SubscriptionService {
 
       // Activate target B2B or B2C role
       await tx.userRole.upsert({
-        where: { userId_roleId: { userId: targetUserId, roleId: roleRecord.id } },
-        update: { isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
-        create: { userId: targetUserId, roleId: roleRecord.id, isActive: true, expiresAt: this.calculatePeriodEnd(plan.billingInterval) },
+        where: {
+          userId_roleId: { userId: targetUserId, roleId: roleRecord.id },
+        },
+        update: {
+          isActive: true,
+          expiresAt: this.calculatePeriodEnd(plan.billingInterval),
+        },
+        create: {
+          userId: targetUserId,
+          roleId: roleRecord.id,
+          isActive: true,
+          expiresAt: this.calculatePeriodEnd(plan.billingInterval),
+        },
       });
 
       return subscription;
     });
+    this.audit(targetUserId, subscription.id, 'CREATE', undefined, {
+      planId,
+      seats,
+    });
+    return subscription;
   }
 }

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AuditAction } from '@prisma/client';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { AuditEntityType } from '../audit-entity-type.enum';
 
 export class CreateAuditLogDto {
   @ApiPropertyOptional()
@@ -8,10 +9,10 @@ export class CreateAuditLogDto {
   @IsString()
   actorUserId?: string;
 
-  @ApiProperty({ example: 'CONTENT_ITEM' })
-  @IsString()
+  @ApiProperty({ enum: AuditEntityType, example: AuditEntityType.CONTENT })
+  @IsEnum(AuditEntityType)
   @MaxLength(100)
-  entityType!: string;
+  entityType!: AuditEntityType | string;
 
   @ApiPropertyOptional({ example: 'uuid' })
   @IsOptional()

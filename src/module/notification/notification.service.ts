@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationGateway } from './notification.gateway';
+import { AuditService } from '../audit/audit.service';
 
 export interface SendNotificationDto {
   userId: string;
@@ -18,7 +19,27 @@ export class NotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: NotificationGateway,
+    private readonly auditService: AuditService,
   ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType: 'NOTIFICATION',
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   async send(dto: SendNotificationDto) {
     const notification = await this.prisma.notification.create({
@@ -33,6 +54,10 @@ export class NotificationService {
 
     this.gateway.sendToUser(dto.userId, notification);
     this.logger.log(`Notification sent to user ${dto.userId}: ${dto.title}`);
+    this.audit(dto.userId, notification.id, 'CREATE', undefined, {
+      title: dto.title,
+      type: dto.type,
+    });
 
     return notification;
   }

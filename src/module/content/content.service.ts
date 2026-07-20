@@ -11,10 +11,14 @@ import { QueryPublicContentDto } from './dto/query-public-content.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ContentService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   private serializeBigInt(data: any) {
     return JSON.parse(
@@ -32,7 +36,6 @@ export class ContentService {
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
   }
-
 
   private async validateRelations(dto: {
     contentTypeId?: string;
@@ -75,7 +78,9 @@ export class ContentService {
     });
 
     if (existingSlug) {
-      throw new BadRequestException('Content already exist with the same title');
+      throw new BadRequestException(
+        'Content already exist with the same title',
+      );
     }
 
     await this.validateRelations(dto);
@@ -143,31 +148,104 @@ export class ContentService {
       return content;
     });
 
-    return this.findAdminOne(created.id);
+    const result = this.findAdminOne(created.id);
+    this.audit(userId, 'CONTENT', created.id, 'CREATE', undefined, {
+      title: dto.title,
+      status: dto.status,
+    });
+    return result;
+  }
+
+  // audit log fire-and-forget
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'ARCHIVE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
   }
 
   async getContentStats() {
     const now = new Date();
 
     const firstDayOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const firstDayOfLastMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
+    const lastDayOfLastMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
-    const [totalCount, publishedCount, draftCount, scheduledCount] = await Promise.all([
-      this.prisma.contentItem.count({ where: { deletedAt: null } }),
-      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'PUBLISHED' } }),
-      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'DRAFT' } }),
-      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'SCHEDULED' } }),
+    const [totalCount, publishedCount, draftCount, scheduledCount] =
+      await Promise.all([
+        this.prisma.contentItem.count({ where: { deletedAt: null } }),
+        this.prisma.contentItem.count({
+          where: { deletedAt: null, status: 'PUBLISHED' },
+        }),
+        this.prisma.contentItem.count({
+          where: { deletedAt: null, status: 'DRAFT' },
+        }),
+        this.prisma.contentItem.count({
+          where: { deletedAt: null, status: 'SCHEDULED' },
+        }),
+      ]);
+
+    const [
+      lastMonthTotal,
+      lastMonthPublished,
+      lastMonthDraft,
+      lastMonthScheduled,
+    ] = await Promise.all([
+      this.prisma.contentItem.count({
+        where: { deletedAt: null, createdAt: { lt: firstDayOfThisMonth } },
+      }),
+      this.prisma.contentItem.count({
+        where: {
+          deletedAt: null,
+          status: 'PUBLISHED',
+          createdAt: { lt: firstDayOfThisMonth },
+        },
+      }),
+      this.prisma.contentItem.count({
+        where: {
+          deletedAt: null,
+          status: 'DRAFT',
+          createdAt: { lt: firstDayOfThisMonth },
+        },
+      }),
+      this.prisma.contentItem.count({
+        where: {
+          deletedAt: null,
+          status: 'SCHEDULED',
+          createdAt: { lt: firstDayOfThisMonth },
+        },
+      }),
     ]);
 
-    const [lastMonthTotal, lastMonthPublished, lastMonthDraft, lastMonthScheduled] = await Promise.all([
-      this.prisma.contentItem.count({ where: { deletedAt: null, createdAt: { lt: firstDayOfThisMonth } } }),
-      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'PUBLISHED', createdAt: { lt: firstDayOfThisMonth } } }),
-      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'DRAFT', createdAt: { lt: firstDayOfThisMonth } } }),
-      this.prisma.contentItem.count({ where: { deletedAt: null, status: 'SCHEDULED', createdAt: { lt: firstDayOfThisMonth } } }),
-    ]);
-
-    const calculatePercentageChange = (current: number, previous: number): number => {
+    const calculatePercentageChange = (
+      current: number,
+      previous: number,
+    ): number => {
       if (previous === 0) return current > 0 ? 100 : 0;
       const change = ((current - previous) / previous) * 100;
       return parseFloat(change.toFixed(1));
@@ -177,23 +255,29 @@ export class ContentService {
       totalContent: {
         count: totalCount,
         percentageChange: calculatePercentageChange(totalCount, lastMonthTotal),
-        trend: totalCount >= lastMonthTotal ? 'up' : 'down'
+        trend: totalCount >= lastMonthTotal ? 'up' : 'down',
       },
       published: {
         count: publishedCount,
-        percentageChange: calculatePercentageChange(publishedCount, lastMonthPublished),
-        trend: publishedCount >= lastMonthPublished ? 'up' : 'down'
+        percentageChange: calculatePercentageChange(
+          publishedCount,
+          lastMonthPublished,
+        ),
+        trend: publishedCount >= lastMonthPublished ? 'up' : 'down',
       },
       draft: {
         count: draftCount,
         percentageChange: calculatePercentageChange(draftCount, lastMonthDraft),
-        trend: draftCount >= lastMonthDraft ? 'up' : 'down'
+        trend: draftCount >= lastMonthDraft ? 'up' : 'down',
       },
       scheduled: {
         count: scheduledCount,
-        percentageChange: calculatePercentageChange(scheduledCount, lastMonthScheduled),
-        trend: scheduledCount >= lastMonthScheduled ? 'up' : 'down'
-      }
+        percentageChange: calculatePercentageChange(
+          scheduledCount,
+          lastMonthScheduled,
+        ),
+        trend: scheduledCount >= lastMonthScheduled ? 'up' : 'down',
+      },
     };
   }
 
@@ -215,7 +299,9 @@ export class ContentService {
       ...(query.visibility && { visibility: query.visibility }),
       ...(query.accessModel && { accessModel: query.accessModel }),
       ...(query.contentTypeId && { contentTypeId: query.contentTypeId }),
-      ...(typeof query.isFeatured === 'boolean' && { isFeatured: query.isFeatured }),
+      ...(typeof query.isFeatured === 'boolean' && {
+        isFeatured: query.isFeatured,
+      }),
       ...(typeof query.isPinned === 'boolean' && { isPinned: query.isPinned }),
     };
 
@@ -276,7 +362,9 @@ export class ContentService {
         where: { slug },
       });
       if (slugExists && slugExists.id !== id) {
-        throw new BadRequestException('Content slug already exists (generated from updated title)');
+        throw new BadRequestException(
+          'Content slug already exists (generated from updated title)',
+        );
       }
     }
 
@@ -286,17 +374,27 @@ export class ContentService {
       await tx.contentItem.update({
         where: { id },
         data: {
-          ...(dto.contentTypeId !== undefined && { contentTypeId: dto.contentTypeId }),
+          ...(dto.contentTypeId !== undefined && {
+            contentTypeId: dto.contentTypeId,
+          }),
           slug: slug,
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
           ...(dto.summary !== undefined && { summary: dto.summary }),
-          ...(dto.plainTextBody !== undefined && { plainTextBody: dto.plainTextBody }),
-          ...(dto.authorDisplayName !== undefined && { authorDisplayName: dto.authorDisplayName }),
-          ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
-          ...(dto.thumbnailUrl !== undefined && { thumbnailUrl: dto.thumbnailUrl }),
-          ...(dto.status !== undefined && { 
+          ...(dto.plainTextBody !== undefined && {
+            plainTextBody: dto.plainTextBody,
+          }),
+          ...(dto.authorDisplayName !== undefined && {
+            authorDisplayName: dto.authorDisplayName,
+          }),
+          ...(dto.coverImageUrl !== undefined && {
+            coverImageUrl: dto.coverImageUrl,
+          }),
+          ...(dto.thumbnailUrl !== undefined && {
+            thumbnailUrl: dto.thumbnailUrl,
+          }),
+          ...(dto.status !== undefined && {
             status: dto.status,
             ...(dto.status === PublishStatus.PUBLISHED && {
               publishedAt: existing.publishedAt ?? new Date(),
@@ -305,23 +403,41 @@ export class ContentService {
             }),
             ...(dto.status === PublishStatus.ARCHIVED && {
               archivedAt: new Date(),
-            })
+            }),
           }),
           ...(dto.visibility !== undefined && { visibility: dto.visibility }),
-          ...(dto.accessModel !== undefined && { accessModel: dto.accessModel }),
-          ...(dto.contentFormat !== undefined && { contentFormat: dto.contentFormat }),
-          ...(dto.externalUrl !== undefined && { externalUrl: dto.externalUrl }),
-          ...(dto.externalEmbedCode !== undefined && { externalEmbedCode: dto.externalEmbedCode }),
-          ...(dto.readingTimeMinutes !== undefined && { readingTimeMinutes: dto.readingTimeMinutes }),
-          ...(dto.scheduledAt !== undefined && { scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null }),
+          ...(dto.accessModel !== undefined && {
+            accessModel: dto.accessModel,
+          }),
+          ...(dto.contentFormat !== undefined && {
+            contentFormat: dto.contentFormat,
+          }),
+          ...(dto.externalUrl !== undefined && {
+            externalUrl: dto.externalUrl,
+          }),
+          ...(dto.externalEmbedCode !== undefined && {
+            externalEmbedCode: dto.externalEmbedCode,
+          }),
+          ...(dto.readingTimeMinutes !== undefined && {
+            readingTimeMinutes: dto.readingTimeMinutes,
+          }),
+          ...(dto.scheduledAt !== undefined && {
+            scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+          }),
           ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
           ...(dto.isPinned !== undefined && { isPinned: dto.isPinned }),
-          ...(dto.allowComments !== undefined && { allowComments: dto.allowComments }),
+          ...(dto.allowComments !== undefined && {
+            allowComments: dto.allowComments,
+          }),
 
           // 📂 Merged Asset Inline Update Fields
           ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
-          ...(dto.isDownloadable !== undefined && { isDownloadable: dto.isDownloadable }),
-          ...(dto.downloadRequiresAcceptance !== undefined && { downloadRequiresAcceptance: dto.downloadRequiresAcceptance }),
+          ...(dto.isDownloadable !== undefined && {
+            isDownloadable: dto.isDownloadable,
+          }),
+          ...(dto.downloadRequiresAcceptance !== undefined && {
+            downloadRequiresAcceptance: dto.downloadRequiresAcceptance,
+          }),
           ...(dto.termsText !== undefined && { termsText: dto.termsText }),
 
           updatedById: userId,
@@ -332,7 +448,10 @@ export class ContentService {
         await tx.contentCategory.deleteMany({ where: { contentItemId: id } });
         if (dto.categoryIds.length) {
           await tx.contentCategory.createMany({
-            data: dto.categoryIds.map((categoryId) => ({ contentItemId: id, categoryId })),
+            data: dto.categoryIds.map((categoryId) => ({
+              contentItemId: id,
+              categoryId,
+            })),
             skipDuplicates: true,
           });
         }
@@ -349,6 +468,14 @@ export class ContentService {
       }
     });
 
+    this.audit(
+      userId,
+      'CONTENT',
+      id,
+      'UPDATE',
+      { title: existing.title, status: existing.status },
+      { title: dto.title, status: dto.status },
+    );
     return this.findAdminOne(id);
   }
 
@@ -376,6 +503,20 @@ export class ContentService {
     }
 
     await this.prisma.contentItem.update({ where: { id }, data: updateData });
+    const action =
+      dto.status === PublishStatus.PUBLISHED
+        ? 'PUBLISH'
+        : dto.status === PublishStatus.ARCHIVED
+          ? 'ARCHIVE'
+          : 'UPDATE';
+    this.audit(
+      userId,
+      'CONTENT',
+      id,
+      action as any,
+      { status: existing.status },
+      { status: dto.status },
+    );
     return this.findAdminOne(id);
   }
 
@@ -393,6 +534,14 @@ export class ContentService {
       data: { deletedAt: new Date() },
     });
 
+    this.audit(
+      null,
+      'CONTENT',
+      id,
+      'DELETE',
+      { title: existing.title },
+      undefined,
+    );
     return { deleted: true };
   }
 
@@ -416,29 +565,32 @@ export class ContentService {
         contentCategories: { some: { category: { slug: query.categorySlug } } },
       }),
 
-      ...(query.categoryIds && query.categoryIds.length > 0 && {
-        contentCategories: {
-          some: {
-            categoryId: { in: query.categoryIds },
+      ...(query.categoryIds &&
+        query.categoryIds.length > 0 && {
+          contentCategories: {
+            some: {
+              categoryId: { in: query.categoryIds },
+            },
           },
-        },
-      }),
+        }),
 
       ...(query.tagSlug && {
         contentTags: { some: { tag: { slug: query.tagSlug } } },
       }),
 
-      ...(query.tagIds && query.tagIds.length > 0 && {
-        contentTags: {
-          some: {
-            tagId: { in: query.tagIds },
+      ...(query.tagIds &&
+        query.tagIds.length > 0 && {
+          contentTags: {
+            some: {
+              tagId: { in: query.tagIds },
+            },
           },
-        },
-      }),
+        }),
 
-      ...(query.contentTypeIds && query.contentTypeIds.length > 0 && {
-        contentTypeId: { in: query.contentTypeIds },
-      }),
+      ...(query.contentTypeIds &&
+        query.contentTypeIds.length > 0 && {
+          contentTypeId: { in: query.contentTypeIds },
+        }),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -464,7 +616,11 @@ export class ContentService {
           contentCategories: { include: { category: true } },
           contentTags: { include: { tag: true } },
         },
-        orderBy: [{ isPinned: 'desc' }, { isFeatured: 'desc' }, { publishedAt: 'desc' }],
+        orderBy: [
+          { isPinned: 'desc' },
+          { isFeatured: 'desc' },
+          { publishedAt: 'desc' },
+        ],
         skip,
         take: limit,
       }),
@@ -503,8 +659,11 @@ export class ContentService {
     return this.serializeBigInt(content);
   }
 
-  async trackProgress(userId: string, contentItemId: string, dto: any) { // dto is TrackProgressDto
-    const content = await this.prisma.contentItem.findUnique({ where: { id: contentItemId } });
+  async trackProgress(userId: string, contentItemId: string, dto: any) {
+    // dto is TrackProgressDto
+    const content = await this.prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+    });
     if (!content) {
       throw new NotFoundException('Content not found');
     }
@@ -535,9 +694,10 @@ export class ContentService {
         data: {
           totalTimeSpentSec: { increment: dto.durationSec },
           ...(dto.progressPercentage !== undefined && {
-            progressPercentage: dto.progressPercentage > existingProgress.progressPercentage 
-              ? dto.progressPercentage 
-              : existingProgress.progressPercentage,
+            progressPercentage:
+              dto.progressPercentage > existingProgress.progressPercentage
+                ? dto.progressPercentage
+                : existingProgress.progressPercentage,
           }),
           ...(dto.status !== undefined && { status: dto.status }),
           lastAccessedAt: new Date(),
@@ -556,8 +716,14 @@ export class ContentService {
     }
   }
 
-  async rateContent(userId: string, contentItemId: string, dto: CreateRatingDto) {
-    const content = await this.prisma.contentItem.findUnique({ where: { id: contentItemId } });
+  async rateContent(
+    userId: string,
+    contentItemId: string,
+    dto: CreateRatingDto,
+  ) {
+    const content = await this.prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+    });
     if (!content) {
       throw new NotFoundException('Content not found');
     }

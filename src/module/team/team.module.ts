@@ -7,17 +7,18 @@ import { TeamOnboardingController } from './team-onboarding.controller';
 import { TeamTestController } from './team-test.controller';
 import { MailModule } from '../../common/mail/mail.module';
 import { ChatModule } from '../chat/chat.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [MailModule, ChatModule],
+  imports: [MailModule, ChatModule, AuditModule],
   controllers: [
     AccountSettingsController,
     TeamDashboardController,
     UsageEngagementController,
     TeamOnboardingController,
-    TeamTestController
+    TeamTestController,
   ],
   providers: [TeamService],
   exports: [TeamService],
 })
-export class TeamModule { }
+export class TeamModule {}

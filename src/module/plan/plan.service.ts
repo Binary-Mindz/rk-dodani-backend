@@ -11,6 +11,7 @@ import { UpdatePlanStatusDto } from './dto/update-plan-status.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { Stripe as StripeType } from 'stripe';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class PlanService {
@@ -19,6 +20,7 @@ export class PlanService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (stripeSecretKey) {
@@ -27,11 +29,35 @@ export class PlanService {
     }
   }
 
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
+
   private normalizeCurrency(currency: string) {
     return currency.trim().toUpperCase();
   }
 
-  private async createStripeProduct(name: string, description?: string, code?: string): Promise<string> {
+  private async createStripeProduct(
+    name: string,
+    description?: string,
+    code?: string,
+  ): Promise<string> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured on this server');
     }
@@ -43,7 +69,11 @@ export class PlanService {
     return product.id;
   }
 
-  private async updateStripeProduct(productId: string, name: string, description?: string): Promise<void> {
+  private async updateStripeProduct(
+    productId: string,
+    name: string,
+    description?: string,
+  ): Promise<void> {
     if (!this.stripe) return;
     await this.stripe.products.update(productId, {
       name,
@@ -51,7 +81,12 @@ export class PlanService {
     });
   }
 
-  private async createStripePrice(productId: string, amount: number, currency: string, interval: 'month' | 'year'): Promise<string> {
+  private async createStripePrice(
+    productId: string,
+    amount: number,
+    currency: string,
+    interval: 'month' | 'year',
+  ): Promise<string> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured on this server');
     }
@@ -72,7 +107,9 @@ export class PlanService {
     });
 
     if (existingCode) {
-      throw new BadRequestException(`A plan with unique code "${dto.code}" already exists in the system`);
+      throw new BadRequestException(
+        `A plan with unique code "${dto.code}" already exists in the system`,
+      );
     }
 
     let stripeProductId: string | null = null;
@@ -144,13 +181,24 @@ export class PlanService {
         stripePriceId,
         stripePriceIdMonthly,
         stripePriceIdYearly,
-        priceAmountMonthly: dto.priceAmountMonthly !== undefined && dto.priceAmountMonthly !== null ? new Prisma.Decimal(dto.priceAmountMonthly) : null,
-        priceAmountYearly: dto.priceAmountYearly !== undefined && dto.priceAmountYearly !== null ? new Prisma.Decimal(dto.priceAmountYearly) : null,
+        priceAmountMonthly:
+          dto.priceAmountMonthly !== undefined &&
+          dto.priceAmountMonthly !== null
+            ? new Prisma.Decimal(dto.priceAmountMonthly)
+            : null,
+        priceAmountYearly:
+          dto.priceAmountYearly !== undefined && dto.priceAmountYearly !== null
+            ? new Prisma.Decimal(dto.priceAmountYearly)
+            : null,
         features: dto.features ? (dto.features as any) : null,
         metadata: dto.metadata ?? null,
       },
     });
 
+    this.audit(null, 'PLAN', plan.id, 'CREATE', undefined, {
+      name: dto.name,
+      code: dto.code,
+    });
     return plan;
   }
 
@@ -184,15 +232,19 @@ export class PlanService {
       this.prisma.plan.count({ where }),
     ]);
 
-    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      items,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getPlanStats() {
-    const [totalPlans, activePlans, inactivePlans] = await this.prisma.$transaction([
-      this.prisma.plan.count(),
-      this.prisma.plan.count({ where: { isActive: true } }),
-      this.prisma.plan.count({ where: { isActive: false } }),
-    ]);
+    const [totalPlans, activePlans, inactivePlans] =
+      await this.prisma.$transaction([
+        this.prisma.plan.count(),
+        this.prisma.plan.count({ where: { isActive: true } }),
+        this.prisma.plan.count({ where: { isActive: false } }),
+      ]);
 
     return {
       totalPlans,
@@ -268,8 +320,12 @@ export class PlanService {
       stripePriceId: plan.stripePriceId,
       stripePriceIdMonthly: plan.stripePriceIdMonthly,
       stripePriceIdYearly: plan.stripePriceIdYearly,
-      priceAmountMonthly: plan.priceAmountMonthly ? Number(plan.priceAmountMonthly) : null,
-      priceAmountYearly: plan.priceAmountYearly ? Number(plan.priceAmountYearly) : null,
+      priceAmountMonthly: plan.priceAmountMonthly
+        ? Number(plan.priceAmountMonthly)
+        : null,
+      priceAmountYearly: plan.priceAmountYearly
+        ? Number(plan.priceAmountYearly)
+        : null,
       maxUsers: plan.maxUsers,
       features: plan.features,
       createdAt: plan.createdAt,
@@ -305,7 +361,9 @@ export class PlanService {
       });
 
       if (codeExists) {
-        throw new BadRequestException(`Cannot update! Unique code "${dto.code}" is already taken by another tier`);
+        throw new BadRequestException(
+          `Cannot update! Unique code "${dto.code}" is already taken by another tier`,
+        );
       }
     }
 
@@ -330,20 +388,42 @@ export class PlanService {
           subtitle || description || undefined,
           dto.code ?? existing.code,
         );
-      } else if (dto.name !== undefined || dto.subtitle !== undefined || dto.description !== undefined) {
-        await this.updateStripeProduct(stripeProductId, name, subtitle || description || undefined);
+      } else if (
+        dto.name !== undefined ||
+        dto.subtitle !== undefined ||
+        dto.description !== undefined
+      ) {
+        await this.updateStripeProduct(
+          stripeProductId,
+          name,
+          subtitle || description || undefined,
+        );
       }
 
       // 2. Check priceAmount update
-      const priceAmount = dto.priceAmount !== undefined ? dto.priceAmount : Number(existing.priceAmount);
+      const priceAmount =
+        dto.priceAmount !== undefined
+          ? dto.priceAmount
+          : Number(existing.priceAmount);
       const billingInterval = dto.billingInterval ?? existing.billingInterval;
       const interval = billingInterval === 'YEARLY' ? 'year' : 'month';
 
-      const priceAmountChanged = dto.priceAmount !== undefined && dto.priceAmount !== Number(existing.priceAmount);
-      const intervalChanged = dto.billingInterval !== undefined && dto.billingInterval !== existing.billingInterval;
-      const currencyChanged = dto.currency !== undefined && dto.currency !== existing.currency;
+      const priceAmountChanged =
+        dto.priceAmount !== undefined &&
+        dto.priceAmount !== Number(existing.priceAmount);
+      const intervalChanged =
+        dto.billingInterval !== undefined &&
+        dto.billingInterval !== existing.billingInterval;
+      const currencyChanged =
+        dto.currency !== undefined && dto.currency !== existing.currency;
 
-      if (priceAmount > 0 && (!stripePriceId || priceAmountChanged || intervalChanged || currencyChanged)) {
+      if (
+        priceAmount > 0 &&
+        (!stripePriceId ||
+          priceAmountChanged ||
+          intervalChanged ||
+          currencyChanged)
+      ) {
         stripePriceId = await this.createStripePrice(
           stripeProductId,
           priceAmount,
@@ -353,10 +433,24 @@ export class PlanService {
       }
 
       // 3. Check priceAmountMonthly update
-      const priceAmountMonthly = dto.priceAmountMonthly !== undefined ? dto.priceAmountMonthly : (existing.priceAmountMonthly ? Number(existing.priceAmountMonthly) : null);
-      const monthlyPriceChanged = dto.priceAmountMonthly !== undefined && dto.priceAmountMonthly !== (existing.priceAmountMonthly ? Number(existing.priceAmountMonthly) : null);
+      const priceAmountMonthly =
+        dto.priceAmountMonthly !== undefined
+          ? dto.priceAmountMonthly
+          : existing.priceAmountMonthly
+            ? Number(existing.priceAmountMonthly)
+            : null;
+      const monthlyPriceChanged =
+        dto.priceAmountMonthly !== undefined &&
+        dto.priceAmountMonthly !==
+          (existing.priceAmountMonthly
+            ? Number(existing.priceAmountMonthly)
+            : null);
 
-      if (priceAmountMonthly && priceAmountMonthly > 0 && (!stripePriceIdMonthly || monthlyPriceChanged || currencyChanged)) {
+      if (
+        priceAmountMonthly &&
+        priceAmountMonthly > 0 &&
+        (!stripePriceIdMonthly || monthlyPriceChanged || currencyChanged)
+      ) {
         stripePriceIdMonthly = await this.createStripePrice(
           stripeProductId,
           priceAmountMonthly,
@@ -366,10 +460,24 @@ export class PlanService {
       }
 
       // 4. Check priceAmountYearly update
-      const priceAmountYearly = dto.priceAmountYearly !== undefined ? dto.priceAmountYearly : (existing.priceAmountYearly ? Number(existing.priceAmountYearly) : null);
-      const yearlyPriceChanged = dto.priceAmountYearly !== undefined && dto.priceAmountYearly !== (existing.priceAmountYearly ? Number(existing.priceAmountYearly) : null);
+      const priceAmountYearly =
+        dto.priceAmountYearly !== undefined
+          ? dto.priceAmountYearly
+          : existing.priceAmountYearly
+            ? Number(existing.priceAmountYearly)
+            : null;
+      const yearlyPriceChanged =
+        dto.priceAmountYearly !== undefined &&
+        dto.priceAmountYearly !==
+          (existing.priceAmountYearly
+            ? Number(existing.priceAmountYearly)
+            : null);
 
-      if (priceAmountYearly && priceAmountYearly > 0 && (!stripePriceIdYearly || yearlyPriceChanged || currencyChanged)) {
+      if (
+        priceAmountYearly &&
+        priceAmountYearly > 0 &&
+        (!stripePriceIdYearly || yearlyPriceChanged || currencyChanged)
+      ) {
         stripePriceIdYearly = await this.createStripePrice(
           stripeProductId,
           priceAmountYearly,
@@ -386,11 +494,21 @@ export class PlanService {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
-        ...(dto.targetAudience !== undefined && { targetAudience: dto.targetAudience }),
-        ...(dto.billingProvider !== undefined && { billingProvider: dto.billingProvider }),
-        ...(dto.billingInterval !== undefined && { billingInterval: dto.billingInterval }),
-        ...(dto.currency !== undefined && { currency: this.normalizeCurrency(dto.currency) }),
-        ...(dto.priceAmount !== undefined && { priceAmount: new Prisma.Decimal(dto.priceAmount) }),
+        ...(dto.targetAudience !== undefined && {
+          targetAudience: dto.targetAudience,
+        }),
+        ...(dto.billingProvider !== undefined && {
+          billingProvider: dto.billingProvider,
+        }),
+        ...(dto.billingInterval !== undefined && {
+          billingInterval: dto.billingInterval,
+        }),
+        ...(dto.currency !== undefined && {
+          currency: this.normalizeCurrency(dto.currency),
+        }),
+        ...(dto.priceAmount !== undefined && {
+          priceAmount: new Prisma.Decimal(dto.priceAmount),
+        }),
         ...(dto.isPerUser !== undefined && { isPerUser: dto.isPerUser }),
         ...(dto.trialDays !== undefined && { trialDays: dto.trialDays }),
         ...(dto.isPublic !== undefined && { isPublic: dto.isPublic }),
@@ -402,13 +520,31 @@ export class PlanService {
         stripePriceId,
         stripePriceIdMonthly,
         stripePriceIdYearly,
-        ...(dto.priceAmountMonthly !== undefined && { priceAmountMonthly: dto.priceAmountMonthly !== null ? new Prisma.Decimal(dto.priceAmountMonthly) : null }),
-        ...(dto.priceAmountYearly !== undefined && { priceAmountYearly: dto.priceAmountYearly !== null ? new Prisma.Decimal(dto.priceAmountYearly) : null }),
+        ...(dto.priceAmountMonthly !== undefined && {
+          priceAmountMonthly:
+            dto.priceAmountMonthly !== null
+              ? new Prisma.Decimal(dto.priceAmountMonthly)
+              : null,
+        }),
+        ...(dto.priceAmountYearly !== undefined && {
+          priceAmountYearly:
+            dto.priceAmountYearly !== null
+              ? new Prisma.Decimal(dto.priceAmountYearly)
+              : null,
+        }),
         ...(dto.features !== undefined && { features: dto.features as any }),
         ...(dto.metadata !== undefined && { metadata: dto.metadata }),
       },
     });
 
+    this.audit(
+      null,
+      'PLAN',
+      id,
+      'UPDATE',
+      { name: existing.name },
+      { name: updated.name },
+    );
     return updated;
   }
 
@@ -421,12 +557,22 @@ export class PlanService {
       throw new NotFoundException('Plan not found');
     }
 
-    return this.prisma.plan.update({
+    const updated = await this.prisma.plan.update({
       where: { id },
       data: {
         isActive: dto.isActive,
       },
     });
+
+    this.audit(
+      null,
+      'PLAN',
+      id,
+      'UPDATE',
+      { isActive: existing.isActive },
+      { isActive: updated.isActive },
+    );
+    return updated;
   }
 
   async remove(id: string) {
@@ -452,6 +598,7 @@ export class PlanService {
       );
     }
 
+    this.audit(null, 'PLAN', id, 'DELETE', { name: existing.name }, undefined);
     await this.prisma.plan.delete({
       where: { id },
     });
@@ -514,7 +661,10 @@ export class PlanService {
       this.prisma.plan.count({ where }),
     ]);
 
-    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      items,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findPublicOne(id: string) {

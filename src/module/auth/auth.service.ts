@@ -21,6 +21,7 @@ import { LoginDto } from './dto/login.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -34,7 +35,28 @@ export class AuthService {
     private readonly rolesService: RolesService,
     private readonly mailService: MailService,
     private readonly subscriptionService: SubscriptionService,
-  ) { }
+    private readonly auditService: AuditService,
+  ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   async register(dto: RegisterDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
@@ -72,7 +94,11 @@ export class AuthService {
         where: { token: dto.invitationToken },
       });
 
-      if (!invitation || invitation.status !== InvitationStatus.PENDING || invitation.expiresAt < new Date()) {
+      if (
+        !invitation ||
+        invitation.status !== InvitationStatus.PENDING ||
+        invitation.expiresAt < new Date()
+      ) {
         throw new BadRequestException('Invalid or expired invitation token');
       }
 
@@ -82,7 +108,8 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
-    const fullName = [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
+    const fullName =
+      [dto.firstName, dto.lastName].filter(Boolean).join(' ') || null;
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -94,7 +121,9 @@ export class AuthService {
             lastName: dto.lastName ?? null,
             fullName,
             phone: dto.phone ?? null,
-            status: invitation ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION,
+            status: invitation
+              ? UserStatus.ACTIVE
+              : UserStatus.PENDING_VERIFICATION,
             emailVerified: invitation ? true : false,
             emailVerifiedAt: invitation ? new Date() : null,
             signupSource: AuthProviderType.LOCAL,
@@ -111,7 +140,9 @@ export class AuthService {
           });
 
           // Assign default student/user role
-          const studentRole = await tx.role.findUnique({ where: { code: UserRoleCode.STUDENT } });
+          const studentRole = await tx.role.findUnique({
+            where: { code: UserRoleCode.STUDENT },
+          });
           if (studentRole) {
             await tx.userRole.create({
               data: { userId: user.id, roleId: studentRole.id, isActive: true },
@@ -119,7 +150,8 @@ export class AuthService {
           }
 
           return {
-            message: 'Registration successful. Invitation accepted and joined team.',
+            message:
+              'Registration successful. Invitation accepted and joined team.',
             data: {
               userId: user.id,
               email: user.email,
@@ -136,7 +168,8 @@ export class AuthService {
         );
 
         return {
-          message: 'Registration successful. Verification OTP sent to your email.',
+          message:
+            'Registration successful. Verification OTP sent to your email.',
           data: {
             userId: user.id,
             email: user.email,
@@ -148,7 +181,9 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Registration failed due to a system error. Please try again.');
+      throw new InternalServerErrorException(
+        'Registration failed due to a system error. Please try again.',
+      );
     }
   }
 
@@ -202,16 +237,21 @@ export class AuthService {
     if (!user.roles || user.roles.length === 0) {
       try {
         await this.subscriptionService.ensureFreePlanForUser(user.id);
-        
+
         // যদি আপনার আর্কিটেকচারে ডিফল্ট রোল সিড থেকে আলাদাভাবে ম্যানেজ করতে হয়:
-        const studentRole = await this.prisma.role.findUnique({ where: { code: UserRoleCode.STUDENT } });
+        const studentRole = await this.prisma.role.findUnique({
+          where: { code: UserRoleCode.STUDENT },
+        });
         if (studentRole) {
           await this.prisma.userRole.create({
             data: { userId: user.id, roleId: studentRole.id, isActive: true },
           });
         }
       } catch (subError) {
-        console.error(`💥 Baseline activation bypassed during OTP verification:`, subError);
+        console.error(
+          `💥 Baseline activation bypassed during OTP verification:`,
+          subError,
+        );
       }
     }
 
@@ -241,7 +281,10 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email before login');
     }
 
-    const passwordMatched = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatched = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
 
     if (!passwordMatched) {
       throw new UnauthorizedException('Invalid email or password');
@@ -252,15 +295,20 @@ export class AuthService {
     if (!user.roles || user.roles.length === 0) {
       try {
         await this.subscriptionService.ensureFreePlanForUser(user.id);
-        
-        const studentRole = await this.prisma.role.findUnique({ where: { code: UserRoleCode.STUDENT } });
+
+        const studentRole = await this.prisma.role.findUnique({
+          where: { code: UserRoleCode.STUDENT },
+        });
         if (studentRole) {
           await this.prisma.userRole.create({
             data: { userId: user.id, roleId: studentRole.id, isActive: true },
           });
         }
       } catch (subError) {
-        console.error(`💥 Baseline activation bypassed during login phase:`, subError);
+        console.error(
+          `💥 Baseline activation bypassed during login phase:`,
+          subError,
+        );
       }
     }
 
@@ -283,6 +331,11 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
+    });
+
+    this.audit(user.id, 'AUTH', user.id, 'CREATE', undefined, {
+      email: user.email,
+      action: 'login',
     });
 
     return {
@@ -477,6 +530,11 @@ export class AuthService {
         },
       }),
     ]);
+
+    this.audit(user.id, 'AUTH', user.id, 'CREATE', undefined, {
+      email: user.email,
+      action: 'password_reset',
+    });
 
     return {
       message: 'Password reset successfully',

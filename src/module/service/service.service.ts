@@ -10,10 +10,34 @@ import { QueryAdminServiceDto } from './dto/query-admin-service.dto';
 import { QueryPublicServiceDto } from './dto/query-public-service.dto';
 import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ServiceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   private readonly reservedSlugs = [
     'admin',
@@ -43,7 +67,7 @@ export class ServiceService {
       throw new BadRequestException('Service slug already exists');
     }
 
-    return this.prisma.service.create({
+    const created = await this.prisma.service.create({
       data: {
         slug: dto.slug,
         title: dto.title,
@@ -76,6 +100,12 @@ export class ServiceService {
         },
       },
     });
+
+    this.audit(userId, 'SERVICE', created.id, 'CREATE', undefined, {
+      title: dto.title,
+      slug: dto.slug,
+    });
+    return created;
   }
 
   async findAdminAll(query: QueryAdminServiceDto) {
@@ -184,7 +214,7 @@ export class ServiceService {
       }
     }
 
-    return this.prisma.service.update({
+    const updated = await this.prisma.service.update({
       where: { id },
       data: {
         ...(dto.slug !== undefined && { slug: dto.slug }),
@@ -222,6 +252,16 @@ export class ServiceService {
         },
       },
     });
+
+    this.audit(
+      userId,
+      'SERVICE',
+      id,
+      'UPDATE',
+      { title: existing.title },
+      { title: updated.title },
+    );
+    return updated;
   }
 
   async updateStatus(
@@ -253,7 +293,7 @@ export class ServiceService {
       updateData.publishedAt = null;
     }
 
-    return this.prisma.service.update({
+    const updated = await this.prisma.service.update({
       where: { id },
       data: updateData,
       include: {
@@ -265,6 +305,16 @@ export class ServiceService {
         },
       },
     });
+
+    this.audit(
+      userId,
+      'SERVICE',
+      id,
+      'UPDATE',
+      { status: existing.status },
+      { status: updated.status },
+    );
+    return updated;
   }
 
   async remove(id: string) {
@@ -276,6 +326,14 @@ export class ServiceService {
       throw new NotFoundException('Service not found');
     }
 
+    this.audit(
+      null,
+      'SERVICE',
+      id,
+      'DELETE',
+      { title: existing.title },
+      undefined,
+    );
     await this.prisma.service.delete({
       where: { id },
     });

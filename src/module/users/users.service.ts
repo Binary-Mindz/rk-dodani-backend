@@ -1,13 +1,40 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { SubscriptionStatus } from '@prisma/client';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType: 'USER',
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   async getProfile(userId: string) {
     // ⚡ ১. একই কুয়েরিতে রোল, সাবস্ক্রিপশন এবং প্ল্যানের ডেটা ইনক্লুড করা হয়েছে
@@ -17,14 +44,18 @@ export class UsersService {
         roles: {
           where: { isActive: true },
           include: {
-            role: true, 
+            role: true,
           },
         },
         // ইউজারটির লেটেস্ট অ্যাক্টিভ অথবা ট্রায়াল সাবস্ক্রিপশনটি বের করার জন্য
         subscriptions: {
           where: {
             status: {
-              in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.PAST_DUE],
+              in: [
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.TRIALING,
+                SubscriptionStatus.PAST_DUE,
+              ],
             },
           },
           orderBy: {
@@ -60,22 +91,24 @@ export class UsersService {
 
       purchaseInfo: activeSubscription
         ? {
-          subscriptionId: activeSubscription.id,
-          status: activeSubscription.status,
-          currentPeriodStart: activeSubscription.currentPeriodStart,
-          currentPeriodEnd: activeSubscription.currentPeriodEnd,
-          cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
-          provider: activeSubscription.provider, // e.g., STRIPE, PATREON
-          plan: {
-            id: activePlan?.id || null,
-            code: activePlan?.code || null,         // e.g., 'STUDENT_PRO', 'ENTERPRISE_TEAM'
-            name: activePlan?.name || null,         // e.g., 'Pro Student Plan'
-            targetAudience: activePlan?.targetAudience || null, // B2C or B2B
-            billingInterval: activePlan?.billingInterval || null,
-            currency: activePlan?.currency || null,
-            priceAmount: activePlan?.priceAmount ? Number(activePlan.priceAmount) : 0,
-          },
-        }
+            subscriptionId: activeSubscription.id,
+            status: activeSubscription.status,
+            currentPeriodStart: activeSubscription.currentPeriodStart,
+            currentPeriodEnd: activeSubscription.currentPeriodEnd,
+            cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
+            provider: activeSubscription.provider, // e.g., STRIPE, PATREON
+            plan: {
+              id: activePlan?.id || null,
+              code: activePlan?.code || null, // e.g., 'STUDENT_PRO', 'ENTERPRISE_TEAM'
+              name: activePlan?.name || null, // e.g., 'Pro Student Plan'
+              targetAudience: activePlan?.targetAudience || null, // B2C or B2B
+              billingInterval: activePlan?.billingInterval || null,
+              currency: activePlan?.currency || null,
+              priceAmount: activePlan?.priceAmount
+                ? Number(activePlan.priceAmount)
+                : 0,
+            },
+          }
         : null,
 
       createdAt: user.createdAt,
@@ -95,8 +128,10 @@ export class UsersService {
     let fullName: string | undefined | null = undefined;
 
     if (dto.firstName !== undefined || dto.lastName !== undefined) {
-      const first = dto.firstName !== undefined ? dto.firstName : currentUser.firstName;
-      const last = dto.lastName !== undefined ? dto.lastName : currentUser.lastName;
+      const first =
+        dto.firstName !== undefined ? dto.firstName : currentUser.firstName;
+      const last =
+        dto.lastName !== undefined ? dto.lastName : currentUser.lastName;
 
       fullName = `${first || ''} ${last || ''}`.trim() || null;
     }
@@ -113,7 +148,13 @@ export class UsersService {
         roles: { where: { isActive: true }, include: { role: true } },
         subscriptions: {
           where: {
-            status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.PAST_DUE] },
+            status: {
+              in: [
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.TRIALING,
+                SubscriptionStatus.PAST_DUE,
+              ],
+            },
           },
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -122,6 +163,21 @@ export class UsersService {
       },
     });
 
+    this.audit(
+      userId,
+      userId,
+      'UPDATE',
+      {
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        avatarUrl: currentUser.avatarUrl,
+      },
+      {
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        avatarUrl: updatedUser.avatarUrl,
+      },
+    );
     return this.formatUserResponse(updatedUser);
   }
 
@@ -142,22 +198,24 @@ export class UsersService {
       roles: user.roles.map((item) => item.role.code),
       purchaseInfo: activeSubscription
         ? {
-          subscriptionId: activeSubscription.id,
-          status: activeSubscription.status,
-          currentPeriodStart: activeSubscription.currentPeriodStart,
-          currentPeriodEnd: activeSubscription.currentPeriodEnd,
-          cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
-          provider: activeSubscription.provider,
-          plan: {
-            id: activePlan?.id || null,
-            code: activePlan?.code || null,
-            name: activePlan?.name || null,
-            targetAudience: activePlan?.targetAudience || null,
-            billingInterval: activePlan?.billingInterval || null,
-            currency: activePlan?.currency || null,
-            priceAmount: activePlan?.priceAmount ? Number(activePlan.priceAmount) : 0,
-          },
-        }
+            subscriptionId: activeSubscription.id,
+            status: activeSubscription.status,
+            currentPeriodStart: activeSubscription.currentPeriodStart,
+            currentPeriodEnd: activeSubscription.currentPeriodEnd,
+            cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
+            provider: activeSubscription.provider,
+            plan: {
+              id: activePlan?.id || null,
+              code: activePlan?.code || null,
+              name: activePlan?.name || null,
+              targetAudience: activePlan?.targetAudience || null,
+              billingInterval: activePlan?.billingInterval || null,
+              currency: activePlan?.currency || null,
+              priceAmount: activePlan?.priceAmount
+                ? Number(activePlan.priceAmount)
+                : 0,
+            },
+          }
         : null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -174,10 +232,15 @@ export class UsersService {
     }
 
     if (!user.passwordHash) {
-      throw new BadRequestException('Local password account not configured for this user');
+      throw new BadRequestException(
+        'Local password account not configured for this user',
+      );
     }
 
-    const isPasswordMatch = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+    const isPasswordMatch = await bcrypt.compare(
+      dto.oldPassword,
+      user.passwordHash,
+    );
     if (!isPasswordMatch) {
       throw new BadRequestException('Incorrect old password');
     }
@@ -192,6 +255,9 @@ export class UsersService {
       },
     });
 
+    this.audit(userId, userId, 'UPDATE', undefined, {
+      action: 'password_change',
+    });
     return true;
   }
 }

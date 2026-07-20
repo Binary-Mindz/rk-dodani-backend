@@ -1,18 +1,31 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AuditAction } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min, IsUUID } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  IsUUID,
+} from 'class-validator';
+import { AuditEntityType } from '../audit-entity-type.enum';
 
 export class QueryAuditLogDto {
-  @ApiPropertyOptional({ description: 'Search by admin name or action details' })
+  @ApiPropertyOptional({
+    description: 'Search by admin name or action details',
+  })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by entityType (Module)' })
+  @ApiPropertyOptional({
+    enum: AuditEntityType,
+    description: 'Filter by entityType (Module)',
+  })
   @IsOptional()
-  @IsString()
-  entityType?: string;
+  @IsEnum(AuditEntityType)
+  entityType?: AuditEntityType;
 
   @ApiPropertyOptional({ description: 'Filter by success/failed status' })
   @IsOptional()

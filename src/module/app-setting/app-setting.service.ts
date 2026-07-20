@@ -3,13 +3,37 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
 import { QueryAppSettingDto } from './dto/query-app-setting.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AppSettingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   async upsert(userId: string | null, dto: UpsertAppSettingDto) {
-    return this.prisma.appSetting.upsert({
+    const result = await this.prisma.appSetting.upsert({
       where: {
         groupName_key: {
           groupName: dto.groupName,
@@ -36,6 +60,13 @@ export class AppSettingService {
         },
       },
     });
+
+    const settingId = `${dto.groupName}:${dto.key}`;
+    this.audit(userId, 'SETTINGS', settingId, 'UPDATE', undefined, {
+      key: dto.key,
+      value: dto.value,
+    });
+    return result;
   }
 
   async findAdminAll(query: QueryAppSettingDto) {
@@ -109,6 +140,15 @@ export class AppSettingService {
       throw new NotFoundException('App setting not found');
     }
 
+    const settingId = `${groupName}:${key}`;
+    this.audit(
+      null,
+      'SETTINGS',
+      settingId,
+      'DELETE',
+      { key, value: existing.value },
+      undefined,
+    );
     await this.prisma.appSetting.delete({
       where: {
         groupName_key: {

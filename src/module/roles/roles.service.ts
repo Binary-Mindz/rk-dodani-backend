@@ -1,11 +1,34 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRoleCode } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class RolesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
+
+  private audit(
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    oldValues?: any,
+    newValues?: any,
+  ) {
+    this.auditService
+      .logCustom({
+        actorUserId,
+        entityType,
+        entityId,
+        action: action as any,
+        oldValues,
+        newValues,
+      })
+      .catch(() => {});
+  }
 
   async getRoleByCode(code: UserRoleCode) {
     const role = await this.prisma.role.findUnique({
@@ -61,12 +84,15 @@ export class RolesService {
     }));
   }
 
-  async updateRolePermissions(roleId: string, permissions: {
-    canManageUsers?: boolean;
-    canManageContent?: boolean;
-    canManageBilling?: boolean;
-    canManageSettings?: boolean;
-  }) {
+  async updateRolePermissions(
+    roleId: string,
+    permissions: {
+      canManageUsers?: boolean;
+      canManageContent?: boolean;
+      canManageBilling?: boolean;
+      canManageSettings?: boolean;
+    },
+  ) {
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
       include: { adminSettings: true },
@@ -77,19 +103,23 @@ export class RolesService {
     }
 
     if (!role.adminSettings) {
-      return this.prisma.adminSettings.create({
+      const created = await this.prisma.adminSettings.create({
         data: {
           id: role.id,
           ...permissions,
         },
       });
+      this.audit(null, 'ROLE', roleId, 'UPDATE', {}, permissions);
+      return created;
     }
 
-    return this.prisma.adminSettings.update({
+    const updated = await this.prisma.adminSettings.update({
       where: { id: role.id },
       data: {
         ...permissions,
       },
     });
+    this.audit(null, 'ROLE', roleId, 'UPDATE', role.adminSettings, updated);
+    return updated;
   }
 }
