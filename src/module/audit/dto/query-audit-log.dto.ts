@@ -27,7 +27,10 @@ export class QueryAuditLogDto {
   @IsEnum(AuditEntityType)
   entityType?: AuditEntityType;
 
-  @ApiPropertyOptional({ description: 'Filter by success/failed status' })
+  @ApiPropertyOptional({
+    enum: ['success', 'failed'],
+    description: 'Filter by success/failed status',
+  })
   @IsOptional()
   @IsString()
   status?: string;
