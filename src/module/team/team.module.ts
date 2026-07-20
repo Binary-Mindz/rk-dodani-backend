@@ -6,9 +6,10 @@ import { UsageEngagementController } from './usage-engagement.controller';
 import { TeamOnboardingController } from './team-onboarding.controller';
 import { TeamTestController } from './team-test.controller';
 import { MailModule } from '../../common/mail/mail.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
-  imports: [MailModule],
+  imports: [MailModule, ChatModule],
   controllers: [
     AccountSettingsController,
     TeamDashboardController,

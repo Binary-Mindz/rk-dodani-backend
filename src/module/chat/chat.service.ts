@@ -166,4 +166,42 @@ export class ChatService {
       throw new InternalServerErrorException('Failed to fetch conversation members');
     }
   }
+
+  async ensureTeamConversation(ownerId: string, newMemberIds: string[]): Promise<void> {
+    try {
+      let conversation = await this.prisma.conversation.findFirst({
+        where: {
+          type: 'GROUP',
+          members: { some: { userId: ownerId, role: 'OWNER' } },
+        },
+        include: { members: { select: { userId: true } } },
+      });
+
+      if (!conversation) {
+        conversation = await this.prisma.conversation.create({
+          data: {
+            type: 'GROUP',
+            members: { create: { userId: ownerId, role: 'OWNER' } },
+          },
+          include: { members: { select: { userId: true } } },
+        });
+      }
+
+      const existingMemberIds = new Set(conversation.members.map((m) => m.userId));
+      const toAdd = newMemberIds.filter((id) => !existingMemberIds.has(id));
+
+      if (toAdd.length > 0) {
+        await this.prisma.conversationMember.createMany({
+          data: toAdd.map((userId) => ({
+            conversationId: conversation!.id,
+            userId,
+            role: 'MEMBER' as const,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    } catch (error) {
+      this.logger.error(`Error ensuring team conversation: ${error.message}`, error.stack);
+    }
+  }
 }
