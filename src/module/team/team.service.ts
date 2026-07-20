@@ -18,6 +18,7 @@ import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import * as crypto from 'crypto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { MailService } from '../../common/mail/mail.service';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class TeamService {
@@ -26,6 +27,7 @@ export class TeamService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly chatService: ChatService,
   ) { }
 
   async getUsers(query: GetTeamMembersDto) {
@@ -403,13 +405,17 @@ export class TeamService {
         },
       });
 
-      return tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
           parentUserId,
           teamRole: assignedRole,
         },
       });
+
+      await this.chatService.ensureTeamConversation(parentUserId, [userId]);
+
+      return updatedUser;
     });
   }
 
@@ -1915,6 +1921,8 @@ export class TeamService {
         },
       });
     });
+
+    await this.chatService.ensureTeamConversation(userId, userIdsToApprove);
 
     const approvedUsers = await this.prisma.user.findMany({
       where: { id: { in: userIdsToApprove } },
