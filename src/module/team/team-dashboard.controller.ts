@@ -101,4 +101,16 @@ export class TeamDashboardController {
       data,
     };
   }
+
+  @ApiBearerAuth()
+  @Get('all-ctos')
+  @ApiOperation({ summary: 'Get all CTOs (Enterprise plan users)' })
+  async getAllCtos() {
+    const data = await this.teamService.getAllCtos();
+    return {
+      statusCode: 200,
+      message: 'All CTOs fetched successfully',
+      data,
+    };
+  }
 }

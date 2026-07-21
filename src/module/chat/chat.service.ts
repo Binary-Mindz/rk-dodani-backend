@@ -510,7 +510,6 @@ export class ChatService {
 
   async getConversationMembers(conversationId: string, userId: string) {
     try {
-      // Security check: is the requesting user even in this conversation?
       const isMember = await this.prisma.conversationMember.findFirst({
         where: { conversationId, userId, leftAt: null },
       });
