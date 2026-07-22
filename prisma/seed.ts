@@ -41,57 +41,6 @@ async function seedRoles() {
   console.log('🚀 3 Main roles seeded successfully');
 }
 
-async function seedRolePermissions() {
-  const superAdminRole = await prisma.role.findUnique({
-    where: { code: UserRoleCode.SUPER_ADMIN },
-  });
-
-  if (superAdminRole) {
-    await prisma.adminSettings.upsert({
-      where: { id: superAdminRole.id },
-      create: {
-        id: superAdminRole.id,
-        canManageUsers: true,
-        canManageContent: true,
-        canManageBilling: true,
-        canManageSettings: true,
-      },
-      update: {
-        canManageUsers: true,
-        canManageContent: true,
-        canManageBilling: true,
-        canManageSettings: true,
-      },
-    });
-  }
-
-  const otherRoles = await prisma.role.findMany({
-    where: { code: { in: [UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE] } },
-  });
-
-  for (const role of otherRoles) {
-    const existing = await prisma.adminSettings.findUnique({
-      where: { id: role.id },
-    });
-
-    if (existing) {
-      continue;
-    }
-
-    await prisma.adminSettings.create({
-      data: {
-        id: role.id,
-        canManageUsers: false,
-        canManageContent: false,
-        canManageBilling: false,
-        canManageSettings: false,
-      },
-    });
-  }
-
-  console.log('🚀 Role permissions seeded successfully');
-}
-
 async function seedContentTypes() {
   const count = await prisma.contentType.count();
 
@@ -327,7 +276,6 @@ async function seedPlans() {
 
 async function main() {
   await seedRoles();
-  await seedRolePermissions();
   await seedContentTypes();
   await seedSuperAdmin();
   await seedPlans();

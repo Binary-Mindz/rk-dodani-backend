@@ -3,7 +3,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { RolesModule } from '../roles/roles.module';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { MailModule } from 'common/mail/mail.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
@@ -12,7 +11,6 @@ import { AuditModule } from '../audit/audit.module';
 @Module({
   imports: [
     ConfigModule,
-    RolesModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -20,7 +18,6 @@ import { AuditModule } from '../audit/audit.module';
         global: false,
       }),
     }),
-    RolesModule,
     MailModule,
     SubscriptionModule,
     AuditModule,

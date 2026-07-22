@@ -17,8 +17,6 @@ import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
-import { PermissionGuard } from 'common/guards/permission.guard';
-import { PermissionSettings } from 'common/decorators/permission-settings.decorator';
 
 @ApiTags('App Settings')
 @Controller()
@@ -29,8 +27,6 @@ export class AppSettingController {
   constructor(private readonly service: AppSettingService) {}
 
   @Put('admin/settings')
-  @UseGuards(PermissionGuard)
-  @PermissionSettings('settings:manage')
   @ApiOperation({ summary: 'Create or update app setting' })
   async upsert(
     @CurrentUser('id') userId: string,
@@ -58,8 +54,6 @@ export class AppSettingController {
   }
 
   @Delete('admin/settings/:groupName/:key')
-  @UseGuards(PermissionGuard)
-  @PermissionSettings('settings:manage')
   @ApiOperation({ summary: 'Delete app setting' })
   async remove(
     @Param('groupName') groupName: string,

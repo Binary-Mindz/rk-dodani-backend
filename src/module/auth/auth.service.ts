@@ -14,7 +14,6 @@ import {
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { RolesService } from '../roles/roles.service';
 import { MailService } from '../../common/mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -32,7 +31,6 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly rolesService: RolesService,
     private readonly mailService: MailService,
     private readonly subscriptionService: SubscriptionService,
     private readonly auditService: AuditService,

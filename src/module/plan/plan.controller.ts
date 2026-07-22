@@ -17,8 +17,6 @@ import { QueryPlanDto } from './dto/query-plan.dto';
 import { UpdatePlanStatusDto } from './dto/update-plan-status.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
-import { PermissionGuard } from 'common/guards/permission.guard';
-import { PermissionSettings } from 'common/decorators/permission-settings.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { Roles } from 'common/decorators/roles.decorator';
 @ApiTags('Plans')
@@ -27,9 +25,8 @@ export class PlanController {
   constructor(private readonly service: PlanService) {}
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN )
-  @PermissionSettings('billing:manage')
   @Post('admin/plans')
   @ApiOperation({ summary: 'Create plan' })
   async create(@Body() dto: CreatePlanDto) {
@@ -87,9 +84,8 @@ export class PlanController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN )
-  @PermissionSettings('billing:manage')
   @Patch('admin/plans/:id')
   @ApiOperation({ summary: 'Update plan' })
   async update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
@@ -103,9 +99,8 @@ export class PlanController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN )
-  @PermissionSettings('billing:manage')
   @Patch('admin/plans/:id/status')
   @ApiOperation({ summary: 'Activate or deactivate a plan' })
   async updateStatus(
@@ -122,9 +117,8 @@ export class PlanController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN )
-  @PermissionSettings('billing:manage')
   @Delete('admin/plans/:id')
   @ApiOperation({ summary: 'Delete plan' })
   async remove(@Param('id') id: string) {

@@ -21,8 +21,6 @@ import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
-import { PermissionGuard } from 'common/guards/permission.guard';
-import { PermissionSettings } from 'common/decorators/permission-settings.decorator';
 import { TrackProgressDto } from './dto/track-progress.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
 
@@ -32,9 +30,8 @@ export class ContentController {
   constructor(private readonly service: ContentService) { }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
-  @PermissionSettings('content:manage')
   @Post('admin/content')
   @ApiOperation({ summary: 'Create content' })
   async create(
@@ -96,9 +93,8 @@ export class ContentController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
-  @PermissionSettings('content:manage')
   @Patch('admin/content/:id')
   @ApiOperation({ summary: 'Update content' })
   async update(
@@ -116,9 +112,8 @@ export class ContentController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
-  @PermissionSettings('content:manage')
   @Patch('admin/content/:id/status')
   @ApiOperation({ summary: 'Update content status' })
   async updateStatus(
@@ -136,9 +131,8 @@ export class ContentController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
-  @PermissionSettings('content:manage')
   @Delete('admin/content/:id')
   @ApiOperation({ summary: 'Delete content (soft delete)' })
   async remove(@Param('id') id: string) {
