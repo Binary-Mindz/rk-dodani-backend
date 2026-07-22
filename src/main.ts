@@ -10,12 +10,7 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(
-    helmet({
-      contentSecurityPolicy: false,
-      crossOriginResourcePolicy: false,
-    }),
-  );
+  app.use(helmet());
 
   app.setGlobalPrefix('v1', {
     exclude: [
@@ -27,7 +22,13 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: true,
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://agentarum.ai",
+      "https://localhost:4000",
+      "https://api.agentarum.ai"
+    ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });
