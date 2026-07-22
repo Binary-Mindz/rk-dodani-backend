@@ -26,6 +26,22 @@ export class ChatService {
       }
 
       const uniqueMemberIds = [...new Set([userId, ...data.participantIds])];
+
+      // Check if creator & participant user IDs exist in DB
+      const existingUsers = await this.prisma.user.findMany({
+        where: { id: { in: uniqueMemberIds } },
+        select: { id: true },
+      });
+      const existingUserIds = new Set(existingUsers.map((u) => u.id));
+      const missingIds = uniqueMemberIds.filter(
+        (id) => !existingUserIds.has(id),
+      );
+      if (missingIds.length > 0) {
+        throw new BadRequestException(
+          `User ID(s) not found in database: ${missingIds.join(', ')}`,
+        );
+      }
+
       const members = uniqueMemberIds.map((id) => ({
         userId: id,
         role: id === userId ? ('OWNER' as const) : ('MEMBER' as const),
@@ -65,7 +81,9 @@ export class ChatService {
         `Error creating conversation: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException('Failed to create conversation');
+      throw new InternalServerErrorException(
+        `Failed to create conversation: ${error.message}`,
+      );
     }
   }
 

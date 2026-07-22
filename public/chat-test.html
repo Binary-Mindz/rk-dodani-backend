@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RK Dodani - Real-Time Chat Tester & Debugger</title>
+  
+  <!-- Google Fonts & Font Awesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Socket.IO Client CDN -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: rgba(15, 23, 42, 0.85);
+      --bg-card-border: rgba(255, 255, 255, 0.1);
+      --bg-hover: rgba(255, 255, 255, 0.05);
+      --primary: #0ea5e9;
+      --primary-hover: #0284c7;
+      --accent: #6366f1;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-glow: 0 10px 30px -10px rgba(14, 165, 233, 0.3);
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.12) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Header */
+    header {
+      background: rgba(9, 13, 22, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bg-card-border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 20px;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .logo-text h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .logo-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .server-url-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--bg-card-border);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .server-url-box input {
+      background: transparent;
+      border: none;
+      color: var(--primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      width: 170px;
+      outline: none;
+    }
+
+    .mode-switch {
+      display: flex;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--bg-card-border);
+    }
+
+    .mode-btn {
+      padding: 6px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+    }
+
+    /* Main Container */
+    .app-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 16px;
+      max-width: 1700px;
+      width: 100%;
+      margin: 0 auto;
+      height: calc(100vh - 65px);
+      box-sizing: border-box;
+    }
+
+    /* Split View Container for Dual Client Mode */
+    .clients-wrapper {
+      display: flex;
+      flex: 1;
+      gap: 16px;
+      width: 100%;
+      min-height: 0;
+    }
+
+    .client-instance {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--bg-card-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      min-width: 0;
+    }
+
+    /* Auth & Connection Bar */
+    .client-auth-bar {
+      background: rgba(15, 23, 42, 0.8);
+      border-bottom: 1px solid var(--bg-card-border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .user-info .name {
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+
+    .user-info .subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--bg-card-border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-subtle);
+    }
+
+    .status-pill.connected {
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .status-pill.connected .status-dot {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .status-pill.disconnected {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .status-pill.disconnected .status-dot {
+      background: var(--danger);
+    }
+
+    .status-pill.connecting {
+      color: var(--warning);
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .status-pill.connecting .status-dot {
+      background: var(--warning);
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.4; }
+      to { opacity: 1; }
+    }
+
+    /* Client Body (Sidebar + Chat Area) */
+    .client-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 270px;
+      border-right: 1px solid var(--bg-card-border);
+      display: flex;
+      flex-direction: column;
+      background: rgba(10, 15, 26, 0.4);
+    }
+
+    .sidebar-header {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--bg-card-border);
+    }
+
+    .sidebar-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .btn-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid var(--bg-card-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .btn-icon:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .conversations-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .conv-item {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+    }
+
+    .conv-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .conv-item.active {
+      background: rgba(14, 165, 233, 0.15);
+      border-color: rgba(14, 165, 233, 0.4);
+    }
+
+    .conv-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: var(--primary);
+    }
+
+    .conv-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .conv-title {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .conv-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--font-mono);
+    }
+
+    /* Main Chat Window */
+    .chat-window {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(5, 8, 15, 0.3);
+    }
+
+    .chat-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--bg-card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .chat-title-group h3 {
+      font-size: 14.5px;
+      font-weight: 600;
+    }
+
+    .chat-title-group p {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-subtle);
+    }
+
+    .empty-state i {
+      font-size: 36px;
+      margin-bottom: 10px;
+      color: var(--text-subtle);
+    }
+
+    /* Message Bubbles */
+    .message-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 78%;
+    }
+
+    .message-row.sent {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message-row.received {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .message-sender {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+      padding: 0 4px;
+    }
+
+    .message-bubble {
+      padding: 9px 13px;
+      border-radius: 14px;
+      font-size: 13.5px;
+      line-height: 1.45;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .message-row.sent .message-bubble {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      border-bottom-right-radius: 3px;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+    }
+
+    .message-row.received .message-bubble {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-main);
+      border-bottom-left-radius: 3px;
+    }
+
+    .message-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 4px;
+    }
+
+    .message-row.received .message-footer {
+      color: var(--text-subtle);
+    }
+
+    /* Typing Indicator */
+    .typing-bar {
+      padding: 4px 16px;
+      font-size: 11.5px;
+      color: var(--primary);
+      font-style: italic;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .typing-dots span {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: wave 1.3s infinite ease-in-out;
+    }
+
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes wave {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+
+    /* Input Area */
+    .chat-input-area {
+      padding: 10px 14px;
+      border-top: 1px solid var(--bg-card-border);
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text-main);
+      font-size: 13px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .chat-input:focus {
+      border-color: var(--primary);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0 16px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .btn-send:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    /* Debug Console Panel at Bottom */
+    .debug-console {
+      background: #04070d;
+      border: 1px solid var(--bg-card-border);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      height: 150px;
+      overflow: hidden;
+    }
+
+    .console-header {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--bg-card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .console-logs {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .log-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.35;
+    }
+
+    .log-time {
+      color: var(--text-subtle);
+    }
+
+    .log-tag {
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 9.5px;
+    }
+
+    .log-tag.EMIT { background: rgba(14, 165, 233, 0.2); color: var(--primary); }
+    .log-tag.RECV { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .log-tag.REST { background: rgba(99, 102, 241, 0.2); color: var(--accent); }
+    .log-tag.ERR  { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+    .log-msg {
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    /* Modal Form Overlay */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #0d1322;
+      border: 1px solid var(--bg-card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      width: 440px;
+      max-width: 92%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-card h3 {
+      margin-bottom: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--bg-card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: var(--text-main);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+    }
+
+    .quick-preset-btns {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .preset-btn {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn:hover {
+      background: rgba(14, 165, 233, 0.15);
+      border-color: var(--primary);
+      color: var(--text-main);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-area">
+      <div class="logo-icon">
+        <i class="fa-solid fa-comments"></i>
+      </div>
+      <div class="logo-text">
+        <h1>RK Dodani Chat Tester</h1>
+        <p>Real-Time Socket.IO & REST Debugging Suite</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="server-url-box">
+        <span>API:</span>
+        <input type="text" id="serverUrlInput" value="" placeholder="http://localhost:4000" />
+      </div>
+
+      <div class="mode-switch">
+        <button class="mode-btn active" id="btnModeSingle" onclick="setMode('single')">
+          <i class="fa-solid fa-user"></i> Single Client
+        </button>
+        <button class="mode-btn" id="btnModeDual" onclick="setMode('dual')">
+          <i class="fa-solid fa-users-between-lines"></i> Dual Client (Split Screen)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- App Body -->
+  <div class="app-container">
+    
+    <div class="clients-wrapper" id="clientsWrapper">
+      <!-- Client instances dynamically generated -->
+    </div>
+
+  </div>
+
+  <!-- Global Modal for Login / Token -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal-card">
+      <h3 id="loginModalTitle"><i class="fa-solid fa-key" style="color: var(--primary)"></i> Client Authentication</h3>
+      
+      <div class="quick-preset-btns">
+        <button class="preset-btn" onclick="fillLoginPreset('superadmin@gmail.com', '123456')">
+          ⚡ Admin Preset
+        </button>
+        <button class="preset-btn" onclick="fillLoginPreset('', '')">
+          🧹 Clear Form
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>Option A: Login with Email & Password</label>
+        <input type="email" id="modalEmail" class="form-input" placeholder="email@example.com" />
+      </div>
+      <div class="form-group">
+        <input type="password" id="modalPassword" class="form-input" placeholder="Password" />
+      </div>
+
+      <div style="text-align: center; color: var(--text-subtle); margin: 12px 0; font-size: 11px;">
+        —— OR ——
+      </div>
+
+      <div class="form-group">
+        <label>Option B: Paste Direct Access Token (Bearer JWT)</label>
+        <input type="text" id="modalDirectToken" class="form-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('loginModal')">Cancel</button>
+        <button class="btn-primary" onclick="submitAuthModal()">Authenticate & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Modal for Create Conversation -->
+  <div class="modal-overlay" id="createConvModal">
+    <div class="modal-card">
+      <h3><i class="fa-solid fa-plus-circle" style="color: var(--primary)"></i> Create New Conversation</h3>
+      
+      <div class="quick-preset-btns" id="convModalQuickBtns">
+        <button class="preset-btn" onclick="autoFillOtherClientUser()">
+          ⚡ Auto-fill Partner User ID
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>Conversation Title (Optional)</label>
+        <input type="text" id="modalConvTitle" class="form-input" placeholder="e.g. Project Team Chat" />
+      </div>
+      <div class="form-group">
+        <label>Participant User IDs (Must be valid database user UUIDs)</label>
+        <input type="text" id="modalParticipantIds" class="form-input" placeholder="e.g. 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d" />
+      </div>
+      <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+        <input type="checkbox" id="modalIsGroup" />
+        <label for="modalIsGroup" style="margin: 0; cursor: pointer; font-size: 12.5px;">Is Group Conversation</label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('createConvModal')">Cancel</button>
+        <button class="btn-primary" onclick="submitCreateConv()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Config & Globals
+    let currentMode = 'single';
+    let targetClientForModal = 'client1';
+
+    function getApiBaseUrl() {
+      const inputVal = document.getElementById('serverUrlInput')?.value?.trim();
+      if (inputVal) return inputVal;
+      if (window.location.origin.startsWith('http')) {
+        return window.location.origin;
+      }
+      return 'http://localhost:4000';
+    }
+
+    // Store state for clients
+    const clients = {
+      client1: {
+        id: 'client1',
+        title: 'Client 1',
+        token: '',
+        user: null,
+        socket: null,
+        conversations: [],
+        activeConvId: null,
+        messages: [],
+        typingUsers: new Set()
+      },
+      client2: {
+        id: 'client2',
+        title: 'Client 2',
+        token: '',
+        user: null,
+        socket: null,
+        conversations: [],
+        activeConvId: null,
+        messages: [],
+        typingUsers: new Set()
+      }
+    };
+
+    // Render Client UI template
+    function renderClientHTML(clientId, clientTitle) {
+      return `
+        <div class="client-instance" id="${clientId}-root">
+          <!-- Auth & Connection Header -->
+          <div class="client-auth-bar">
+            <div class="user-badge">
+              <div class="user-avatar" id="${clientId}-avatar">?</div>
+              <div class="user-info">
+                <div class="name" id="${clientId}-userName">${clientTitle} (Not Logged In)</div>
+                <div class="subtext" id="${clientId}-userSub">Click key icon to authenticate</div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="status-pill disconnected" id="${clientId}-statusPill">
+                <span class="status-dot"></span>
+                <span id="${clientId}-statusText">Disconnected</span>
+              </span>
+              <button class="btn-icon" title="Login / Set Token" onclick="openLoginModal('${clientId}')">
+                <i class="fa-solid fa-key"></i>
+              </button>
+              <button class="btn-icon" title="Toggle Connect/Disconnect" onclick="toggleConnect('${clientId}')">
+                <i class="fa-solid fa-plug"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="client-body">
+            <!-- Sidebar -->
+            <div class="sidebar">
+              <div class="sidebar-header">
+                <span class="sidebar-title">Conversations</span>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn-icon" title="Fetch Conversations" onclick="fetchConversations('${clientId}')">
+                    <i class="fa-solid fa-rotate"></i>
+                  </button>
+                  <button class="btn-icon" title="New Conversation" onclick="openCreateConvModal('${clientId}')">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="conversations-list" id="${clientId}-convList">
+                <div class="empty-state" style="padding: 20px 10px;">
+                  <span style="font-size: 12px;">Log in to load conversations</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chat Window -->
+            <div class="chat-window">
+              <div class="chat-header">
+                <div class="chat-title-group">
+                  <h3 id="${clientId}-chatTitle">Select a Conversation</h3>
+                  <p id="${clientId}-chatSub">No room active</p>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn-icon" title="Fetch Messages" onclick="fetchMessages('${clientId}')">
+                    <i class="fa-solid fa-rotate-right"></i>
+                  </button>
+                  <button class="btn-icon" title="Room Members" onclick="viewMembers('${clientId}')">
+                    <i class="fa-solid fa-user-group"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Messages Container -->
+              <div class="messages-container" id="${clientId}-msgList">
+                <div class="empty-state">
+                  <i class="fa-regular fa-paper-plane"></i>
+                  <p style="font-size: 13px;">No active room selected</p>
+                </div>
+              </div>
+
+              <!-- Typing Indicator -->
+              <div class="typing-bar" id="${clientId}-typingBar" style="display: none;">
+                <div class="typing-dots"><span></span><span></span><span></span></div>
+                <span id="${clientId}-typingText">Someone is typing...</span>
+              </div>
+
+              <!-- Input Area -->
+              <div class="chat-input-area">
+                <input type="text" id="${clientId}-msgInput" class="chat-input" placeholder="Type a message..." oninput="handleTypingInput('${clientId}')" onkeydown="if(event.key==='Enter') sendMessage('${clientId}')" />
+                <button class="btn-send" id="${clientId}-btnSend" onclick="sendMessage('${clientId}')">
+                  <span>Send</span>
+                  <i class="fa-solid fa-paper-plane"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Console Debug Log -->
+          <div class="debug-console">
+            <div class="console-header">
+              <span><i class="fa-solid fa-terminal" style="color: var(--primary)"></i> Event & Packet Console (${clientTitle})</span>
+              <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px;" onclick="clearLogs('${clientId}')">Clear</button>
+            </div>
+            <div class="console-logs" id="${clientId}-logs">
+              <div class="log-line">
+                <span class="log-time">[System]</span>
+                <span class="log-msg">Ready for testing ${clientTitle}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Initialize UI Layout
+    function initUI() {
+      document.getElementById('serverUrlInput').value = getApiBaseUrl();
+      const wrapper = document.getElementById('clientsWrapper');
+      if (currentMode === 'single') {
+        wrapper.innerHTML = renderClientHTML('client1', 'Client 1');
+      } else {
+        wrapper.innerHTML = renderClientHTML('client1', 'Client A') + renderClientHTML('client2', 'Client B');
+      }
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('btnModeSingle').classList.toggle('active', mode === 'single');
+      document.getElementById('btnModeDual').classList.toggle('active', mode === 'dual');
+      initUI();
+    }
+
+    // Logging helper
+    function addLog(clientId, type, message) {
+      const logContainer = document.getElementById(`${clientId}-logs`);
+      const now = new Date().toLocaleTimeString();
+      
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML = `
+        <span class="log-time">${now}</span>
+        <span class="log-tag ${type}">${type}</span>
+        <span class="log-msg">${escapeHTML(message)}</span>
+      `;
+
+      if (logContainer) {
+        logContainer.appendChild(line);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    }
+
+    function clearLogs(clientId) {
+      const logContainer = document.getElementById(`${clientId}-logs`);
+      if (logContainer) logContainer.innerHTML = '';
+    }
+
+    function escapeHTML(str) {
+      if (typeof str !== 'string') str = JSON.stringify(str);
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    // Auth Modal Handlers
+    function openLoginModal(clientId) {
+      targetClientForModal = clientId;
+      document.getElementById('loginModalTitle').innerText = `Authenticate for ${clientId.toUpperCase()}`;
+      document.getElementById('loginModal').classList.add('active');
+    }
+
+    function fillLoginPreset(email, pass) {
+      document.getElementById('modalEmail').value = email;
+      document.getElementById('modalPassword').value = pass;
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    async function submitAuthModal() {
+      const clientId = targetClientForModal;
+      const email = document.getElementById('modalEmail').value.trim();
+      const password = document.getElementById('modalPassword').value.trim();
+      const directToken = document.getElementById('modalDirectToken').value.trim();
+
+      const apiBase = getApiBaseUrl();
+
+      if (directToken) {
+        clients[clientId].token = directToken.replace('Bearer ', '');
+        clients[clientId].user = { email: 'Token User', id: 'JWT Token' };
+        updateUserUI(clientId);
+        closeModal('loginModal');
+        addLog(clientId, 'REST', 'Direct Token applied!');
+        connectSocket(clientId);
+        fetchConversations(clientId);
+        return;
+      }
+
+      if (!email || !password) {
+        alert('Please enter Email and Password OR paste a Direct Access Token!');
+        return;
+      }
+
+      addLog(clientId, 'REST', `Logging in as ${email}...`);
+      try {
+        const response = await fetch(`${apiBase}/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const resData = await response.json();
+
+        if (response.ok) {
+          // Extract token from Nest response format
+          const token = resData.data?.tokens?.accessToken || resData.accessToken || resData.data?.accessToken;
+          const user = resData.data?.user || resData.user || { email };
+
+          if (!token) {
+            alert('Login error: Token missing in server response!');
+            addLog(clientId, 'ERR', `Response missing token: ${JSON.stringify(resData)}`);
+            return;
+          }
+
+          clients[clientId].token = token;
+          clients[clientId].user = user;
+
+          updateUserUI(clientId);
+          closeModal('loginModal');
+          addLog(clientId, 'REST', `Login success! User ID: ${user.id || 'N/A'}`);
+
+          connectSocket(clientId);
+          fetchConversations(clientId);
+        } else {
+          alert('Login failed: ' + (resData.message || 'Invalid credentials'));
+          addLog(clientId, 'ERR', `Login failed: ${resData.message || response.statusText}`);
+        }
+      } catch (err) {
+        alert('Network / Login Error: ' + err.message);
+        addLog(clientId, 'ERR', `Login network error: ${err.message}`);
+      }
+    }
+
+    function updateUserUI(clientId) {
+      const client = clients[clientId];
+      const nameEl = document.getElementById(`${clientId}-userName`);
+      const subEl = document.getElementById(`${clientId}-userSub`);
+      const avatarEl = document.getElementById(`${clientId}-avatar`);
+
+      if (client.user && client.token) {
+        nameEl.innerText = client.user.email || client.user.name || 'User Logged In';
+        subEl.innerText = `ID: ${client.user.id || 'Active Token'}`;
+        avatarEl.innerText = (client.user.email || 'U')[0].toUpperCase();
+      } else {
+        nameEl.innerText = `${clientId.toUpperCase()} (Not Logged In)`;
+        subEl.innerText = 'Click key icon to login';
+        avatarEl.innerText = '?';
+      }
+    }
+
+    // Socket.IO Connection Handler
+    function connectSocket(clientId) {
+      const client = clients[clientId];
+      const apiBase = getApiBaseUrl();
+
+      if (!client.token) {
+        openLoginModal(clientId);
+        return;
+      }
+
+      if (client.socket) {
+        client.socket.disconnect();
+      }
+
+      updateStatus(clientId, 'connecting', 'Connecting...');
+      addLog(clientId, 'EMIT', `Connecting Socket to ${apiBase}...`);
+
+      client.socket = io(apiBase, {
+        extraHeaders: {
+          Authorization: `Bearer ${client.token}`
+        },
+        auth: {
+          token: `Bearer ${client.token}`
+        }
+      });
+
+      client.socket.on('connect', () => {
+        updateStatus(clientId, 'connected', 'Connected');
+        addLog(clientId, 'RECV', `Socket connected! Socket ID: ${client.socket.id}`);
+
+        if (client.activeConvId) {
+          joinRoom(clientId, client.activeConvId);
+        }
+      });
+
+      client.socket.on('disconnect', (reason) => {
+        updateStatus(clientId, 'disconnected', 'Disconnected');
+        addLog(clientId, 'RECV', `Socket disconnected (${reason})`);
+      });
+
+      client.socket.on('error', (err) => {
+        addLog(clientId, 'ERR', `Socket Error: ${typeof err === 'object' ? JSON.stringify(err) : err}`);
+      });
+
+      client.socket.on('newMessage', (msg) => {
+        addLog(clientId, 'RECV', `newMessage: "${msg.content}" (from: ${msg.senderId})`);
+        if (msg.conversationId === client.activeConvId) {
+          // Prevent duplicates if ack already added
+          if (!client.messages.some(m => m.id === msg.id)) {
+            client.messages.push(msg);
+            renderMessages(clientId);
+          }
+          markAsRead(clientId, msg.id, msg.conversationId);
+        }
+      });
+
+      client.socket.on('typingIndicator', (data) => {
+        addLog(clientId, 'RECV', `typingIndicator: User ${data.userId} isTyping=${data.isTyping}`);
+        if (data.userId !== client.user?.id) {
+          if (data.isTyping) {
+            client.typingUsers.add(data.userId);
+          } else {
+            client.typingUsers.delete(data.userId);
+          }
+          updateTypingUI(clientId);
+        }
+      });
+
+      client.socket.on('messageRead', (data) => {
+        addLog(clientId, 'RECV', `messageRead: Message ${data.messageId} read by ${data.userId}`);
+      });
+    }
+
+    function toggleConnect(clientId) {
+      const client = clients[clientId];
+      if (client.socket && client.socket.connected) {
+        client.socket.disconnect();
+      } else {
+        connectSocket(clientId);
+      }
+    }
+
+    function updateStatus(clientId, state, text) {
+      const pill = document.getElementById(`${clientId}-statusPill`);
+      const txt = document.getElementById(`${clientId}-statusText`);
+      if (pill) {
+        pill.className = `status-pill ${state}`;
+        txt.innerText = text;
+      }
+    }
+
+    // Conversations REST API
+    async function fetchConversations(clientId) {
+      const client = clients[clientId];
+      const apiBase = getApiBaseUrl();
+
+      if (!client.token) {
+        openLoginModal(clientId);
+        return;
+      }
+
+      addLog(clientId, 'REST', 'Fetching user conversations...');
+      try {
+        const res = await fetch(`${apiBase}/v1/chat/conversations`, {
+          headers: { 'Authorization': `Bearer ${client.token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          client.conversations = Array.isArray(data) ? data : (data.data || []);
+          renderConversations(clientId);
+          addLog(clientId, 'REST', `Loaded ${client.conversations.length} conversation(s)`);
+        } else {
+          addLog(clientId, 'ERR', `Fetch conversations failed: ${data.message}`);
+        }
+      } catch (err) {
+        addLog(clientId, 'ERR', `Conversations fetch error: ${err.message}`);
+      }
+    }
+
+    function renderConversations(clientId) {
+      const client = clients[clientId];
+      const listEl = document.getElementById(`${clientId}-convList`);
+      if (!listEl) return;
+
+      if (!client.conversations || client.conversations.length === 0) {
+        listEl.innerHTML = `<div class="empty-state" style="padding:20px;"><p style="font-size:12px;">No conversations found</p></div>`;
+        return;
+      }
+
+      listEl.innerHTML = client.conversations.map(c => `
+        <div class="conv-item ${c.id === client.activeConvId ? 'active' : ''}" onclick="selectConversation('${clientId}', '${c.id}')">
+          <div class="conv-icon">
+            <i class="fa-solid ${c.type === 'GROUP' || c.isGroup ? 'fa-users' : 'fa-user'}"></i>
+          </div>
+          <div class="conv-details">
+            <div class="conv-title">${escapeHTML(c.name || c.title || (c.type === 'GROUP' || c.isGroup ? 'Group Chat' : 'Direct Message'))}</div>
+            <div class="conv-sub">ID: ${c.id.substring(0, 8)}...</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function selectConversation(clientId, convId) {
+      const client = clients[clientId];
+      client.activeConvId = convId;
+      renderConversations(clientId);
+
+      const conv = client.conversations.find(c => c.id === convId);
+      document.getElementById(`${clientId}-chatTitle`).innerText = conv?.name || conv?.title || `Room (${convId.substring(0, 8)}...)`;
+      document.getElementById(`${clientId}-chatSub`).innerText = `Room ID: ${convId}`;
+
+      joinRoom(clientId, convId);
+      fetchMessages(clientId);
+    }
+
+    function joinRoom(clientId, convId) {
+      const client = clients[clientId];
+      if (client.socket && client.socket.connected) {
+        addLog(clientId, 'EMIT', `joinRoom -> conversationId: ${convId}`);
+        client.socket.emit('joinRoom', { conversationId: convId }, (res) => {
+          addLog(clientId, 'RECV', `joinedRoom ack: ${JSON.stringify(res)}`);
+        });
+      }
+    }
+
+    async function fetchMessages(clientId) {
+      const client = clients[clientId];
+      const apiBase = getApiBaseUrl();
+
+      if (!client.activeConvId || !client.token) return;
+
+      addLog(clientId, 'REST', `Fetching messages for conversation ${client.activeConvId}...`);
+      try {
+        const res = await fetch(`${apiBase}/v1/chat/conversations/${client.activeConvId}/messages?take=50`, {
+          headers: { 'Authorization': `Bearer ${client.token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          client.messages = Array.isArray(data) ? data : (data.data || []);
+          renderMessages(clientId);
+          addLog(clientId, 'REST', `Loaded ${client.messages.length} messages`);
+        } else {
+          addLog(clientId, 'ERR', `Fetch messages failed: ${data.message}`);
+        }
+      } catch (err) {
+        addLog(clientId, 'ERR', `Fetch messages error: ${err.message}`);
+      }
+    }
+
+    function renderMessages(clientId) {
+      const client = clients[clientId];
+      const msgList = document.getElementById(`${clientId}-msgList`);
+      if (!msgList) return;
+
+      if (!client.messages || client.messages.length === 0) {
+        msgList.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-regular fa-comments"></i>
+            <p style="font-size: 13px;">No messages yet in this room</p>
+          </div>
+        `;
+        return;
+      }
+
+      msgList.innerHTML = client.messages.map(m => {
+        const isSent = m.senderId === client.user?.id;
+        const timeStr = new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="message-row ${isSent ? 'sent' : 'received'}">
+            <div class="message-sender">${isSent ? 'You' : `Sender: ${m.senderId?.substring(0, 8)}...`}</div>
+            <div class="message-bubble">
+              ${escapeHTML(m.content)}
+              <div class="message-footer">
+                <span>${timeStr}</span>
+                ${isSent ? '<i class="fa-solid fa-check-double" style="font-size:10px;"></i>' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      msgList.scrollTop = msgList.scrollHeight;
+    }
+
+    // Send Message
+    async function sendMessage(clientId) {
+      const client = clients[clientId];
+      const inputEl = document.getElementById(`${clientId}-msgInput`);
+      const content = inputEl.value.trim();
+
+      if (!content) return;
+      if (!client.activeConvId) {
+        alert('Please select a conversation room first!');
+        return;
+      }
+
+      inputEl.value = '';
+      stopTyping(clientId);
+
+      if (client.socket && client.socket.connected) {
+        addLog(clientId, 'EMIT', `sendMessage -> ${content}`);
+        client.socket.emit('sendMessage', {
+          conversationId: client.activeConvId,
+          content: content
+        }, (response) => {
+          addLog(clientId, 'RECV', `sendMessage ack: ${JSON.stringify(response)}`);
+        });
+      } else {
+        alert('Socket not connected! Click plug icon to connect.');
+      }
+    }
+
+    // Typing Indicators
+    let typingTimers = {};
+    function handleTypingInput(clientId) {
+      const client = clients[clientId];
+      if (!client.activeConvId || !client.socket) return;
+
+      if (!typingTimers[clientId]) {
+        addLog(clientId, 'EMIT', 'typing -> isTyping: true');
+        client.socket.emit('typing', { conversationId: client.activeConvId, isTyping: true });
+      }
+
+      clearTimeout(typingTimers[clientId]);
+      typingTimers[clientId] = setTimeout(() => {
+        stopTyping(clientId);
+      }, 2000);
+    }
+
+    function stopTyping(clientId) {
+      const client = clients[clientId];
+      if (typingTimers[clientId]) {
+        clearTimeout(typingTimers[clientId]);
+        typingTimers[clientId] = null;
+        if (client.activeConvId && client.socket) {
+          addLog(clientId, 'EMIT', 'typing -> isTyping: false');
+          client.socket.emit('typing', { conversationId: client.activeConvId, isTyping: false });
+        }
+      }
+    }
+
+    function updateTypingUI(clientId) {
+      const client = clients[clientId];
+      const typingBar = document.getElementById(`${clientId}-typingBar`);
+      const typingText = document.getElementById(`${clientId}-typingText`);
+
+      if (client.typingUsers.size > 0) {
+        typingText.innerText = `${client.typingUsers.size} user(s) typing...`;
+        typingBar.style.display = 'flex';
+      } else {
+        typingBar.style.display = 'none';
+      }
+    }
+
+    function markAsRead(clientId, messageId, conversationId) {
+      const client = clients[clientId];
+      if (client.socket && client.socket.connected) {
+        client.socket.emit('markAsRead', { messageId, conversationId });
+      }
+    }
+
+    // View Members
+    async function viewMembers(clientId) {
+      const client = clients[clientId];
+      const apiBase = getApiBaseUrl();
+
+      if (!client.activeConvId || !client.token) return;
+
+      try {
+        const res = await fetch(`${apiBase}/v1/chat/conversations/${client.activeConvId}/members`, {
+          headers: { 'Authorization': `Bearer ${client.token}` }
+        });
+        const data = await res.json();
+        alert(`Room Members (${client.activeConvId}):\n\n` + JSON.stringify(data, null, 2));
+      } catch (err) {
+        alert('Error getting members: ' + err.message);
+      }
+    }
+
+    // Create Conversation Modal
+    function openCreateConvModal(clientId) {
+      targetClientForModal = clientId;
+      document.getElementById('createConvModal').classList.add('active');
+    }
+
+    function autoFillOtherClientUser() {
+      const activeClientId = targetClientForModal;
+      const otherClientId = activeClientId === 'client1' ? 'client2' : 'client1';
+      const otherUser = clients[otherClientId]?.user;
+
+      if (otherUser && otherUser.id) {
+        document.getElementById('modalParticipantIds').value = otherUser.id;
+      } else {
+        alert(`Please log in as ${otherClientId.toUpperCase()} first so its User ID can be auto-filled, or manually paste a valid database User UUID!`);
+      }
+    }
+
+    async function submitCreateConv() {
+      const clientId = targetClientForModal;
+      const client = clients[clientId];
+      const apiBase = getApiBaseUrl();
+
+      if (!client.token) {
+        openLoginModal(clientId);
+        return;
+      }
+
+      const name = document.getElementById('modalConvTitle').value.trim();
+      const participantRaw = document.getElementById('modalParticipantIds').value.trim();
+      const isGroup = document.getElementById('modalIsGroup').checked;
+
+      const participantIds = participantRaw ? participantRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      if (participantIds.length === 0) {
+        alert('Please enter at least 1 Participant User ID!');
+        return;
+      }
+
+      const payload = {
+        name: name || (isGroup ? 'Group Conversation' : undefined),
+        type: isGroup ? 'GROUP' : 'DIRECT',
+        participantIds: participantIds
+      };
+
+      addLog(clientId, 'REST', 'Creating new conversation...');
+      try {
+        const res = await fetch(`${apiBase}/v1/chat/conversations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${client.token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          closeModal('createConvModal');
+          addLog(clientId, 'REST', `Conversation created! ID: ${data.id || data.data?.id}`);
+          fetchConversations(clientId);
+        } else {
+          const errMsg = Array.isArray(data.message) ? data.message.join(', ') : (data.message || 'Error');
+          alert('Failed to create: ' + errMsg);
+          addLog(clientId, 'ERR', `Create conversation failed: ${errMsg}`);
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Auto Init on Page Load
+    window.addEventListener('DOMContentLoaded', () => {
+      initUI();
+    });
+  </script>
+</body>
+</html>

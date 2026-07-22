@@ -1,9 +1,25 @@
 import { Controller, Get, Header } from '@nestjs/common';
 import { APP_CONFIG } from './config/app.config';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 @Controller()
 export class AppController {
   constructor() {}
+
+  @Get('chat-test')
+  @Header('Content-Type', 'text/html')
+  getChatTestPage(): string {
+    const publicPath = join(process.cwd(), 'public', 'chat-test.html');
+    if (existsSync(publicPath)) {
+      return readFileSync(publicPath, 'utf8');
+    }
+    const distPath = join(__dirname, '..', 'public', 'chat-test.html');
+    if (existsSync(distPath)) {
+      return readFileSync(distPath, 'utf8');
+    }
+    return '<h1>Chat test page not found</h1>';
+  }
 
   @Get()
   @Header('Content-Type', 'text/html')
@@ -164,7 +180,7 @@ export class AppController {
       </div>
 
       <div class="links">
-
+        <a href="/chat-test" target="_blank">💬 Open Real-time Chat Tester & Debugger</a>
         <a href="/docs">📘 API Documentation</a>
         <a href="/health">❤️ Health Check</a>
       </div>
@@ -179,3 +195,4 @@ export class AppController {
     `;
   }
 }
+

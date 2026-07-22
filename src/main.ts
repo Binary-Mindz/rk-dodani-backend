@@ -10,22 +10,24 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: false,
+    }),
+  );
 
   app.setGlobalPrefix('v1', {
     exclude: [
       { path: '/', method: RequestMethod.GET },
       { path: '/health', method: RequestMethod.GET },
       { path: '/docs', method: RequestMethod.GET },
+      { path: '/chat-test', method: RequestMethod.GET },
     ],
   });
 
   app.enableCors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "https://agentarum.ai",
-    ],
+    origin: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });
