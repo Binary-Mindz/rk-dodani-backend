@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RK Dodani - Real-Time Chat Tester & Debugger</title>
   
-  <!-- Google Fonts & Font Awesome -->
+  <!-- Google Fonts & Font Awesome CDN -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
       --bg-dark: #090d16;
       --bg-card: rgba(15, 23, 42, 0.85);
       --bg-card-border: rgba(255, 255, 255, 0.1);
-      --bg-hover: rgba(255, 255, 255, 0.05);
+      --bg-hover: rgba(255, 255, 255, 0.06);
       --primary: #0ea5e9;
       --primary-hover: #0284c7;
       --accent: #6366f1;
@@ -208,6 +208,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
     }
 
     .user-avatar {
@@ -221,21 +222,29 @@
       font-weight: 700;
       font-size: 14px;
       color: #fff;
+      flex-shrink: 0;
+    }
+
+    .user-info {
+      min-width: 0;
     }
 
     .user-info .name {
       font-size: 13.5px;
       font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .user-info .subtext {
       font-size: 11px;
       color: var(--text-muted);
-      max-width: 180px;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
       font-family: var(--font-mono);
+      cursor: pointer;
     }
 
     .status-pill {
@@ -381,6 +390,7 @@
       justify-content: center;
       font-size: 13px;
       color: var(--primary);
+      flex-shrink: 0;
     }
 
     .conv-details {
@@ -678,9 +688,11 @@
       border: 1px solid var(--bg-card-border);
       border-radius: var(--radius-lg);
       padding: 24px;
-      width: 440px;
+      width: 460px;
       max-width: 92%;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .modal-card h3 {
@@ -770,6 +782,26 @@
       font-weight: 600;
       cursor: pointer;
     }
+
+    .member-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .member-role {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(14, 165, 233, 0.2);
+      color: var(--primary);
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -781,7 +813,7 @@
         <i class="fa-solid fa-comments"></i>
       </div>
       <div class="logo-text">
-        <h1>RK Dodani Chat Tester</h1>
+        <h1>RK Dodani Chat Debugger</h1>
         <p>Real-Time Socket.IO & REST Debugging Suite</p>
       </div>
     </div>
@@ -828,10 +860,10 @@
 
       <div class="form-group">
         <label>Option A: Login with Email & Password</label>
-        <input type="email" id="modalEmail" class="form-input" placeholder="email@example.com" />
+        <input type="email" id="modalEmail" class="form-input" placeholder="superadmin@gmail.com" />
       </div>
       <div class="form-group">
-        <input type="password" id="modalPassword" class="form-input" placeholder="Password" />
+        <input type="password" id="modalPassword" class="form-input" placeholder="123456" />
       </div>
 
       <div style="text-align: center; color: var(--text-subtle); margin: 12px 0; font-size: 11px;">
@@ -862,11 +894,11 @@
       </div>
 
       <div class="form-group">
-        <label>Conversation Title (Optional)</label>
-        <input type="text" id="modalConvTitle" class="form-input" placeholder="e.g. Project Team Chat" />
+        <label>Conversation Name / Title (Optional)</label>
+        <input type="text" id="modalConvTitle" class="form-input" placeholder="e.g. Project Discussion" />
       </div>
       <div class="form-group">
-        <label>Participant User IDs (Must be valid database user UUIDs)</label>
+        <label>Participant User IDs (Comma separated valid database UUIDs)</label>
         <input type="text" id="modalParticipantIds" class="form-input" placeholder="e.g. 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d" />
       </div>
       <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
@@ -876,6 +908,29 @@
       <div class="modal-actions">
         <button class="btn-secondary" onclick="closeModal('createConvModal')">Cancel</button>
         <button class="btn-primary" onclick="submitCreateConv()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Modal for Room Members & Management -->
+  <div class="modal-overlay" id="membersModal">
+    <div class="modal-card">
+      <h3><i class="fa-solid fa-users" style="color: var(--primary)"></i> Conversation Members</h3>
+      
+      <div id="membersListContainer" style="margin-bottom: 16px;">
+        <p style="font-size: 12px; color: var(--text-muted);">Loading members...</p>
+      </div>
+
+      <hr style="border: none; border-top: 1px solid var(--bg-card-border); margin: 16px 0;" />
+
+      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px;">Add Member to Room</h4>
+      <div class="form-group" style="display: flex; gap: 8px;">
+        <input type="text" id="addMemberUserId" class="form-input" placeholder="User ID to Add" />
+        <button class="btn-primary" style="white-space: nowrap;" onclick="submitAddMember()">Add Member</button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('membersModal')">Close</button>
       </div>
     </div>
   </div>
@@ -930,7 +985,7 @@
               <div class="user-avatar" id="${clientId}-avatar">?</div>
               <div class="user-info">
                 <div class="name" id="${clientId}-userName">${clientTitle} (Not Logged In)</div>
-                <div class="subtext" id="${clientId}-userSub">Click key icon to authenticate</div>
+                <div class="subtext" id="${clientId}-userSub" title="Click to copy User ID" onclick="copyUserId('${clientId}')">Click key icon to authenticate</div>
               </div>
             </div>
 
@@ -981,7 +1036,7 @@
                   <button class="btn-icon" title="Fetch Messages" onclick="fetchMessages('${clientId}')">
                     <i class="fa-solid fa-rotate-right"></i>
                   </button>
-                  <button class="btn-icon" title="Room Members" onclick="viewMembers('${clientId}')">
+                  <button class="btn-icon" title="Room Members" onclick="openMembersModal('${clientId}')">
                     <i class="fa-solid fa-user-group"></i>
                   </button>
                 </div>
@@ -1015,13 +1070,13 @@
           <!-- Bottom Console Debug Log -->
           <div class="debug-console">
             <div class="console-header">
-              <span><i class="fa-solid fa-terminal" style="color: var(--primary)"></i> Event & Packet Console (${clientTitle})</span>
+              <span><i class="fa-solid fa-terminal" style="color: var(--primary)"></i> Packet & Event Log (${clientTitle})</span>
               <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px;" onclick="clearLogs('${clientId}')">Clear</button>
             </div>
             <div class="console-logs" id="${clientId}-logs">
               <div class="log-line">
                 <span class="log-time">[System]</span>
-                <span class="log-msg">Ready for testing ${clientTitle}</span>
+                <span class="log-msg">Debugger ready for ${clientTitle}</span>
               </div>
             </div>
           </div>
@@ -1078,6 +1133,14 @@
       );
     }
 
+    function copyUserId(clientId) {
+      const user = clients[clientId].user;
+      if (user && user.id) {
+        navigator.clipboard.writeText(user.id);
+        alert(`Copied User ID: ${user.id}`);
+      }
+    }
+
     // Auth Modal Handlers
     function openLoginModal(clientId) {
       targetClientForModal = clientId;
@@ -1099,15 +1162,14 @@
       const email = document.getElementById('modalEmail').value.trim();
       const password = document.getElementById('modalPassword').value.trim();
       const directToken = document.getElementById('modalDirectToken').value.trim();
-
       const apiBase = getApiBaseUrl();
 
       if (directToken) {
         clients[clientId].token = directToken.replace('Bearer ', '');
-        clients[clientId].user = { email: 'Token User', id: 'JWT Token' };
+        clients[clientId].user = { email: 'JWT User', id: 'Token Applied' };
         updateUserUI(clientId);
         closeModal('loginModal');
-        addLog(clientId, 'REST', 'Direct Token applied!');
+        addLog(clientId, 'REST', 'Direct Bearer Token applied');
         connectSocket(clientId);
         fetchConversations(clientId);
         return;
@@ -1128,7 +1190,6 @@
         const resData = await response.json();
 
         if (response.ok) {
-          // Extract token from Nest response format
           const token = resData.data?.tokens?.accessToken || resData.accessToken || resData.data?.accessToken;
           const user = resData.data?.user || resData.user || { email };
 
@@ -1164,7 +1225,7 @@
       const avatarEl = document.getElementById(`${clientId}-avatar`);
 
       if (client.user && client.token) {
-        nameEl.innerText = client.user.email || client.user.name || 'User Logged In';
+        nameEl.innerText = client.user.email || client.user.name || 'Logged In';
         subEl.innerText = `ID: ${client.user.id || 'Active Token'}`;
         avatarEl.innerText = (client.user.email || 'U')[0].toUpperCase();
       } else {
@@ -1221,7 +1282,6 @@
       client.socket.on('newMessage', (msg) => {
         addLog(clientId, 'RECV', `newMessage: "${msg.content}" (from: ${msg.senderId})`);
         if (msg.conversationId === client.activeConvId) {
-          // Prevent duplicates if ack already added
           if (!client.messages.some(m => m.id === msg.id)) {
             client.messages.push(msg);
             renderMessages(clientId);
@@ -1345,7 +1405,7 @@
 
       if (!client.activeConvId || !client.token) return;
 
-      addLog(clientId, 'REST', `Fetching messages for conversation ${client.activeConvId}...`);
+      addLog(clientId, 'REST', `Fetching messages for room ${client.activeConvId}...`);
       try {
         const res = await fetch(`${apiBase}/v1/chat/conversations/${client.activeConvId}/messages?take=50`, {
           headers: { 'Authorization': `Bearer ${client.token}` }
@@ -1354,7 +1414,7 @@
         if (res.ok) {
           client.messages = Array.isArray(data) ? data : (data.data || []);
           renderMessages(clientId);
-          addLog(clientId, 'REST', `Loaded ${client.messages.length} messages`);
+          addLog(clientId, 'REST', `Loaded ${client.messages.length} message(s)`);
         } else {
           addLog(clientId, 'ERR', `Fetch messages failed: ${data.message}`);
         }
@@ -1475,21 +1535,84 @@
       }
     }
 
-    // View Members
-    async function viewMembers(clientId) {
+    // Room Members Modal & Actions
+    function openMembersModal(clientId) {
+      targetClientForModal = clientId;
+      const client = clients[clientId];
+      if (!client.activeConvId || !client.token) {
+        alert('Please select an active conversation room first!');
+        return;
+      }
+
+      document.getElementById('membersModal').classList.add('active');
+      fetchMembersList(clientId);
+    }
+
+    async function fetchMembersList(clientId) {
       const client = clients[clientId];
       const apiBase = getApiBaseUrl();
+      const container = document.getElementById('membersListContainer');
 
-      if (!client.activeConvId || !client.token) return;
-
+      addLog(clientId, 'REST', `Fetching members for room ${client.activeConvId}...`);
       try {
         const res = await fetch(`${apiBase}/v1/chat/conversations/${client.activeConvId}/members`, {
           headers: { 'Authorization': `Bearer ${client.token}` }
         });
         const data = await res.json();
-        alert(`Room Members (${client.activeConvId}):\n\n` + JSON.stringify(data, null, 2));
+        if (res.ok) {
+          const members = Array.isArray(data) ? data : (data.data || []);
+          if (members.length === 0) {
+            container.innerHTML = `<p style="font-size: 12px; color: var(--text-muted);">No members found</p>`;
+            return;
+          }
+          container.innerHTML = members.map(m => `
+            <div class="member-item">
+              <div>
+                <strong>${escapeHTML(m.user?.fullName || m.user?.email || m.userId)}</strong>
+                <div style="font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono);">${m.userId}</div>
+              </div>
+              <span class="member-role">${m.role || 'MEMBER'}</span>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `<p style="font-size: 12px; color: var(--danger);">Failed: ${data.message}</p>`;
+        }
       } catch (err) {
-        alert('Error getting members: ' + err.message);
+        container.innerHTML = `<p style="font-size: 12px; color: var(--danger);">Error: ${err.message}</p>`;
+      }
+    }
+
+    async function submitAddMember() {
+      const clientId = targetClientForModal;
+      const client = clients[clientId];
+      const apiBase = getApiBaseUrl();
+      const userIdToAdd = document.getElementById('addMemberUserId').value.trim();
+
+      if (!userIdToAdd) {
+        alert('Please enter a User ID to add!');
+        return;
+      }
+
+      addLog(clientId, 'REST', `Adding user ${userIdToAdd} to room ${client.activeConvId}...`);
+      try {
+        const res = await fetch(`${apiBase}/v1/chat/conversations/${client.activeConvId}/members`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${client.token}`
+          },
+          body: JSON.stringify({ userId: userIdToAdd })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('addMemberUserId').value = '';
+          alert('Member added successfully!');
+          fetchMembersList(clientId);
+        } else {
+          alert('Failed to add member: ' + (data.message || 'Error'));
+        }
+      } catch (err) {
+        alert('Error adding member: ' + err.message);
       }
     }
 
