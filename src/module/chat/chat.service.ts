@@ -195,6 +195,75 @@ export class ChatService {
     }
   }
 
+  async getMessagesPaginated(
+    conversationId: string,
+    userId: string,
+    skip: number = 0,
+    take: number = 20,
+    page?: number,
+  ) {
+    try {
+      const isMember = await this.prisma.conversationMember.findFirst({
+        where: { conversationId, userId, leftAt: null },
+      });
+      if (!isMember) {
+        throw new NotFoundException('Conversation not found or access denied');
+      }
+      if (isMember.blockedAt) {
+        throw new ForbiddenException('You are blocked from this conversation');
+      }
+
+      const [messages, total] = await this.prisma.$transaction([
+        this.prisma.message.findMany({
+          where: { conversationId },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take,
+          include: {
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+            readReceipts: true,
+          },
+        }),
+        this.prisma.message.count({ where: { conversationId } }),
+      ]);
+
+      const currentPage = page ?? Math.floor(skip / take) + 1;
+      const totalPages = Math.ceil(total / take);
+
+      return {
+        conversationId,
+        messages,
+        meta: {
+          total,
+          page: currentPage,
+          limit: take,
+          skip,
+          take,
+          totalPages,
+          hasMore: skip + messages.length < total,
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      )
+        throw error;
+      this.logger.error(
+        `Error fetching paginated messages: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to fetch messages');
+    }
+  }
+
   async saveMessage(userId: string, conversationId: string, content: string) {
     try {
       const isMember = await this.prisma.conversationMember.findFirst({

@@ -154,4 +154,77 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
     }
   }
+
+  @SubscribeMessage('getMessages')
+  @SubscribeMessage('loadMessages')
+  async handleGetMessages(
+    @MessageBody()
+    data: {
+      conversationId: string;
+      page?: number;
+      limit?: number;
+      skip?: number;
+      take?: number;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user: CurrentUserData = client.data.user;
+      if (!user || !data?.conversationId) {
+        return {
+          status: 'error',
+          message: 'Invalid payload. conversationId is required.',
+        };
+      }
+
+      const limit = Math.max(1, data.limit ?? data.take ?? 20);
+      const page = data.page ? Math.max(1, data.page) : 1;
+      const skip =
+        data.skip !== undefined ? Math.max(0, data.skip) : (page - 1) * limit;
+
+      const result = await this.chatService.getMessagesPaginated(
+        data.conversationId,
+        user.id,
+        skip,
+        limit,
+        page,
+      );
+
+      client.emit('messagesLoaded', result);
+      return { status: 'ok', data: result };
+    } catch (error) {
+      this.logger.error(
+        `Error loading messages via socket: ${error.message}`,
+        error.stack,
+      );
+      return {
+        status: 'error',
+        message: error.message || 'Failed to load messages',
+      };
+    }
+  }
+
+  @SubscribeMessage('getConversations')
+  @SubscribeMessage('loadConversations')
+  async handleGetConversations(@ConnectedSocket() client: Socket) {
+    try {
+      const user: CurrentUserData = client.data.user;
+      if (!user) {
+        return { status: 'error', message: 'Unauthorized' };
+      }
+
+      const conversations = await this.chatService.getConversations(user.id);
+      client.emit('conversationsLoaded', conversations);
+      return { status: 'ok', data: conversations };
+    } catch (error) {
+      this.logger.error(
+        `Error loading conversations via socket: ${error.message}`,
+        error.stack,
+      );
+      return {
+        status: 'error',
+        message: error.message || 'Failed to load conversations',
+      };
+    }
+  }
 }
