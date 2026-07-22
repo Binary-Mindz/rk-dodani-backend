@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
@@ -11,6 +11,8 @@ import { MailService } from 'common/mail/mail.service';
 
 @Injectable()
 export class AppSettingService {
+  private readonly logger = new Logger(AppSettingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
@@ -60,7 +62,7 @@ export class AppSettingService {
   ) {
     let maintenance = await this.prisma.systemMaintenance.findFirst();
 
-    const previousStatus = maintenance ? maintenance.isUnderMaintenance : false;
+    const previousStatus = maintenance ? maintenance.isUnderMaintenance : null;
 
     if (!maintenance) {
       maintenance = await this.prisma.systemMaintenance.create({
@@ -73,39 +75,42 @@ export class AppSettingService {
       });
     }
 
-    const isModeChanged = previousStatus !== dto.isUnderMaintenance;
+    const alertMessage = dto.isUnderMaintenance
+      ? 'Website is under maintenance.'
+      : 'Website has been removed from maintenance.';
 
-    if (isModeChanged) {
-      const alertMessage = dto.isUnderMaintenance
-        ? 'Website is under maintenance.'
-        : 'Website has been removed from maintenance.';
+    await this.alertService
+      .create_new_alert_into_db({
+        message: alertMessage,
+        alertType: 'MAINTENANCE' as any,
+        alertMethod: 'PUSH' as any,
+      })
+      .catch((err) => {
+        this.logger.error('Failed to create alert into DB:', err);
+      });
 
-      await this.alertService
-        .create_new_alert_into_db({
-          message: alertMessage,
-          alertType: 'MAINTENANCE' as any,
-          alertMethod: 'PUSH' as any,
-        })
-        .catch(() => {});
+    const notificationTitle = dto.isUnderMaintenance
+      ? 'Website Under Maintenance'
+      : 'Website Removed From Maintenance';
 
-      const notificationTitle = dto.isUnderMaintenance
-        ? 'Website Under Maintenance'
-        : 'Website Removed From Maintenance';
+    await this.notificationService
+      .broadcastToAllUsers({
+        type: 'SYSTEM_ALERT',
+        title: notificationTitle,
+        body: alertMessage,
+        payload: {
+          isUnderMaintenance: dto.isUnderMaintenance,
+          timestamp: new Date().toISOString(),
+        },
+      })
+      .catch((err) => {
+        this.logger.error('Failed to broadcast notifications:', err);
+      });
 
-      await this.notificationService
-        .broadcastToAllUsers({
-          type: 'SYSTEM_ALERT',
-          title: notificationTitle,
-          body: alertMessage,
-          payload: {
-            isUnderMaintenance: dto.isUnderMaintenance,
-            timestamp: new Date().toISOString(),
-          },
-        })
-        .catch(() => {});
-
-      this.sendMaintenanceEmailsToAll(dto.isUnderMaintenance).catch(() => {});
-    }
+    // 3. Send email to all registered users
+    this.sendMaintenanceEmailsToAll(dto.isUnderMaintenance).catch((err) => {
+      this.logger.error('Failed to send maintenance emails to all users:', err);
+    });
 
     this.audit(
       userId,
@@ -127,11 +132,20 @@ export class AppSettingService {
       select: { email: true },
     });
 
+
     for (const u of users) {
       if (u.email) {
-        await this.mailService
-          .sendMaintenanceNotification(u.email, isUnderMaintenance)
-          .catch(() => {});
+        try {
+          await this.mailService.sendMaintenanceNotification(
+            u.email,
+            isUnderMaintenance,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Error sending maintenance email to ${u.email}:`,
+            error,
+          );
+        }
       }
     }
   }

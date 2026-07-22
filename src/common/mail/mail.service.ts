@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { InquiryDto } from './dto/inquiry.dto';
 import { TeamRole } from '@prisma/client';
 
 @Injectable()
 export class MailService {
+  private readonly logger = new Logger(MailService.name);
+
   constructor(private readonly mailerService: MailerService) {}
 
   async sendEmailVerificationOtp(email: string, otp: string): Promise<void> {
@@ -409,8 +411,8 @@ export class MailService {
 
     const accentColor = isUnderMaintenance ? '#eab308' : '#2563eb';
 
-    await this.mailerService
-      .sendMail({
+    try {
+      await this.mailerService.sendMail({
         to: email,
         subject,
         html: `
@@ -457,6 +459,8 @@ export class MailService {
         </div>
       `,
       })
-      .catch(() => {});
+    } catch (error) {
+      this.logger.error(`Failed to send maintenance email to ${email}: ${error instanceof Error ? error.message : error}`);
+    }
   }
 }
