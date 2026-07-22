@@ -390,5 +390,73 @@ export class MailService {
       </div>
     `;
   }
-  
+
+  async sendMaintenanceNotification(
+    email: string,
+    isUnderMaintenance: boolean,
+  ): Promise<void> {
+    const subject = isUnderMaintenance
+      ? 'Notice: AgentArum Website Under Maintenance'
+      : 'Update: AgentArum Website Removed From Maintenance';
+
+    const heading = isUnderMaintenance
+      ? 'Website Under Maintenance'
+      : 'Website Maintenance Completed';
+
+    const message = isUnderMaintenance
+      ? 'Our website is currently undergoing maintenance. Some services and APIs may be temporarily unavailable.'
+      : 'Our website maintenance has been successfully completed. All services are fully operational.';
+
+    const accentColor = isUnderMaintenance ? '#eab308' : '#2563eb';
+
+    await this.mailerService
+      .sendMail({
+        to: email,
+        subject,
+        html: `
+        <div style="margin:0; padding:0; background-color:#f4f7fb; font-family:Arial, Helvetica, sans-serif;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f7fb; margin:0; padding:30px 0;">
+            <tr>
+              <td align="center">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px; background:#ffffff; border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:${accentColor}; padding:28px 32px; text-align:center;">
+                      <h1 style="margin:0; color:#ffffff; font-size:26px; font-weight:700;">
+                        AgentArum
+                      </h1>
+                      <p style="margin:8px 0 0; color:#ffffff; opacity:0.9; font-size:14px;">
+                        System Status Announcement
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:40px 32px 24px;">
+                      <h2 style="margin:0 0 14px; font-size:22px; color:#111827; font-weight:700;">
+                        ${heading}
+                      </h2>
+                      <p style="margin:0 0 20px; font-size:16px; line-height:1.7; color:#4b5563;">
+                        ${message}
+                      </p>
+                      <hr style="border:none; border-top:1px solid #e5e7eb; margin:28px 0;" />
+                      <p style="margin:0; font-size:14px; color:#6b7280;">
+                        Thank you for your patience and understanding.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:22px 32px; background:#f9fafb; text-align:center; border-top:1px solid #e5e7eb;">
+                      <p style="margin:0; font-size:13px; color:#9ca3af;">
+                        © ${new Date().getFullYear()} AgentArum. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `,
+      })
+      .catch(() => {});
+  }
 }

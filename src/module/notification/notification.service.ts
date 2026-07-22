@@ -82,4 +82,58 @@ export class NotificationService {
       data: { isRead: true, readAt: new Date() },
     });
   }
+
+  async broadcastToAllUsers(dto: {
+    type: NotificationType;
+    title: string;
+    body: string;
+    payload?: Record<string, unknown>;
+  }) {
+    const users = await this.prisma.user.findMany({
+      select: { id: true },
+    });
+
+    if (!users.length) {
+      return { count: 0 };
+    }
+
+    const payloadObj = (dto.payload ?? {}) as object;
+
+    const dataToCreate = users.map((u) => ({
+      userId: u.id,
+      type: dto.type,
+      title: dto.title,
+      body: dto.body,
+      payload: payloadObj,
+    }));
+
+    const result = await this.prisma.notification.createMany({
+      data: dataToCreate,
+    });
+
+    if (this.gateway.server) {
+      this.gateway.server.emit('notification', {
+        type: dto.type,
+        title: dto.title,
+        body: dto.body,
+        payload: dto.payload,
+        createdAt: new Date().toISOString(),
+      });
+
+      if (dto.payload?.isMaintenanceMode !== undefined) {
+        this.gateway.server.emit('maintenanceAlert', {
+          isMaintenanceMode: dto.payload.isMaintenanceMode,
+          message: dto.body,
+          title: dto.title,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    this.logger.log(
+      `Broadcasted notification "${dto.title}" to ${users.length} users.`,
+    );
+
+    return result;
+  }
 }

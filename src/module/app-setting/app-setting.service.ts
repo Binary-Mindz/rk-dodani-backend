@@ -3,13 +3,20 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
 import { QueryAppSettingDto } from './dto/query-app-setting.dto';
+import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { AuditService } from '../audit/audit.service';
+import { AlertService } from '../alert/alert.service';
+import { NotificationService } from '../notification/notification.service';
+import { MailService } from 'common/mail/mail.service';
 
 @Injectable()
 export class AppSettingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly alertService: AlertService,
+    private readonly notificationService: NotificationService,
+    private readonly mailService: MailService,
   ) {}
 
   private audit(
@@ -30,6 +37,103 @@ export class AppSettingService {
         newValues,
       })
       .catch(() => {});
+  }
+
+  async getMaintenanceStatus() {
+    let maintenance = await this.prisma.systemMaintenance.findFirst();
+
+    if (!maintenance) {
+      maintenance = await this.prisma.systemMaintenance.create({
+        data: { isUnderMaintenance: false },
+      });
+    }
+
+    return {
+      isUnderMaintenance: maintenance.isUnderMaintenance,
+      updatedAt: maintenance.updatedAt,
+    };
+  }
+
+  async updateMaintenanceStatus(
+    userId: string | null,
+    dto: UpdateMaintenanceDto,
+  ) {
+    let maintenance = await this.prisma.systemMaintenance.findFirst();
+
+    const previousStatus = maintenance ? maintenance.isUnderMaintenance : false;
+
+    if (!maintenance) {
+      maintenance = await this.prisma.systemMaintenance.create({
+        data: { isUnderMaintenance: dto.isUnderMaintenance },
+      });
+    } else {
+      maintenance = await this.prisma.systemMaintenance.update({
+        where: { id: maintenance.id },
+        data: { isUnderMaintenance: dto.isUnderMaintenance },
+      });
+    }
+
+    const isModeChanged = previousStatus !== dto.isUnderMaintenance;
+
+    if (isModeChanged) {
+      const alertMessage = dto.isUnderMaintenance
+        ? 'Website is under maintenance.'
+        : 'Website has been removed from maintenance.';
+
+      await this.alertService
+        .create_new_alert_into_db({
+          message: alertMessage,
+          alertType: 'MAINTENANCE' as any,
+          alertMethod: 'PUSH' as any,
+        })
+        .catch(() => {});
+
+      const notificationTitle = dto.isUnderMaintenance
+        ? 'Website Under Maintenance'
+        : 'Website Removed From Maintenance';
+
+      await this.notificationService
+        .broadcastToAllUsers({
+          type: 'SYSTEM_ALERT',
+          title: notificationTitle,
+          body: alertMessage,
+          payload: {
+            isUnderMaintenance: dto.isUnderMaintenance,
+            timestamp: new Date().toISOString(),
+          },
+        })
+        .catch(() => {});
+
+      this.sendMaintenanceEmailsToAll(dto.isUnderMaintenance).catch(() => {});
+    }
+
+    this.audit(
+      userId,
+      'MAINTENANCE',
+      maintenance.id,
+      'UPDATE',
+      { isUnderMaintenance: previousStatus },
+      { isUnderMaintenance: dto.isUnderMaintenance },
+    );
+
+    return {
+      isUnderMaintenance: maintenance.isUnderMaintenance,
+      updatedAt: maintenance.updatedAt,
+    };
+  }
+
+  private async sendMaintenanceEmailsToAll(isUnderMaintenance: boolean) {
+    const users = await this.prisma.user.findMany({
+      select: { email: true },
+    });
+
+    for (const u of users) {
+      if (u.email) {
+        await this.mailService
+          .sendMaintenanceNotification(u.email, isUnderMaintenance)
+          .catch(() => {});
+      }
+    }
   }
 
   async upsert(userId: string | null, dto: UpsertAppSettingDto) {
