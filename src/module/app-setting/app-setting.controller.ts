@@ -14,6 +14,7 @@ import { AppSettingService } from './app-setting.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
 import { QueryAppSettingDto } from './dto/query-app-setting.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
+import { UpdatePlatformInfoDto } from './dto/update-platform-info.dto';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
@@ -27,6 +28,24 @@ import { UserRoleCode } from '@prisma/client';
 @Roles(UserRoleCode.SUPER_ADMIN)
 export class AppSettingController {
   constructor(private readonly service: AppSettingService) {}
+
+  @Patch('admin/settings/platform')
+  @ApiOperation({
+    summary: 'Update platform information (Only Admin)',
+    description:
+      'Updates platform name, support email, timezone, and default language.',
+  })
+  async updatePlatformInfo(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdatePlatformInfoDto,
+  ) {
+    const data = await this.service.updatePlatformInfo(userId, dto);
+    return {
+      statusCode: 200,
+      message: 'Platform information updated successfully',
+      data,
+    };
+  }
 
   @Patch('admin/settings/maintenance')
   @ApiOperation({
@@ -90,6 +109,20 @@ export class AppSettingController {
 @Controller()
 export class AppSettingPublicController {
   constructor(private readonly service: AppSettingService) {}
+
+  @Get('settings/platform')
+  @ApiOperation({
+    summary: 'Get platform information (Public)',
+    description: 'Fetch platform name, support email, timezone, and language.',
+  })
+  async getPlatformInfo() {
+    const data = await this.service.getPlatformInfo();
+    return {
+      statusCode: 200,
+      message: 'Platform information fetched successfully',
+      data,
+    };
+  }
 
   @Get('settings/maintenance')
   @ApiOperation({

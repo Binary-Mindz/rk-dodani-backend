@@ -4,6 +4,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
 import { QueryAppSettingDto } from './dto/query-app-setting.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
+import { UpdatePlatformInfoDto } from './dto/update-platform-info.dto';
 import { AuditService } from '../audit/audit.service';
 import { AlertService } from '../alert/alert.service';
 import { NotificationService } from '../notification/notification.service';
@@ -39,6 +40,68 @@ export class AppSettingService {
         newValues,
       })
       .catch(() => {});
+  }
+
+  async getPlatformInfo() {
+    let platform = await this.prisma.platformInfo.findFirst();
+
+    if (!platform) {
+      platform = await this.prisma.platformInfo.create({
+        data: {
+          platformName: 'AgentArum',
+          supportEmail: 'support@agentarum.io',
+          timezone: 'UTC+0 London',
+          language: 'English',
+        },
+      });
+    }
+
+    return platform;
+  }
+
+  async updatePlatformInfo(
+    userId: string | null,
+    dto: UpdatePlatformInfoDto,
+  ) {
+    let platform = await this.prisma.platformInfo.findFirst();
+
+    const previousData = platform ? { ...platform } : null;
+
+    if (!platform) {
+      platform = await this.prisma.platformInfo.create({
+        data: {
+          platformName: dto.platformName ?? 'AgentArum',
+          supportEmail: dto.supportEmail ?? 'support@agentarum.io',
+          timezone: dto.timezone ?? 'UTC+0 London',
+          language: dto.language ?? 'English',
+        },
+      });
+    } else {
+      platform = await this.prisma.platformInfo.update({
+        where: { id: platform.id },
+        data: {
+          ...(dto.platformName !== undefined && {
+            platformName: dto.platformName,
+          }),
+          ...(dto.supportEmail !== undefined && {
+            supportEmail: dto.supportEmail,
+          }),
+          ...(dto.timezone !== undefined && { timezone: dto.timezone }),
+          ...(dto.language !== undefined && { language: dto.language }),
+        },
+      });
+    }
+
+    this.audit(
+      userId,
+      'PLATFORM_INFO',
+      platform.id,
+      'UPDATE',
+      previousData,
+      platform,
+    );
+
+    return platform;
   }
 
   async getMaintenanceStatus() {

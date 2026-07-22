@@ -1198,3 +1198,13 @@ model SystemMaintenance {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
+
+model PlatformInfo {
+  id           String   @id @default(uuid())
+  platformName String   @default("AgentArum")
+  supportEmail String   @default("support@agentarum.io")
+  timezone     String   @default("UTC+0 London")
+  language     String   @default("English")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
