@@ -1,16 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma, PublishStatus } from '@prisma/client';
-import { CreateServiceDto } from './dto/create-service.dto';
-import { UpdateServiceDto } from './dto/update-service.dto';
-import { QueryAdminServiceDto } from './dto/query-admin-service.dto';
-import { QueryPublicServiceDto } from './dto/query-public-service.dto';
-import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CreateServiceDto } from './dto/create-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
+import { QueryServiceDto } from './dto/query-service.dto';
+import { CreateDeepPointDto } from './dto/create-deep-point.dto';
+import { UpdateDeepPointDto } from './dto/update-deep-point.dto';
 
 @Injectable()
 export class ServiceService {
@@ -39,407 +34,198 @@ export class ServiceService {
       .catch(() => {});
   }
 
-  private readonly reservedSlugs = [
-    'admin',
-    'auth',
-    'billing',
-    'content',
-    'plans',
-    'patreon',
-    'pages',
-    'services',
-  ];
-
-  private validateSlug(slug: string) {
-    if (this.reservedSlugs.includes(slug.trim().toLowerCase())) {
-      throw new BadRequestException('This service slug is reserved');
-    }
-  }
-
   async create(userId: string | null, dto: CreateServiceDto) {
-    this.validateSlug(dto.slug);
-
-    const existingSlug = await this.prisma.service.findUnique({
-      where: { slug: dto.slug },
-    });
-
-    if (existingSlug) {
-      throw new BadRequestException('Service slug already exists');
-    }
-
-    const created = await this.prisma.service.create({
+    const created = await this.prisma.services.create({
       data: {
-        slug: dto.slug,
         title: dto.title,
-        shortDescription: dto.shortDescription ?? null,
+        heading: dto.heading,
         description: dto.description ?? null,
-        iconUrl: dto.iconUrl ?? null,
-        coverImageUrl: dto.coverImageUrl ?? null,
-        displayOrder: dto.displayOrder ?? 0,
-        isFeatured: dto.isFeatured ?? false,
-        status: dto.status ?? PublishStatus.DRAFT,
-        ctaLabel: dto.ctaLabel ?? null,
-        ctaUrl: dto.ctaUrl ?? null,
-        publishedAt:
-          dto.status === PublishStatus.PUBLISHED
-            ? dto.publishedAt
-              ? new Date(dto.publishedAt)
-              : new Date()
-            : dto.publishedAt
-              ? new Date(dto.publishedAt)
-              : null,
-        createdById: userId,
-        updatedById: userId,
+        deepPoints: dto.deepPoints?.length
+          ? {
+              create: dto.deepPoints.map((dp) => ({
+                title: dp.title,
+                description: dp.description ?? null,
+                criticalFriction: dp.criticalFriction ?? null,
+                paradigm: dp.paradigm ?? null,
+                keyFeatures: dp.keyFeatures ?? [],
+              })),
+            }
+          : undefined,
       },
       include: {
-        createdBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        updatedBy: {
-          select: { id: true, fullName: true, email: true },
-        },
+        deepPoints: true,
       },
     });
 
-    this.audit(userId, 'SERVICE', created.id, 'CREATE', undefined, {
-      title: dto.title,
-      slug: dto.slug,
-    });
+    this.audit(userId, 'SERVICES', created.id, 'CREATE', null, created);
     return created;
   }
 
-  async findAdminAll(query: QueryAdminServiceDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
+  async findAll(query: QueryServiceDto) {
+    const { search, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ServiceWhereInput = {
-      ...(query.search
-        ? {
-            OR: [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              { slug: { contains: query.search, mode: 'insensitive' } },
-              {
-                shortDescription: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-              {
-                description: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-            ],
-          }
-        : {}),
-      ...(query.status ? { status: query.status } : {}),
-      ...(typeof query.isFeatured === 'boolean'
-        ? { isFeatured: query.isFeatured }
-        : {}),
-    };
+    const where: any = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { heading: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.service.findMany({
+    const [items, total] = await Promise.all([
+      this.prisma.services.findMany({
         where,
-        include: {
-          createdBy: {
-            select: { id: true, fullName: true, email: true },
-          },
-          updatedBy: {
-            select: { id: true, fullName: true, email: true },
-          },
-        },
-        orderBy: [
-          { isFeatured: 'desc' },
-          { displayOrder: 'asc' },
-          { updatedAt: 'desc' },
-        ],
         skip,
         take: limit,
+        include: {
+          deepPoints: true,
+        },
       }),
-      this.prisma.service.count({ where }),
+      this.prisma.services.count({ where }),
     ]);
 
     return {
       items,
       meta: {
+        total,
         page,
         limit,
-        total,
         totalPages: Math.ceil(total / limit),
       },
     };
   }
 
-  async findAdminOne(id: string) {
-    const service = await this.prisma.service.findUnique({
+  async findOne(id: string) {
+    const service = await this.prisma.services.findUnique({
       where: { id },
       include: {
-        createdBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        updatedBy: {
-          select: { id: true, fullName: true, email: true },
-        },
+        deepPoints: true,
       },
     });
 
     if (!service) {
-      throw new NotFoundException('Service not found');
+      throw new NotFoundException(`Service with ID "${id}" not found`);
     }
 
     return service;
   }
 
   async update(userId: string | null, id: string, dto: UpdateServiceDto) {
-    const existing = await this.prisma.service.findUnique({
+    const existing = await this.findOne(id);
+
+    const { deepPoints, ...serviceData } = dto;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (Object.keys(serviceData).length > 0) {
+        await tx.services.update({
+          where: { id },
+          data: serviceData,
+        });
+      }
+
+      if (deepPoints !== undefined) {
+        await tx.deepPoint.deleteMany({
+          where: { serviceId: id },
+        });
+
+        const validDeepPoints = deepPoints.filter(
+          (dp): dp is typeof dp & { title: string } => typeof dp.title === 'string' && dp.title.trim().length > 0,
+        );
+
+        if (validDeepPoints.length > 0) {
+          await tx.deepPoint.createMany({
+            data: validDeepPoints.map((dp) => ({
+              title: dp.title,
+              description: dp.description ?? null,
+              criticalFriction: dp.criticalFriction ?? null,
+              paradigm: dp.paradigm ?? null,
+              keyFeatures: dp.keyFeatures ?? [],
+              serviceId: id,
+            })),
+          });
+        }
+      }
+
+      return tx.services.findUnique({
+        where: { id },
+        include: { deepPoints: true },
+      });
+    });
+
+    this.audit(userId, 'SERVICES', id, 'UPDATE', existing, updated);
+    return updated;
+  }
+
+  async remove(userId: string | null, id: string) {
+    const existing = await this.findOne(id);
+
+    await this.prisma.services.delete({
+      where: { id },
+    });
+
+    this.audit(userId, 'SERVICES', id, 'DELETE', existing, null);
+    return { success: true, id };
+  }
+
+  async addDeepPoint(userId: string | null, serviceId: string, dto: CreateDeepPointDto) {
+    await this.findOne(serviceId);
+
+    const created = await this.prisma.deepPoint.create({
+      data: {
+        title: dto.title,
+        description: dto.description ?? null,
+        criticalFriction: dto.criticalFriction ?? null,
+        paradigm: dto.paradigm ?? null,
+        keyFeatures: dto.keyFeatures ?? [],
+        serviceId,
+      },
+    });
+
+    this.audit(userId, 'DEEP_POINT', created.id, 'CREATE', null, created);
+    return created;
+  }
+
+  async updateDeepPoint(userId: string | null, id: string, dto: UpdateDeepPointDto) {
+    const existing = await this.prisma.deepPoint.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      throw new NotFoundException('Service not found');
+      throw new NotFoundException(`DeepPoint with ID "${id}" not found`);
     }
 
-    if (dto.slug && dto.slug !== existing.slug) {
-      this.validateSlug(dto.slug);
-
-      const slugExists = await this.prisma.service.findUnique({
-        where: { slug: dto.slug },
-      });
-
-      if (slugExists) {
-        throw new BadRequestException('Service slug already exists');
-      }
-    }
-
-    const updated = await this.prisma.service.update({
+    const updated = await this.prisma.deepPoint.update({
       where: { id },
       data: {
-        ...(dto.slug !== undefined && { slug: dto.slug }),
         ...(dto.title !== undefined && { title: dto.title }),
-        ...(dto.shortDescription !== undefined && {
-          shortDescription: dto.shortDescription,
-        }),
-        ...(dto.description !== undefined && {
-          description: dto.description,
-        }),
-        ...(dto.iconUrl !== undefined && { iconUrl: dto.iconUrl }),
-        ...(dto.coverImageUrl !== undefined && {
-          coverImageUrl: dto.coverImageUrl,
-        }),
-        ...(dto.displayOrder !== undefined && {
-          displayOrder: dto.displayOrder,
-        }),
-        ...(dto.isFeatured !== undefined && {
-          isFeatured: dto.isFeatured,
-        }),
-        ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.ctaLabel !== undefined && { ctaLabel: dto.ctaLabel }),
-        ...(dto.ctaUrl !== undefined && { ctaUrl: dto.ctaUrl }),
-        ...(dto.publishedAt !== undefined && {
-          publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : null,
-        }),
-        updatedById: userId,
-      },
-      include: {
-        createdBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        updatedBy: {
-          select: { id: true, fullName: true, email: true },
-        },
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.criticalFriction !== undefined && { criticalFriction: dto.criticalFriction }),
+        ...(dto.paradigm !== undefined && { paradigm: dto.paradigm }),
+        ...(dto.keyFeatures !== undefined && { keyFeatures: dto.keyFeatures }),
       },
     });
 
-    this.audit(
-      userId,
-      'SERVICE',
-      id,
-      'UPDATE',
-      { title: existing.title },
-      { title: updated.title },
-    );
+    this.audit(userId, 'DEEP_POINT', id, 'UPDATE', existing, updated);
     return updated;
   }
 
-  async updateStatus(
-    userId: string | null,
-    id: string,
-    dto: UpdateServiceStatusDto,
-  ) {
-    const existing = await this.prisma.service.findUnique({
+  async removeDeepPoint(userId: string | null, id: string) {
+    const existing = await this.prisma.deepPoint.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      throw new NotFoundException('Service not found');
+      throw new NotFoundException(`DeepPoint with ID "${id}" not found`);
     }
 
-    const updateData: Prisma.ServiceUpdateInput = {
-      status: dto.status,
-      updatedBy: userId ? { connect: { id: userId } } : undefined,
-    };
-
-    if (dto.status === PublishStatus.PUBLISHED) {
-      updateData.publishedAt = existing.publishedAt ?? new Date();
-    }
-
-    if (
-      dto.status === PublishStatus.DRAFT ||
-      dto.status === PublishStatus.REVIEW
-    ) {
-      updateData.publishedAt = null;
-    }
-
-    const updated = await this.prisma.service.update({
-      where: { id },
-      data: updateData,
-      include: {
-        createdBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-        updatedBy: {
-          select: { id: true, fullName: true, email: true },
-        },
-      },
-    });
-
-    this.audit(
-      userId,
-      'SERVICE',
-      id,
-      'UPDATE',
-      { status: existing.status },
-      { status: updated.status },
-    );
-    return updated;
-  }
-
-  async remove(id: string) {
-    const existing = await this.prisma.service.findUnique({
+    await this.prisma.deepPoint.delete({
       where: { id },
     });
 
-    if (!existing) {
-      throw new NotFoundException('Service not found');
-    }
-
-    this.audit(
-      null,
-      'SERVICE',
-      id,
-      'DELETE',
-      { title: existing.title },
-      undefined,
-    );
-    await this.prisma.service.delete({
-      where: { id },
-    });
-
-    return { deleted: true };
-  }
-
-  async findPublicAll(query: QueryPublicServiceDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.ServiceWhereInput = {
-      status: PublishStatus.PUBLISHED,
-      ...(query.search
-        ? {
-            OR: [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              {
-                shortDescription: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-              {
-                description: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-            ],
-          }
-        : {}),
-      ...(typeof query.isFeatured === 'boolean'
-        ? { isFeatured: query.isFeatured }
-        : {}),
-    };
-
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.service.findMany({
-        where,
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          shortDescription: true,
-          iconUrl: true,
-          coverImageUrl: true,
-          displayOrder: true,
-          isFeatured: true,
-          status: true,
-          ctaLabel: true,
-          ctaUrl: true,
-          publishedAt: true,
-          updatedAt: true,
-        },
-        orderBy: [
-          { isFeatured: 'desc' },
-          { displayOrder: 'asc' },
-          { publishedAt: 'desc' },
-        ],
-        skip,
-        take: limit,
-      }),
-      this.prisma.service.count({ where }),
-    ]);
-
-    return {
-      items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async findPublicBySlug(slug: string) {
-    const service = await this.prisma.service.findFirst({
-      where: {
-        slug,
-        status: PublishStatus.PUBLISHED,
-      },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        shortDescription: true,
-        description: true,
-        iconUrl: true,
-        coverImageUrl: true,
-        displayOrder: true,
-        isFeatured: true,
-        status: true,
-        ctaLabel: true,
-        ctaUrl: true,
-        publishedAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!service) {
-      throw new NotFoundException('Service not found');
-    }
-
-    return service;
+    this.audit(userId, 'DEEP_POINT', id, 'DELETE', existing, null);
+    return { success: true, id };
   }
 }

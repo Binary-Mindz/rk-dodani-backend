@@ -1,106 +1,28 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PublishStatus } from '@prisma/client';
-import {
-  IsBoolean,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-  IsDateString,
-  IsInt,
-  Min,
-} from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { CreateDeepPointDto } from './create-deep-point.dto';
 
 export class CreateServiceDto {
-  @ApiProperty({
-    example: 'ai-strategy-advisory',
-  })
+  @ApiProperty({ description: 'Service title', example: 'AI Strategy Consulting' })
   @IsString()
-  @MaxLength(160)
-  slug!: string;
+  @IsNotEmpty()
+  title: string;
 
-  @ApiProperty({
-    example: 'AI Strategy Advisory',
-  })
+  @ApiProperty({ description: 'Service main heading', example: 'Transform your enterprise with tailored AI models' })
   @IsString()
-  @MaxLength(255)
-  title!: string;
+  @IsNotEmpty()
+  heading: string;
 
-  @ApiPropertyOptional({
-    example: 'Strategic guidance for AI adoption and transformation',
-  })
+  @ApiPropertyOptional({ description: 'Service detailed description' })
+  @IsString()
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  shortDescription?: string;
-
-  @ApiPropertyOptional({
-    example:
-      'We help leadership teams define AI strategy, governance, and adoption roadmaps.',
-  })
-  @IsOptional()
-  @IsString()
   description?: string;
 
-  @ApiPropertyOptional({
-    example: 'https://your-bucket.s3.amazonaws.com/services/icon-ai.png',
-  })
+  @ApiPropertyOptional({ type: [CreateDeepPointDto], description: 'List of deep points for this service' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateDeepPointDto)
   @IsOptional()
-  @IsUrl()
-  iconUrl?: string;
-
-  @ApiPropertyOptional({
-    example: 'https://your-bucket.s3.amazonaws.com/services/cover-ai.png',
-  })
-  @IsOptional()
-  @IsUrl()
-  coverImageUrl?: string;
-
-  @ApiPropertyOptional({
-    example: 0,
-    default: 0,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
-
-  @ApiPropertyOptional({
-    example: false,
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  isFeatured?: boolean;
-
-  @ApiPropertyOptional({
-    enum: PublishStatus,
-    default: PublishStatus.DRAFT,
-  })
-  @IsOptional()
-  @IsEnum(PublishStatus)
-  status?: PublishStatus;
-
-  @ApiPropertyOptional({
-    example: 'Book a Call',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  ctaLabel?: string;
-
-  @ApiPropertyOptional({
-    example: 'https://agentarum.com/contact',
-  })
-  @IsOptional()
-  @IsUrl()
-  ctaUrl?: string;
-
-  @ApiPropertyOptional({
-    example: '2026-04-20T10:00:00.000Z',
-  })
-  @IsOptional()
-  @IsDateString()
-  publishedAt?: string;
+  deepPoints?: CreateDeepPointDto[];
 }
