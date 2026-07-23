@@ -1,15 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { UserManagementService } from './user-management.service';
-import { QueryUserManagementDto } from './dto/query-user-management.dto';
-import { UpdateUserManagementDto } from './dto/update-user-management.dto';
+import { UserRoleCode } from '@prisma/client';
+import { Roles } from 'common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
-import { Roles } from 'common/decorators/roles.decorator';
-import { UserRoleCode } from '@prisma/client';
+import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { QueryUserManagementDto } from './dto/query-user-management.dto';
 import { ToggleSuspendDto } from './dto/suspend.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
+import { UpdateUserManagementDto } from './dto/update-user-management.dto';
+import { UserManagementService } from './user-management.service';
 
 @ApiTags('SuperAdmin User Management')
 @ApiBearerAuth()
@@ -66,8 +67,8 @@ export class UserManagementController {
   @ApiOperation({ summary: 'Update user subscription plan and billing cycle' })
   @ApiResponse({ status: 200, description: 'User subscription updated successfully.' })
   @ApiParam({
-    name:"id",
-    example:"6913b56c-1455-4e3f-821f-89234b051c59"
+    name: "id",
+    example: "6913b56c-1455-4e3f-821f-89234b051c59"
   })
   async updateSubscription(
     @Param('id') id: string,
@@ -80,5 +81,22 @@ export class UserManagementController {
       message: 'User subscription updated successfully.',
       data,
     };
+  }
+
+  // export user data
+
+  @Put('export-user-data-csv')
+  @ApiOperation({ summary: 'Export user data into a csv' })
+  @ApiResponse({ status: 200, description: 'Export successfully.' })
+  async fetch_and_export_user_data_as_csv(@Res() res: Response) {
+    const data = await this.userManagementService.fetch_and_export_user_data_as_csv_from_db();
+
+    // export as file
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=users.csv',
+    );
+    return res.send(data);
   }
 }

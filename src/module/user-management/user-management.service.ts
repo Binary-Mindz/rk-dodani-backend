@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuditAction, BillingProvider, EntitlementSourceType, EntitlementStatus, EntitlementType, PlanAudience, Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
+import { Parser } from 'json2csv';
 import { PrismaService } from 'prisma/prisma.service';
 import { QueryUserManagementDto } from './dto/query-user-management.dto';
-import { UpdateUserManagementDto } from './dto/update-user-management.dto';
-import { AuditAction, BillingProvider, Prisma, SubscriptionStatus, UserRoleCode, UserStatus, PlanAudience, EntitlementStatus, EntitlementSourceType, EntitlementType } from '@prisma/client';
 import { ToggleSuspendDto } from './dto/suspend.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
-
+import { UpdateUserManagementDto } from './dto/update-user-management.dto';
 @Injectable()
 export class UserManagementService {
   constructor(private readonly prisma: PrismaService) { }
@@ -433,4 +433,50 @@ export class UserManagementService {
       message: existingActiveSub ? 'Subscription updated successfully' : 'Subscription created successfully',
     };
   }
+
+  // export user data
+
+  async fetch_and_export_user_data_as_csv_from_db() {
+    const users = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        emailVerified: true,
+        firstName: true,
+        lastName: true,
+        fullName: true,
+        phone: true,
+        preferredLanguage: true,
+        status: true,
+        lastLoginAt: true,
+        signupSource: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    const fields = [
+      'id',
+      'email',
+      'emailVerified',
+      'emailVerifiedAt',
+      'firstName',
+      'lastName',
+      'fullName',
+      'phone',
+      'preferredLanguage',
+      'status',
+      'lastLoginAt',
+      'signupSource',
+      'createdAt',
+      'updatedAt',
+    ];
+
+
+    const parser = new Parser({ fields });
+    const csv = parser.parse(users);
+    return csv;
+  }
+
+
 }
