@@ -57,6 +57,21 @@ export class TeamDashboardController {
   }
 
   @ApiBearerAuth()
+  @Get('activity-feedback')
+  @ApiOperation({ summary: 'Get last rated maximum 10 content items for enterprise team members (Team Member Activity & Feedback)' })
+  async getTeamActivityFeedback(
+    @CurrentUser('id') userId: string,
+    @Query() query: GetTeamMembersDto,
+  ) {
+    const data = await this.teamService.getTeamActivityFeedback(userId, query);
+    return {
+      statusCode: 200,
+      message: 'Team member activity & feedback fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
   @Get('members/:userId/activity')
   @ApiOperation({ summary: 'Get detailed interaction and activity logs for a specific team member' })
   async getMemberActivity(
