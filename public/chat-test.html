@@ -1290,6 +1290,14 @@
         }
       });
 
+      client.socket.on('messagesLoaded', (res) => {
+        addLog(clientId, 'RECV', `messagesLoaded event received via socket`);
+        const rawData = res;
+        const rawList = Array.isArray(rawData) ? rawData : (rawData?.messages || rawData?.data?.messages || rawData?.data || []);
+        client.messages = [...rawList].reverse();
+        renderMessages(clientId);
+      });
+
       client.socket.on('typingIndicator', (data) => {
         addLog(clientId, 'RECV', `typingIndicator: User ${data.userId} isTyping=${data.isTyping}`);
         if (data.userId !== client.user?.id) {
@@ -1399,27 +1407,31 @@
       }
     }
 
-    async function fetchMessages(clientId) {
+    function fetchMessages(clientId) {
       const client = clients[clientId];
-      const apiBase = getApiBaseUrl();
 
-      if (!client.activeConvId || !client.token) return;
+      if (!client.activeConvId) return;
 
-      addLog(clientId, 'REST', `Fetching messages for room ${client.activeConvId}...`);
-      try {
-        const res = await fetch(`${apiBase}/v1/chat/conversations/${client.activeConvId}/messages?take=50`, {
-          headers: { 'Authorization': `Bearer ${client.token}` }
+      if (client.socket && client.socket.connected) {
+        addLog(clientId, 'EMIT', `getMessages (socket) -> conversationId: ${client.activeConvId}`);
+        client.socket.emit('getMessages', {
+          conversationId: client.activeConvId,
+          take: 50
+        }, (response) => {
+          addLog(clientId, 'RECV', `getMessages ack: ${JSON.stringify(response)}`);
+          if (response && response.status === 'ok') {
+            const rawData = response.data;
+            const rawList = Array.isArray(rawData) ? rawData : (rawData?.messages || rawData?.data?.messages || rawData?.data || []);
+            client.messages = [...rawList].reverse();
+            renderMessages(clientId);
+            addLog(clientId, 'RECV', `Loaded ${client.messages.length} message(s) via socket`);
+          } else if (response && response.message) {
+            addLog(clientId, 'ERR', `getMessages socket error: ${response.message}`);
+          }
         });
-        const data = await res.json();
-        if (res.ok) {
-          client.messages = Array.isArray(data) ? data : (data.data || []);
-          renderMessages(clientId);
-          addLog(clientId, 'REST', `Loaded ${client.messages.length} message(s)`);
-        } else {
-          addLog(clientId, 'ERR', `Fetch messages failed: ${data.message}`);
-        }
-      } catch (err) {
-        addLog(clientId, 'ERR', `Fetch messages error: ${err.message}`);
+      } else {
+        addLog(clientId, 'ERR', `Socket not connected! Cannot fetch messages via socket.`);
+        alert('Socket is not connected. Please connect socket first to fetch messages.');
       }
     }
 
