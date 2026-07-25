@@ -8,6 +8,7 @@ import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { TeamService } from './team.service';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { GetTeamMembersDto } from './dto/get-team-members.dto';
+import { UpdateBlockStatusDto } from './dto/update-block-status.dto';
 
 @ApiTags('Team Management - Dashboard')
 @Controller('team')
@@ -67,6 +68,22 @@ export class TeamDashboardController {
     return {
       statusCode: 200,
       message: 'Team member activity & feedback fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @Patch('activity-feedback/:ratingId/block-status')
+  @ApiOperation({ summary: 'Update block status of a team member\'s activity feedback' })
+  async updateBlockStatus(
+    @CurrentUser('id') userId: string,
+    @Param('ratingId') ratingId: string,
+    @Body() dto: UpdateBlockStatusDto,
+  ) {
+    const data = await this.teamService.updateBlockStatus(userId, ratingId, dto.isBlocked);
+    return {
+      statusCode: 200,
+      message: `Activity feedback ${dto.isBlocked ? 'blocked' : 'unblocked'} successfully`,
       data,
     };
   }

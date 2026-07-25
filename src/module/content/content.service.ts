@@ -759,7 +759,7 @@ export class ContentService {
     }
 
     const ratings = await this.prisma.contentRating.findMany({
-      where: { contentItemId },
+      where: { contentItemId, isBlocked: false },
       orderBy: { updatedAt: 'desc' },
       include: {
         user: {

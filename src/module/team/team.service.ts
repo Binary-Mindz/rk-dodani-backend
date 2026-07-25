@@ -278,7 +278,7 @@ export class TeamService {
     const teamMemberWithRating = await Promise.all(
       members.map(async (member) => {
         const review = await this.prisma.contentRating.findMany({
-          where: { userId: member.id },
+          where: { userId: member.id, isBlocked: false },
         });
 
         const average =
@@ -306,12 +306,53 @@ export class TeamService {
   }
 
   async getTeamActivityFeedback(
-    _currentUserId: string,
-    _query?: GetTeamMembersDto,
+    currentUserId: string,
+    query?: GetTeamMembersDto,
   ) {
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const userFilters: Prisma.UserWhereInput[] = [];
+
+    // Filter to only team members of currentUserId, OR the user themselves
+    userFilters.push({
+      OR: [
+        { id: currentUserId },
+        { parentUserId: currentUserId },
+      ],
+    });
+
+    if (query?.teamRole) {
+      userFilters.push({ teamRole: query.teamRole });
+    }
+
+    if (query?.status) {
+      userFilters.push({ status: query.status });
+    }
+
+    if (query?.search) {
+      userFilters.push({
+        OR: [
+          { firstName: { contains: query.search, mode: 'insensitive' } },
+          { lastName: { contains: query.search, mode: 'insensitive' } },
+          { fullName: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const where: Prisma.ContentRatingWhereInput = {
+      user: {
+        AND: userFilters,
+      },
+    };
+
     const ratings = await this.prisma.contentRating.findMany({
+      where,
       orderBy: { updatedAt: 'desc' },
-      take: 10,
+      skip,
+      take: limit,
       include: {
         user: {
           select: {
@@ -378,6 +419,7 @@ export class TeamService {
         ratedAt: r.updatedAt,
         contentRating: r.rating,
         review: r.review ?? null,
+        isBlocked: r.isBlocked,
       };
     });
 
@@ -822,6 +864,7 @@ export class TeamService {
     const ratingsAggregation = await this.prisma.contentRating.aggregate({
       where: {
         userId: { in: teamUserIds },
+        isBlocked: false,
       },
       _avg: {
         rating: true,
@@ -1667,10 +1710,11 @@ export class TeamService {
     };
 
     const ratingsAgg = await this.prisma.contentRating.aggregate({
-      where: { userId },
+      where: { userId, isBlocked: false },
       _avg: { rating: true },
     });
     const systemRatingsAgg = await this.prisma.contentRating.aggregate({
+      where: { isBlocked: false },
       _avg: { rating: true },
     });
     const averageRating =
@@ -2091,6 +2135,27 @@ export class TeamService {
         id: cto.id,
         name: cto.fullName || 'Unknown User'
       };
+    });
+  }
+
+  async updateBlockStatus(currentUserId: string, ratingId: string, isBlocked: boolean) {
+    const rating = await this.prisma.contentRating.findUnique({
+      where: { id: ratingId },
+      include: { user: true },
+    });
+
+    if (!rating) {
+      throw new NotFoundException('Feedback not found');
+    }
+
+    // Verify if the owner is the parent of the member who posted the feedback, or if it is the owner's own feedback
+    if (rating.user.parentUserId !== currentUserId && rating.userId !== currentUserId) {
+      throw new BadRequestException('You can only manage feedback from your own team members');
+    }
+
+    return this.prisma.contentRating.update({
+      where: { id: ratingId },
+      data: { isBlocked },
     });
   }
 }
