@@ -27,14 +27,15 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://localhost:4000",
-      "http://127.0.0.1:4000",
-      "https://agentarum.ai",
-      "https://api.agentarum.ai",
-    ],
+    origin: true,//[
+      // "http://localhost:3000",
+      // "http://localhost:5173",
+      // "http://localhost:4000",
+      // "http://127.0.0.1:4000",
+      // "https://agentarum.ai",
+      // "https://api.agentarum.ai",
+      
+    // ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });
