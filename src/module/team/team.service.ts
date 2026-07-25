@@ -306,84 +306,43 @@ export class TeamService {
   }
 
   async getTeamActivityFeedback(
-    currentUserId: string,
-    query?: GetTeamMembersDto,
+    _currentUserId: string,
+    _query?: GetTeamMembersDto,
   ) {
-    const currentUser = await this.prisma.user.findUnique({
-      where: { id: currentUserId },
-      select: { id: true, parentUserId: true },
-    });
-
-    const ownerId = currentUser?.parentUserId || currentUserId;
-
-    const teamMembers = await this.prisma.user.findMany({
-      where: {
-        OR: [
-          { id: ownerId },
-          { parentUserId: ownerId },
-        ],
-      },
-      select: { id: true },
-    });
-    const targetUserIds = teamMembers.map((m) => m.id);
-
-    const page = query?.page ?? 1;
-    const limit = Math.min(query?.limit ?? 10, 50);
-    const skip = (page - 1) * limit;
-
-    const search = query?.search?.trim();
-
-    const where: Prisma.ContentRatingWhereInput = {
-      userId: { in: targetUserIds },
-      ...(query?.teamRole && { user: { teamRole: query.teamRole } }),
-      ...(search && {
-        OR: [
-          { user: { firstName: { contains: search, mode: 'insensitive' } } },
-          { user: { lastName: { contains: search, mode: 'insensitive' } } },
-          { user: { fullName: { contains: search, mode: 'insensitive' } } },
-          { user: { email: { contains: search, mode: 'insensitive' } } },
-          { contentItem: { title: { contains: search, mode: 'insensitive' } } },
-        ],
-      }),
-    };
-
-    const [ratings, total] = await this.prisma.$transaction([
-      this.prisma.contentRating.findMany({
-        where,
-        orderBy: { updatedAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              fullName: true,
-              email: true,
-              avatarUrl: true,
-              teamRole: true,
-              roles: {
-                include: { role: true },
-              },
-            },
-          },
-          contentItem: {
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              contentType: true,
+    const ratings = await this.prisma.contentRating.findMany({
+      orderBy: { updatedAt: 'desc' },
+      take: 10,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            fullName: true,
+            email: true,
+            avatarUrl: true,
+            teamRole: true,
+            roles: {
+              where: { isActive: true },
+              include: { role: true },
             },
           },
         },
-      }),
-      this.prisma.contentRating.count({ where }),
-    ]);
+        contentItem: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            thumbnailUrl: true,
+            contentType: true,
+          },
+        },
+      },
+    });
 
     const formatAgo = (date: Date): string => {
       const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-      if (seconds < 60) return `${Math.max(1, seconds)} min ago`;
+      if (seconds < 60) return `${Math.max(1, seconds)} sec ago`;
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `${minutes} min ago`;
       const hours = Math.floor(minutes / 60);
@@ -399,7 +358,7 @@ export class TeamService {
         r.user.email;
       const role =
         r.user.teamRole ||
-        (r.user.roles?.[0]?.role?.name) ||
+        r.user.roles?.[0]?.role?.name ||
         'Member';
 
       return {
@@ -408,28 +367,21 @@ export class TeamService {
         rawUserId: r.user.id,
         name,
         email: r.user.email,
-        avatarUrl: r.user.avatarUrl || null,
+        avatarUrl: r.user.avatarUrl ?? null,
         role,
         assetConsumed: r.contentItem.title,
         contentItemId: r.contentItem.id,
         contentSlug: r.contentItem.slug,
+        thumbnailUrl: r.contentItem.thumbnailUrl ?? null,
         contentType: r.contentItem.contentType,
         lastActive: formatAgo(r.updatedAt),
         ratedAt: r.updatedAt,
         contentRating: r.rating,
-        review: r.review || null,
+        review: r.review ?? null,
       };
     });
 
-    return {
-      items,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return { items };
   }
 
   async getTeamMetrics(parentUserId: string) {
