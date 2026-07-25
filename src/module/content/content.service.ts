@@ -749,4 +749,65 @@ export class ContentService {
 
     return rating;
   }
+
+  async getRatings(contentItemId: string) {
+    const content = await this.prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+    });
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    const ratings = await this.prisma.contentRating.findMany({
+      where: { contentItemId },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    const total = ratings.length;
+    const average =
+      total > 0
+        ? parseFloat(
+            (ratings.reduce((sum, r) => sum + r.rating, 0) / total).toFixed(1),
+          )
+        : 0;
+
+    const distribution = [1, 2, 3, 4, 5].reduce(
+      (acc, star) => {
+        acc[star] = ratings.filter((r) => r.rating === star).length;
+        return acc;
+      },
+      {} as Record<number, number>,
+    );
+
+    return {
+      contentItemId,
+      average,
+      total,
+      distribution,
+      ratings: ratings.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        review: r.review ?? null,
+        ratedAt: r.updatedAt,
+        user: {
+          id: r.user.id,
+          name:
+            r.user.fullName ||
+            `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
+          avatarUrl: r.user.avatarUrl ?? null,
+        },
+      })),
+    };
+  }
 }

@@ -204,4 +204,15 @@ export class ContentController {
       data,
     };
   }
+
+  @Get('content/:id/ratings')
+  @ApiOperation({ summary: 'Get all ratings & reviews for a content item (average, distribution, list)' })
+  async getRatings(@Param('id') contentItemId: string) {
+    const data = await this.service.getRatings(contentItemId);
+    return {
+      statusCode: 200,
+      message: 'Content ratings fetched successfully',
+      data,
+    };
+  }
 }
