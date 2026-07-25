@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from 'module/health/health.module';
 import { AuthModule } from 'module/auth/auth.module';
@@ -33,6 +34,7 @@ import { AlertModule } from './module/alert/alert.module';
       envFilePath: '.env',
     }),
     PrismaModule,
+    ScheduleModule.forRoot(),
     HealthModule,
     MailModule,
     FileModule,

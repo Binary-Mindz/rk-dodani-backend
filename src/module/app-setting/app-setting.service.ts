@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
 import { QueryAppSettingDto } from './dto/query-app-setting.dto';
@@ -115,6 +116,8 @@ export class AppSettingService {
 
     return {
       isUnderMaintenance: maintenance.isUnderMaintenance,
+      message: maintenance.message,
+      endTime: maintenance.endTime,
       updatedAt: maintenance.updatedAt,
     };
   }
@@ -125,22 +128,34 @@ export class AppSettingService {
   ) {
     let maintenance = await this.prisma.systemMaintenance.findFirst();
 
-    const previousStatus = maintenance ? maintenance.isUnderMaintenance : null;
+    const previousStatus = maintenance
+      ? {
+          isUnderMaintenance: maintenance.isUnderMaintenance,
+          message: maintenance.message,
+          endTime: maintenance.endTime,
+        }
+      : null;
+
+    const maintenanceData = {
+      isUnderMaintenance: dto.isUnderMaintenance,
+      message: dto.message ,
+      endTime: dto.endTime ? new Date(dto.endTime) : null,
+    };
 
     if (!maintenance) {
       maintenance = await this.prisma.systemMaintenance.create({
-        data: { isUnderMaintenance: dto.isUnderMaintenance },
+        data: maintenanceData,
       });
     } else {
       maintenance = await this.prisma.systemMaintenance.update({
         where: { id: maintenance.id },
-        data: { isUnderMaintenance: dto.isUnderMaintenance },
+        data: maintenanceData,
       });
     }
 
     const alertMessage = dto.isUnderMaintenance
-      ? 'Website is under maintenance.'
-      : 'Website has been removed from maintenance.';
+      ? dto.message
+      : "Website has been back online";
 
     await this.alertService
       .create_new_alert_into_db({
@@ -153,8 +168,8 @@ export class AppSettingService {
       });
 
     const notificationTitle = dto.isUnderMaintenance
-      ? 'Website Under Maintenance'
-      : 'Website Removed From Maintenance';
+      ? dto.message
+      : "Website has been back online";
 
     await this.notificationService
       .broadcastToAllUsers({
@@ -163,6 +178,8 @@ export class AppSettingService {
         body: alertMessage,
         payload: {
           isUnderMaintenance: dto.isUnderMaintenance,
+          message: dto.message,
+          endTime: dto.endTime ?? new Date(Date.now()).toISOString(),
           timestamp: new Date().toISOString(),
         },
       })
@@ -174,18 +191,20 @@ export class AppSettingService {
     this.sendMaintenanceEmailsToAll(dto.isUnderMaintenance).catch((err) => {
       this.logger.error('Failed to send maintenance emails to all users:', err);
     });
-
+ 
     this.audit(
       userId,
       'MAINTENANCE',
       maintenance.id,
       'UPDATE',
-      { isUnderMaintenance: previousStatus },
-      { isUnderMaintenance: dto.isUnderMaintenance },
+      previousStatus,
+      maintenanceData,
     );
 
     return {
       isUnderMaintenance: maintenance.isUnderMaintenance,
+      message: maintenance.message,
+      endTime: maintenance.endTime,
       updatedAt: maintenance.updatedAt,
     };
   }
@@ -211,6 +230,84 @@ export class AppSettingService {
         }
       }
     }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async handleMaintenanceAutoDisable() {
+    const maintenance = await this.prisma.systemMaintenance.findFirst();
+
+    if (
+      !maintenance ||
+      !maintenance.isUnderMaintenance ||
+      !maintenance.endTime
+    ) {
+      return;
+    }
+
+    const now = new Date();
+    if (now < maintenance.endTime) {
+      return;
+    }
+
+    this.logger.log(
+      `Maintenance endTime (${maintenance.endTime.toISOString()}) reached — auto-disabling maintenance mode.`,
+    );
+
+    const previous = {
+      isUnderMaintenance: maintenance.isUnderMaintenance,
+      message: maintenance.message,
+      endTime: maintenance.endTime,
+    };
+
+    const updated = await this.prisma.systemMaintenance.update({
+      where: { id: maintenance.id },
+      data: {
+        isUnderMaintenance: false,
+        message: null,
+        endTime: null,
+      },
+    });
+
+    const onlineMessage = 'Website has been back online';
+
+    await this.alertService
+      .create_new_alert_into_db({
+        message: onlineMessage,
+        alertType: 'MAINTENANCE' as any,
+        alertMethod: 'PUSH' as any,
+      })
+      .catch((err) =>
+        this.logger.error('[Cron] Failed to create alert:', err),
+      );
+
+    await this.notificationService
+      .broadcastToAllUsers({
+        type: 'SYSTEM_ALERT',
+        title: onlineMessage,
+        body: onlineMessage,
+        payload: {
+          isUnderMaintenance: false,
+          message: onlineMessage,
+          endTime: null,
+          timestamp: now.toISOString(),
+        },
+      })
+      .catch((err) =>
+        this.logger.error('[Cron] Failed to broadcast notifications:', err),
+      );
+
+    this.sendMaintenanceEmailsToAll(false).catch((err) =>
+      this.logger.error('[Cron] Failed to send maintenance emails:', err),
+    );
+
+    this.audit(
+      null,
+      'MAINTENANCE',
+      updated.id,
+      'UPDATE',
+      previous,
+      { isUnderMaintenance: false, message: null, endTime: null },
+    );
   }
 
   async upsert(userId: string | null, dto: UpsertAppSettingDto) {

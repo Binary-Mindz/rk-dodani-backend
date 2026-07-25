@@ -6,10 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// ==========================================
-// ১. ব্যবহারকারী ও নিরাপত্তা সংক্রান্ত মডেল (Auth & User)
-// ==========================================
-
 model User {
   id                String           @id @default(uuid())
   email             String           @unique
@@ -1162,6 +1158,8 @@ model Alert {
 model SystemMaintenance {
   id                 String   @id @default(uuid())
   isUnderMaintenance Boolean  @default(false)
+  message            String?
+  endTime            DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -1196,3 +1194,4 @@ model DeepPoint {
   serviceId String
   service   Services @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 }
+
