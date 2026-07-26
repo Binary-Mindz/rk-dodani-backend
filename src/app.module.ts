@@ -26,6 +26,7 @@ import { TeamModule } from './module/team/team.module';
 import { AlertController } from './module/alert/alert.controller';
 import { AlertService } from './module/alert/alert.service';
 import { AlertModule } from './module/alert/alert.module';
+import { ProductModule } from './module/product/product.module';
 
 @Module({
   imports: [
@@ -56,7 +57,8 @@ import { AlertModule } from './module/alert/alert.module';
     NotificationModule,
     AnalyticsModule,
     TeamModule,
-    AlertModule
+    AlertModule,
+    ProductModule,
   ],
   controllers: [AppController, AlertController],
   providers: [AlertService],

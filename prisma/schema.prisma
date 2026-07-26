@@ -1201,10 +1201,13 @@ model Product {
 
   title            String
   subTitle         String
+  role             UserRoleCode @default(STUDENT)
   module           String?
   description      String
   migrationVector  String?
   scaleValueImpact String?
+
+  isActive Boolean @default(true)
 
   targetClient TargetClient[]
 }
