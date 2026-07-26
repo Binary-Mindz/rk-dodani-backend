@@ -18,6 +18,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
 
 @Injectable()
 export class SubscriptionService {
@@ -354,6 +355,118 @@ export class SubscriptionService {
     if (interval === 'YEARLY') date.setFullYear(date.getFullYear() + 1);
     else date.setMonth(date.getMonth() + 1);
     return date;
+  }
+
+  async assignCustomSubscription(
+    adminUserId: string,
+    dto: AssignCustomSubscriptionDto,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const endsAt = new Date(dto.endsAt);
+    if (endsAt <= new Date()) throw new BadRequestException('endsAt must be a future date');
+
+    // Find or create the CUSTOM plan
+    let customPlan = await this.prisma.plan.findUnique({ where: { code: 'CUSTOM' } });
+    if (!customPlan) {
+      customPlan = await this.prisma.plan.create({
+        data: {
+          code: 'CUSTOM',
+          name: 'Custom Plan',
+          description: 'Admin-assigned custom subscription',
+          billingProvider: BillingProvider.MANUAL,
+          billingInterval: 'MONTHLY',
+          currency: dto.currency?.toUpperCase() ?? 'USD',
+          priceAmount: new Prisma.Decimal(dto.customPrice ?? 0),
+          isPublic: false,
+          isActive: true,
+          targetAudience: PlanAudience.B2C,
+        },
+      });
+    }
+
+    const entitlementType = dto.entitlementType ?? EntitlementType.PREMIUM_ACCESS;
+    const customSubId = `custom_${dto.userId}_${Date.now()}`;
+
+    const targetRoleCode =
+      dto.targetAudience === PlanAudience.B2B
+        ? UserRoleCode.ENTERPRISE
+        : UserRoleCode.STUDENT;
+
+    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
+    if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+
+    const subscription = await this.prisma.$transaction(async (tx) => {
+      await tx.subscription.updateMany({
+        where: { userId: dto.userId, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] } },
+        data: { status: SubscriptionStatus.CANCELED, endedAt: new Date() },
+      });
+
+      await tx.entitlement.updateMany({
+        where: { userId: dto.userId, status: EntitlementStatus.ACTIVE },
+        data: { status: EntitlementStatus.REVOKED, endsAt: new Date() },
+      });
+
+      const sub = await tx.subscription.create({
+        data: {
+          userId: dto.userId,
+          planId: customPlan.id,
+          provider: BillingProvider.MANUAL,
+          providerSubscriptionId: customSubId,
+          status: SubscriptionStatus.ACTIVE,
+          startedAt: new Date(),
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: endsAt,
+          currency: dto.currency?.toUpperCase() ?? 'USD',
+          lastPaymentAt: new Date(),
+          lastPaymentAmount: new Prisma.Decimal(dto.customPrice ?? 0),
+          seats: dto.seats ?? 1,
+          metadata: {
+            isCustom: true,
+            customPrice: dto.customPrice ?? 0,
+            note: dto.note ?? null,
+            assignedBy: adminUserId,
+          },
+        },
+      });
+
+      await tx.entitlement.create({
+        data: {
+          userId: dto.userId,
+          planId: customPlan.id,
+          sourceType: EntitlementSourceType.SUBSCRIPTION,
+          entitlementType,
+          status: EntitlementStatus.ACTIVE,
+          startsAt: new Date(),
+          endsAt,
+          grantedById: adminUserId,
+          reason: dto.note ?? 'Custom admin assignment',
+        },
+      });
+
+      await tx.userRole.updateMany({
+        where: { userId: dto.userId, isActive: true },
+        data: { isActive: false },
+      });
+
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: dto.userId, roleId: roleRecord.id } },
+        update: { isActive: true, expiresAt: endsAt },
+        create: { userId: dto.userId, roleId: roleRecord.id, isActive: true, expiresAt: endsAt },
+      });
+
+      return sub;
+    });
+
+    this.audit(adminUserId, subscription.id, 'CREATE', undefined, {
+      isCustom: true,
+      userId: dto.userId,
+      endsAt,
+      entitlementType,
+    });
+
+    return subscription;
   }
 
   async assignPlanManually(

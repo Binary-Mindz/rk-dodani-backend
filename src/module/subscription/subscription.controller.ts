@@ -2,6 +2,7 @@ import { Body, Controller, Post, Get, Query, UseGuards, HttpCode, HttpStatus } f
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { AssignPlanDto } from './dto/assign-plan.dto';
+import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { Roles } from 'common/decorators/roles.decorator';
@@ -65,6 +66,23 @@ export class SubscriptionController {
     return {
       statusCode: 200,
       message: 'Subscription plan manually assigned successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Post('custom-assign')
+  @ApiOperation({ summary: 'Assign a fully custom subscription to a user (no plan required, admin sets price/duration/type)' })
+  async assignCustomSubscription(
+    @CurrentUser('id') adminUserId: string,
+    @Body() dto: AssignCustomSubscriptionDto,
+  ) {
+    const data = await this.subscriptionService.assignCustomSubscription(adminUserId, dto);
+    return {
+      statusCode: 201,
+      message: 'Custom subscription assigned successfully',
       data,
     };
   }

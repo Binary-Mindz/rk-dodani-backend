@@ -39,7 +39,6 @@ export class ProductService {
       data: {
         title: dto.title,
         subTitle: dto.subTitle,
-        role: dto.role,
         module: dto.module ?? null,
         description: dto.description,
         migrationVector: dto.migrationVector ?? null,
@@ -64,13 +63,12 @@ export class ProductService {
   }
 
   async findAll(query: QueryProductDto, publicOnly = false) {
-    const { search, role, isActive, page = 1, limit = 10 } = query;
+    const { search,  isActive, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       ...(publicOnly && { isActive: true }),
       ...(isActive !== undefined && !publicOnly && { isActive }),
-      ...(role && { role }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
