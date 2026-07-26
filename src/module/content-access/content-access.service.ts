@@ -424,6 +424,26 @@ export class ContentAccessService {
     };
   }
 
+  async checkDownloadAccess(userId: string, contentItemId: string): Promise<boolean> {
+    const now = new Date();
+    const entitlement = await this.prisma.entitlement.findFirst({
+      where: {
+        userId,
+        status: EntitlementStatus.ACTIVE,
+        AND: [
+          { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+          {
+            OR: [
+              { entitlementType: EntitlementType.DOWNLOAD_ACCESS, contentItemId },
+              { entitlementType: EntitlementType.PREMIUM_ACCESS },
+            ],
+          },
+        ],
+      },
+    });
+    return !!entitlement;
+  }
+
   async checkAccess(contentSlug: string, userId: string | null) {
     const content = await this.prisma.contentItem.findFirst({
       where: {

@@ -1,9 +1,10 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PublishStatus } from '@prisma/client';
+import { Prisma, PublishStatus, ContentAccessModel } from '@prisma/client';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
 import { QueryAdminContentDto } from './dto/query-admin-content.dto';
@@ -12,12 +13,14 @@ import { UpdateContentStatusDto } from './dto/update-content-status.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ContentAccessService } from '../content-access/content-access.service';
 
 @Injectable()
 export class ContentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly contentAccessService: ContentAccessService,
   ) {}
 
   private serializeBigInt(data: any) {
@@ -568,9 +571,7 @@ export class ContentService {
       ...(query.categoryIds &&
         query.categoryIds.length > 0 && {
           contentCategories: {
-            some: {
-              categoryId: { in: query.categoryIds },
-            },
+            some: { categoryId: { in: query.categoryIds } },
           },
         }),
 
@@ -580,11 +581,7 @@ export class ContentService {
 
       ...(query.tagIds &&
         query.tagIds.length > 0 && {
-          contentTags: {
-            some: {
-              tagId: { in: query.tagIds },
-            },
-          },
+          contentTags: { some: { tagId: { in: query.tagIds } } },
         }),
 
       ...(query.contentTypeIds &&
@@ -592,6 +589,13 @@ export class ContentService {
           contentTypeId: { in: query.contentTypeIds },
         }),
     };
+
+    const GATED_MODELS: ContentAccessModel[] = [
+      ContentAccessModel.PREMIUM,
+      ContentAccessModel.PATREON,
+      ContentAccessModel.TIER_BASED,
+      ContentAccessModel.CUSTOM,
+    ];
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.contentItem.findMany({
@@ -610,9 +614,10 @@ export class ContentService {
           isFeatured: true,
           isPinned: true,
           readingTimeMinutes: true,
+          accessModel: true,
           contentType: true,
-          fileUrl: true,
           isDownloadable: true,
+          fileUrl: true,
           contentCategories: { include: { category: true } },
           contentTags: { include: { tag: true } },
         },
@@ -627,19 +632,30 @@ export class ContentService {
       this.prisma.contentItem.count({ where }),
     ]);
 
+    // Hide fileUrl for gated content in list
+    const sanitized = items.map((item) => ({
+      ...item,
+      isGated: GATED_MODELS.includes(item.accessModel),
+      fileUrl: GATED_MODELS.includes(item.accessModel) ? null : item.fileUrl,
+    }));
+
     return this.serializeBigInt({
-      items,
+      items: sanitized,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   }
 
-  async findPublicBySlug(slug: string) {
+  async findPublicBySlug(slug: string, userId: string | null) {
+    // Step 1: access check
+    const access = await this.contentAccessService.checkAccess(slug, userId);
+
+    if (!access.allowed) {
+      throw new ForbiddenException(access.reason);
+    }
+
+    // Step 2: fetch full content
     const content = await this.prisma.contentItem.findFirst({
-      where: {
-        slug,
-        deletedAt: null,
-        status: PublishStatus.PUBLISHED,
-      },
+      where: { slug, deletedAt: null, status: PublishStatus.PUBLISHED },
       include: {
         contentType: true,
         contentCategories: { include: { category: true } },
@@ -647,8 +663,15 @@ export class ContentService {
       },
     });
 
-    if (!content) {
-      throw new NotFoundException('Content not found');
+    if (!content) throw new NotFoundException('Content not found');
+
+    // Step 3: download access check — hide fileUrl if no DOWNLOAD_ACCESS entitlement
+    let fileUrl = content.fileUrl;
+    if (content.isDownloadable && content.fileUrl && userId) {
+      const hasDownloadAccess = await (this.contentAccessService as any).checkDownloadAccess?.(userId, content.id);
+      if (!hasDownloadAccess) fileUrl = null;
+    } else if (content.isDownloadable && content.fileUrl && !userId) {
+      fileUrl = null;
     }
 
     await this.prisma.contentItem.update({
@@ -656,7 +679,7 @@ export class ContentService {
       data: { viewCount: { increment: 1 } },
     });
 
-    return this.serializeBigInt(content);
+    return this.serializeBigInt({ ...content, fileUrl });
   }
 
   async trackProgress(userId: string, contentItemId: string, dto: any) {

@@ -161,8 +161,11 @@ export class ContentController {
 
   @Get('content/:slug')
   @ApiOperation({ summary: 'Get public content details by slug' })
-  async findPublicBySlug(@Param('slug') slug: string) {
-    const data = await this.service.findPublicBySlug(slug);
+  async findPublicBySlug(
+    @Param('slug') slug: string,
+    @CurrentUser('id') userId: string | null,
+  ) {
+    const data = await this.service.findPublicBySlug(slug, userId ?? null);
 
     return {
       statusCode: 200,
