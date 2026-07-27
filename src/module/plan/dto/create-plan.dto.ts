@@ -174,23 +174,4 @@ export class CreatePlanDto {
   @MaxLength(500)
   subtitle?: string;
 
-  @ApiPropertyOptional({
-    description: 'Optional separate price for monthly subscription choice.',
-    example: 19.99,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  priceAmountMonthly?: number;
-
-  @ApiPropertyOptional({
-    description: 'Optional separate price for yearly subscription choice.',
-    example: 199.99,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  priceAmountYearly?: number;
 }

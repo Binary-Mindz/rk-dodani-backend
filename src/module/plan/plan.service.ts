@@ -114,8 +114,6 @@ export class PlanService {
 
     let stripeProductId: string | null = null;
     let stripePriceId: string | null = null;
-    let stripePriceIdMonthly: string | null = null;
-    let stripePriceIdYearly: string | null = null;
 
     const isStripe = dto.billingProvider === BillingProvider.STRIPE;
 
@@ -135,26 +133,6 @@ export class PlanService {
           dto.priceAmount,
           dto.currency,
           interval,
-        );
-      }
-
-      // 3. Create monthly price if priceAmountMonthly > 0
-      if (dto.priceAmountMonthly && dto.priceAmountMonthly > 0) {
-        stripePriceIdMonthly = await this.createStripePrice(
-          stripeProductId,
-          dto.priceAmountMonthly,
-          dto.currency,
-          'month',
-        );
-      }
-
-      // 4. Create yearly price if priceAmountYearly > 0
-      if (dto.priceAmountYearly && dto.priceAmountYearly > 0) {
-        stripePriceIdYearly = await this.createStripePrice(
-          stripeProductId,
-          dto.priceAmountYearly,
-          dto.currency,
-          'year',
         );
       }
     }
@@ -179,17 +157,6 @@ export class PlanService {
         maxUsers: dto.maxUsers ?? 1,
         stripeProductId,
         stripePriceId,
-        stripePriceIdMonthly,
-        stripePriceIdYearly,
-        priceAmountMonthly:
-          dto.priceAmountMonthly !== undefined &&
-          dto.priceAmountMonthly !== null
-            ? new Prisma.Decimal(dto.priceAmountMonthly)
-            : null,
-        priceAmountYearly:
-          dto.priceAmountYearly !== undefined && dto.priceAmountYearly !== null
-            ? new Prisma.Decimal(dto.priceAmountYearly)
-            : null,
         features: dto.features ? (dto.features as any) : null,
         metadata: dto.metadata ?? null,
       },
@@ -318,14 +285,6 @@ export class PlanService {
       isActive: plan.isActive,
       stripeProductId: plan.stripeProductId,
       stripePriceId: plan.stripePriceId,
-      stripePriceIdMonthly: plan.stripePriceIdMonthly,
-      stripePriceIdYearly: plan.stripePriceIdYearly,
-      priceAmountMonthly: plan.priceAmountMonthly
-        ? Number(plan.priceAmountMonthly)
-        : null,
-      priceAmountYearly: plan.priceAmountYearly
-        ? Number(plan.priceAmountYearly)
-        : null,
       maxUsers: plan.maxUsers,
       features: plan.features,
       createdAt: plan.createdAt,
@@ -372,8 +331,6 @@ export class PlanService {
 
     let stripeProductId = existing.stripeProductId;
     let stripePriceId = existing.stripePriceId;
-    let stripePriceIdMonthly = existing.stripePriceIdMonthly;
-    let stripePriceIdYearly = existing.stripePriceIdYearly;
 
     if (isStripe) {
       const name = dto.name ?? existing.name;
@@ -431,60 +388,6 @@ export class PlanService {
           interval,
         );
       }
-
-      // 3. Check priceAmountMonthly update
-      const priceAmountMonthly =
-        dto.priceAmountMonthly !== undefined
-          ? dto.priceAmountMonthly
-          : existing.priceAmountMonthly
-            ? Number(existing.priceAmountMonthly)
-            : null;
-      const monthlyPriceChanged =
-        dto.priceAmountMonthly !== undefined &&
-        dto.priceAmountMonthly !==
-          (existing.priceAmountMonthly
-            ? Number(existing.priceAmountMonthly)
-            : null);
-
-      if (
-        priceAmountMonthly &&
-        priceAmountMonthly > 0 &&
-        (!stripePriceIdMonthly || monthlyPriceChanged || currencyChanged)
-      ) {
-        stripePriceIdMonthly = await this.createStripePrice(
-          stripeProductId,
-          priceAmountMonthly,
-          currency,
-          'month',
-        );
-      }
-
-      // 4. Check priceAmountYearly update
-      const priceAmountYearly =
-        dto.priceAmountYearly !== undefined
-          ? dto.priceAmountYearly
-          : existing.priceAmountYearly
-            ? Number(existing.priceAmountYearly)
-            : null;
-      const yearlyPriceChanged =
-        dto.priceAmountYearly !== undefined &&
-        dto.priceAmountYearly !==
-          (existing.priceAmountYearly
-            ? Number(existing.priceAmountYearly)
-            : null);
-
-      if (
-        priceAmountYearly &&
-        priceAmountYearly > 0 &&
-        (!stripePriceIdYearly || yearlyPriceChanged || currencyChanged)
-      ) {
-        stripePriceIdYearly = await this.createStripePrice(
-          stripeProductId,
-          priceAmountYearly,
-          currency,
-          'year',
-        );
-      }
     }
 
     const updated = await this.prisma.plan.update({
@@ -518,20 +421,6 @@ export class PlanService {
         ...(dto.maxUsers !== undefined && { maxUsers: dto.maxUsers }),
         stripeProductId,
         stripePriceId,
-        stripePriceIdMonthly,
-        stripePriceIdYearly,
-        ...(dto.priceAmountMonthly !== undefined && {
-          priceAmountMonthly:
-            dto.priceAmountMonthly !== null
-              ? new Prisma.Decimal(dto.priceAmountMonthly)
-              : null,
-        }),
-        ...(dto.priceAmountYearly !== undefined && {
-          priceAmountYearly:
-            dto.priceAmountYearly !== null
-              ? new Prisma.Decimal(dto.priceAmountYearly)
-              : null,
-        }),
         ...(dto.features !== undefined && { features: dto.features as any }),
         ...(dto.metadata !== undefined && { metadata: dto.metadata }),
       },
@@ -645,12 +534,8 @@ export class PlanService {
           isFeatured: true,
           sortOrder: true,
           maxUsers: true,
-          priceAmountMonthly: true,
-          priceAmountYearly: true,
           stripeProductId: true,
           stripePriceId: true,
-          stripePriceIdMonthly: true,
-          stripePriceIdYearly: true,
           features: true,
           metadata: true,
         },
@@ -690,12 +575,8 @@ export class PlanService {
         isFeatured: true,
         sortOrder: true,
         maxUsers: true,
-        priceAmountMonthly: true,
-        priceAmountYearly: true,
         stripeProductId: true,
         stripePriceId: true,
-        stripePriceIdMonthly: true,
-        stripePriceIdYearly: true,
         features: true,
         metadata: true,
       },

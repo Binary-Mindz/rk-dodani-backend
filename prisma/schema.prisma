@@ -197,10 +197,6 @@ model Plan {
   sortOrder            Int             @default(0)
   maxUsers             Int             @default(1)
   subtitle             String?
-  stripePriceIdMonthly String?
-  stripePriceIdYearly  String?
-  priceAmountMonthly   Decimal?        @db.Decimal(12, 2)
-  priceAmountYearly    Decimal?        @db.Decimal(12, 2)
   features             Json?
   metadata             Json?
   createdAt            DateTime        @default(now())
