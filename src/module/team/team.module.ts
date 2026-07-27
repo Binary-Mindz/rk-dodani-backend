@@ -16,7 +16,7 @@ import { AuditModule } from '../audit/audit.module';
     TeamDashboardController,
     UsageEngagementController,
     TeamOnboardingController,
-    TeamTestController,
+    // TeamTestController,
   ],
   providers: [TeamService],
   exports: [TeamService],
