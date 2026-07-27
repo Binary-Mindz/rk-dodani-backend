@@ -88,6 +88,7 @@ export class UsersService {
       phone: user.phone,
       status: user.status,
       roles: user.roles.map((item) => item.role.code),
+      onATeam: !!user.parentUserId,
 
       purchaseInfo: activeSubscription
         ? {
@@ -96,12 +97,12 @@ export class UsersService {
             currentPeriodStart: activeSubscription.currentPeriodStart,
             currentPeriodEnd: activeSubscription.currentPeriodEnd,
             cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
-            provider: activeSubscription.provider, // e.g., STRIPE, PATREON
+            provider: activeSubscription.provider,
             plan: {
               id: activePlan?.id || null,
-              code: activePlan?.code || null, // e.g., 'STUDENT_PRO', 'ENTERPRISE_TEAM'
-              name: activePlan?.name || null, // e.g., 'Pro Student Plan'
-              targetAudience: activePlan?.targetAudience || null, // B2C or B2B
+              code: activePlan?.code || null,
+              name: activePlan?.name || null,
+              targetAudience: activePlan?.targetAudience || null,
               billingInterval: activePlan?.billingInterval || null,
               currency: activePlan?.currency || null,
               priceAmount: activePlan?.priceAmount
@@ -196,6 +197,7 @@ export class UsersService {
       phone: user.phone,
       status: user.status,
       roles: user.roles.map((item) => item.role.code),
+      onATeam: !!user.parentUserId,
       purchaseInfo: activeSubscription
         ? {
             subscriptionId: activeSubscription.id,
