@@ -3,12 +3,16 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { CurrentUserData } from 'common/interfaces/current-user.interface';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
+import { PrismaService } from 'prisma/prisma.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const secret = configService.getOrThrow<string>('JWT_ACCESS_SECRET');
 
     super({
@@ -23,10 +27,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid access token payload');
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        roles: {
+          where: { isActive: true },
+          select: { role: { select: { code: true } } },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
     return {
       id: payload.sub,
       email: payload.email,
-      roles: payload.roles ?? [],
+      roles: user.roles.map((item) => item.role.code),
     };
   }
 }

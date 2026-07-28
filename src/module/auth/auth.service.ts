@@ -414,7 +414,17 @@ export class AuthService {
       },
     });
 
-    const roles = this.extractRoleCodes(user.roles);
+    const freshUserWithRoles = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        roles: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
+    });
+
+    const roles = this.extractRoleCodes(freshUserWithRoles?.roles ?? []);
     const tokens = await this.generateTokens(user.id, user.email, roles);
     await this.saveRefreshSession(user.id, tokens.refreshToken);
 
