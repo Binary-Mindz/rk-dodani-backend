@@ -128,13 +128,18 @@ export class TeamService {
       `Inviting team member: ${dto.email} by parentUserId: ${invitedById}`,
     );
 
-    const subscription = await this.prisma.subscription.findFirst({
+    const subscriptions = await this.prisma.subscription.findMany({
       where: {
         userId: invitedById,
-        status: SubscriptionStatus.ACTIVE,
+        status: {
+          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+        },
       },
       include: { plan: true },
+      orderBy: { createdAt: 'desc' },
     });
+
+    const subscription = subscriptions[0] ?? null;
 
     if (!subscription) {
       throw new BadRequestException(
@@ -142,7 +147,9 @@ export class TeamService {
       );
     }
 
-    if (subscription.plan.targetAudience !== 'B2B') {
+    const isB2BPlan = subscription.plan?.targetAudience === 'B2B';
+
+    if (!isB2BPlan) {
       throw new BadRequestException(
         'Team invitations require an active B2B (Enterprise) plan. Your current plan does not support team members.',
       );
