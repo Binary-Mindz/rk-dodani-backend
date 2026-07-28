@@ -163,9 +163,13 @@ export class UserManagementService {
         const plan = await tx.plan.findUnique({ where: { id: dto.planId } });
         if (!plan) throw new BadRequestException('Requested backend subscription plan not found.');
 
+        const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+        const roleRecord = await tx.role.findUnique({ where: { code: targetRoleCode } });
+        if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+
         await tx.subscription.updateMany({
-          where: { userId: id, status: SubscriptionStatus.ACTIVE },
-          data: { status: SubscriptionStatus.EXPIRED },
+          where: { userId: id, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] } },
+          data: { status: SubscriptionStatus.EXPIRED, endedAt: new Date() },
         });
 
         const billingCycle = dto.billingInterval || plan.billingInterval;
@@ -181,11 +185,41 @@ export class UserManagementService {
             userId: id,
             planId: dto.planId,
             status: SubscriptionStatus.ACTIVE,
-            provider: plan.billingProvider || 'ADMIN',
+            provider: plan.billingProvider,
             currentPeriodStart: new Date(),
             currentPeriodEnd: periodEnd,
+            startedAt: new Date(),
             metadata: dto.changeReason ? { reason: dto.changeReason } : undefined,
           },
+        });
+
+        await tx.entitlement.updateMany({
+          where: { userId: id, status: EntitlementStatus.ACTIVE },
+          data: { status: EntitlementStatus.REVOKED, endsAt: new Date() },
+        });
+
+        await tx.entitlement.create({
+          data: {
+            userId: id,
+            planId: dto.planId,
+            sourceType: EntitlementSourceType.SUBSCRIPTION,
+            entitlementType: EntitlementType.PLAN_ACCESS,
+            status: EntitlementStatus.ACTIVE,
+            startsAt: new Date(),
+            endsAt: periodEnd,
+            grantedById: adminId,
+          },
+        });
+
+        await tx.userRole.updateMany({
+          where: { userId: id, isActive: true },
+          data: { isActive: false },
+        });
+
+        await tx.userRole.upsert({
+          where: { userId_roleId: { userId: id, roleId: roleRecord.id } },
+          create: { userId: id, roleId: roleRecord.id, isActive: true, expiresAt: periodEnd },
+          update: { isActive: true, expiresAt: periodEnd },
         });
 
         await tx.auditLog.create({
@@ -194,7 +228,7 @@ export class UserManagementService {
             entityType: 'SUBSCRIPTION',
             entityId: id,
             action: AuditAction.UPDATE,
-            newValues: { planId: dto.planId, billingInterval: billingCycle, reason: dto.changeReason },
+            newValues: { planId: dto.planId, billingInterval: billingCycle, role: targetRoleCode, reason: dto.changeReason },
           },
         });
       }
