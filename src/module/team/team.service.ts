@@ -133,11 +133,18 @@ export class TeamService {
         userId: invitedById,
         status: SubscriptionStatus.ACTIVE,
       },
+      include: { plan: true },
     });
 
     if (!subscription) {
       throw new BadRequestException(
-        'You must have an active subscription to invite team members.',
+        'You must have an active subscription to invite team members. Please upgrade to an Enterprise plan.',
+      );
+    }
+
+    if (subscription.plan.targetAudience !== 'B2B') {
+      throw new BadRequestException(
+        'Team invitations require an active B2B (Enterprise) plan. Your current plan does not support team members.',
       );
     }
 

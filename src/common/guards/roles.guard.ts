@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -25,9 +26,19 @@ export class RolesGuard implements CanActivate {
     const user = request.user as { roles?: UserRoleCode[] };
 
     if (!user?.roles?.length) {
-      return false;
+      throw new ForbiddenException(
+        'Access denied. You do not have an assigned role to perform this action.',
+      );
     }
 
-    return requiredRoles.some((role) => user.roles?.includes(role));
+    const hasRole = requiredRoles.some((role) => user.roles?.includes(role));
+
+    if (!hasRole) {
+      throw new ForbiddenException(
+        `Access denied. This action requires one of the following roles: ${requiredRoles.join(', ')}.`,
+      );
+    }
+
+    return true;
   }
 }
