@@ -71,15 +71,16 @@ export class SubscriptionService {
     if (!plan) throw new NotFoundException('Plan not found');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+    const resolvedSeats = this.resolveSeatsForPlan(plan, seats);
 
     if (Number(plan.priceAmount) === 0) {
       this.logger.log(
         `Triggering instant deployment schema for free plan tier: ${plan.code}`,
       );
-      await this.executeInstantFreeActivation(user, plan);
+      await this.executeInstantFreeActivation(user, plan, resolvedSeats);
       this.audit(userId, planId, 'CREATE', undefined, {
         planId,
-        seats: 1,
+        seats: resolvedSeats,
         isFreeActivation: true,
       });
       return { isFreeActivation: true };
@@ -117,13 +118,13 @@ export class SubscriptionService {
       metadata: {
         userId: user.id,
         planId: plan.id,
-        seats: '1',
+        seats: String(resolvedSeats),
       },
     });
 
     this.audit(userId, planId, 'CREATE', undefined, {
       planId,
-      seats: seats ?? 1,
+      seats: resolvedSeats,
       checkoutSessionId: session.id,
     });
     return session;
@@ -132,6 +133,7 @@ export class SubscriptionService {
   private async executeInstantFreeActivation(
     user: any,
     plan: any,
+    seats: number,
   ): Promise<void> {
     const targetRoleCode =
       plan.targetAudience === PlanAudience.B2C
@@ -159,7 +161,7 @@ export class SubscriptionService {
           currency: plan.currency,
           lastPaymentAt: new Date(),
           lastPaymentAmount: new Prisma.Decimal('0.00'),
-          seats: 1,
+          seats,
         },
       });
 
@@ -195,6 +197,17 @@ export class SubscriptionService {
         },
       });
     });
+  }
+
+  private resolveSeatsForPlan(
+    plan: { targetAudience: PlanAudience; maxUsers?: number | null },
+    seats?: number,
+  ): number {
+    if (plan.targetAudience !== PlanAudience.B2B) {
+      return 1;
+    }
+
+    return Math.max(1, seats ?? plan.maxUsers ?? 1);
   }
 
   async ensureFreePlanForUser(userId: string): Promise<void> {
@@ -239,7 +252,11 @@ export class SubscriptionService {
       `Auto-routing user ${userId} to baseline free tier: ${freePlan.code}`,
     );
 
-    await this.executeInstantFreeActivation(user, freePlan);
+    await this.executeInstantFreeActivation(
+      user,
+      freePlan,
+      this.resolveSeatsForPlan(freePlan),
+    );
   }
 
   async verifySessionAndAssignRole(sessionId: string): Promise<void> {

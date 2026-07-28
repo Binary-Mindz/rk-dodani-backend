@@ -11,6 +11,8 @@ import {
   UserRoleCode,
   UserStatus,
   InvitationStatus,
+  PlanAudience,
+  SubscriptionStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -310,6 +312,8 @@ export class AuthService {
       }
     }
 
+    await this.syncRoleFromActiveSubscription(user.id);
+
     // ফ্রেশ ইউজার ডাটা এবং রোল এক্সট্র্যাক্ট করা
     const freshUserWithRoles = await this.prisma.user.findUnique({
       where: { id: user.id },
@@ -399,6 +403,8 @@ export class AuthService {
     if (!user || !user.emailVerified || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('User not found or inactive');
     }
+
+    await this.syncRoleFromActiveSubscription(user.id);
 
     await this.prisma.userSession.update({
       where: { id: matchedSession.id },
@@ -631,6 +637,71 @@ export class AuthService {
     userRoles: Array<{ role: { code: UserRoleCode } }>,
   ): UserRoleCode[] {
     return userRoles.map((item) => item.role.code);
+  }
+
+  private async syncRoleFromActiveSubscription(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+        subscriptions: {
+          where: { status: SubscriptionStatus.ACTIVE },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { plan: true },
+        },
+      },
+    });
+
+    if (!user || user.roles.some((item) => item.role.code === UserRoleCode.SUPER_ADMIN)) {
+      return;
+    }
+
+    const activeSubscription = user.subscriptions[0];
+    if (!activeSubscription?.plan) {
+      return;
+    }
+
+    const targetRoleCode =
+      activeSubscription.plan.targetAudience === PlanAudience.B2B
+        ? UserRoleCode.ENTERPRISE
+        : UserRoleCode.STUDENT;
+
+    if (user.roles.some((item) => item.role.code === targetRoleCode)) {
+      return;
+    }
+
+    const roleRecord = await this.prisma.role.findUnique({
+      where: { code: targetRoleCode },
+    });
+    if (!roleRecord) {
+      throw new InternalServerErrorException(
+        `Role ${targetRoleCode} config missing`,
+      );
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.userRole.updateMany({
+        where: { userId, isActive: true },
+        data: { isActive: false },
+      }),
+      this.prisma.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: roleRecord.id } },
+        create: {
+          userId,
+          roleId: roleRecord.id,
+          isActive: true,
+          expiresAt: activeSubscription.currentPeriodEnd,
+        },
+        update: {
+          isActive: true,
+          expiresAt: activeSubscription.currentPeriodEnd,
+        },
+      }),
+    ]);
   }
 
   private async generateTokens(

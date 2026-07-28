@@ -179,6 +179,7 @@ export class UserManagementService {
         } else {
           periodEnd.setMonth(periodEnd.getMonth() + 1);
         }
+        const seats = plan.targetAudience === PlanAudience.B2B ? Math.max(1, plan.maxUsers ?? 1) : 1;
 
         await tx.subscription.create({
           data: {
@@ -189,6 +190,7 @@ export class UserManagementService {
             currentPeriodStart: new Date(),
             currentPeriodEnd: periodEnd,
             startedAt: new Date(),
+            seats,
             metadata: dto.changeReason ? { reason: dto.changeReason } : undefined,
           },
         });
@@ -228,7 +230,7 @@ export class UserManagementService {
             entityType: 'SUBSCRIPTION',
             entityId: id,
             action: AuditAction.UPDATE,
-            newValues: { planId: dto.planId, billingInterval: billingCycle, role: targetRoleCode, reason: dto.changeReason },
+            newValues: { planId: dto.planId, billingInterval: billingCycle, role: targetRoleCode, seats, reason: dto.changeReason },
           },
         });
       }
@@ -380,6 +382,7 @@ export class UserManagementService {
     } else {
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
     }
+    const seats = plan.targetAudience === PlanAudience.B2B ? Math.max(1, plan.maxUsers ?? 1) : 1;
 
     const existingActiveSub = await this.prisma.subscription.findFirst({
       where: { userId: userId, status: SubscriptionStatus.ACTIVE },
@@ -406,6 +409,7 @@ export class UserManagementService {
           currentPeriodStart: new Date(),
           currentPeriodEnd: currentPeriodEnd,
           startedAt: new Date(),
+          seats,
         },
       });
 
@@ -455,7 +459,7 @@ export class UserManagementService {
           entityType: 'SUBSCRIPTION',
           entityId: newSubscription.id,
           action: existingActiveSub ? AuditAction.UPDATE : AuditAction.CREATE,
-          newValues: { planId: plan.id, billingInterval: dto.billingInterval },
+          newValues: { planId: plan.id, billingInterval: dto.billingInterval, seats },
         },
       });
 
