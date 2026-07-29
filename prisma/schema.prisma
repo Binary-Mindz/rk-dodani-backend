@@ -54,6 +54,7 @@ model User {
   userContentProgresses UserContentProgress[]
   userActivityLogs      UserActivityLog[]
   ratings               ContentRating[]
+  authoredInsights      Insight[]             @relation("InsightAuthor")
   parentUserId          String?
   parentUser            User?                 @relation("TeamMembers", fields: [parentUserId], references: [id], onDelete: SetNull)
   teamMembers           User[]                @relation("TeamMembers")
@@ -409,7 +410,8 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  contentItems ContentCategory[]
+  contentItems    ContentCategory[]
+  insightMappings InsightCategoryMap[]
 
   @@index([isActive])
 }
@@ -437,7 +439,8 @@ model Tag {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  contentTags ContentTag[]
+  contentTags     ContentTag[]
+  insightMappings InsightTagMap[]
 
   @@index([isActive])
 }
@@ -1169,6 +1172,130 @@ model PlatformInfo {
   language     String   @default("English")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ==========================================
+// Insight Model
+// ==========================================
+
+model Insight {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  subtitle    String?
+  excerpt     String?
+  summary     String?
+
+  authorId    String?
+  author      User?    @relation("InsightAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  readingTimeMinutes Int?
+  coverImageUrl      String?
+  externalUrl        String?
+
+  status          InsightStatus     @default(DRAFT)
+  visibility      InsightVisibility @default(PUBLIC)
+  scheduledAt     DateTime?
+  allowComments   Boolean           @default(false)
+  allowDownload   Boolean           @default(false)
+
+  contentType     InsightContentType @default(ARTICLE)
+  fileType        InsightFileType?
+  fileUrl         String?
+
+  industryTargets InsightIndustryTarget[]
+  categories      InsightCategoryMap[]
+  tags            InsightTagMap[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([visibility])
+  @@index([authorId])
+  @@index([contentType])
+}
+
+model InsightIndustryTarget {
+  id         String         @id @default(uuid())
+  insightId  String
+  industry   IndustryTarget
+  insight    Insight        @relation(fields: [insightId], references: [id], onDelete: Cascade)
+
+  @@unique([insightId, industry])
+  @@index([insightId])
+}
+
+model InsightCategoryMap {
+  id         String   @id @default(uuid())
+  insightId  String
+  categoryId String
+  insight    Insight  @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([insightId, categoryId])
+}
+
+model InsightTagMap {
+  id        String  @id @default(uuid())
+  insightId String
+  tagId     String
+  insight   Insight @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([insightId, tagId])
+}
+
+enum InsightStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum InsightVisibility {
+  PUBLIC
+  AUTHENTICATED
+  GATED
+}
+
+enum InsightContentType {
+  ARTICLE
+  WHITE_PAPER
+  CASE_STUDY
+  REPORT
+  PODCAST
+  VIDEO
+  RESEARCH_NOTE
+  MEDIA_POST
+}
+
+enum InsightFileType {
+  PDF
+  WORD
+  EXCEL
+  POWERPOINT
+  IMAGE
+  VIDEO
+  AUDIO
+  LINK
+  OTHER
+}
+
+enum IndustryTarget {
+  BANKING
+  CAPITAL_MARKETS
+  WEALTH_MANAGEMENT
+  INSURANCE
+  FINTECH
+  HEALTHCARE
+  TECHNOLOGY
+  CONSULTING
+  EDUCATION
+  GOVERNMENT
+  OTHER
 }
 
 model Services {
