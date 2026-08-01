@@ -114,7 +114,7 @@ export class SubscriptionService {
       },
       customer_email: user.email,
       success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/pricing`,
+      cancel_url: `${frontendUrl}/plan`,
       metadata: {
         userId: user.id,
         planId: plan.id,
