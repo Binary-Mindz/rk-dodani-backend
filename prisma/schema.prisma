@@ -56,7 +56,6 @@ model User {
   userContentProgresses                 UserContentProgress[]
   userActivityLogs                      UserActivityLog[]
   ratings                               ContentRating[]
-  authoredInsights                      Insight[]                      @relation("InsightAuthor")
   parentUserId                          String?
   parentUser                            User?                          @relation("TeamMembers", fields: [parentUserId], references: [id], onDelete: SetNull)
   teamMembers                           User[]                         @relation("TeamMembers")
@@ -473,8 +472,7 @@ model Tag {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  contentTags     ContentTag[]
-  insightMappings InsightTagMap[]
+  contentTags ContentTag[]
 
   @@index([isActive])
 }
@@ -1227,9 +1225,6 @@ model Insight {
   excerpt  String?
   summary  String?
 
-  authorId String?
-  author   User?   @relation("InsightAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-
   readingTimeMinutes Int?
   coverImageUrl      String?
   externalUrl        String?
@@ -1244,9 +1239,9 @@ model Insight {
   fileType    InsightFileType?
   fileUrl     String?
 
-  industryTargets InsightIndustryTarget[]
+  industryTargets IndustryTarget[] @default([])
+  tags            String[]         @default([])
   categories      InsightCategoryMap[]
-  tags            InsightTagMap[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1254,18 +1249,7 @@ model Insight {
 
   @@index([status])
   @@index([visibility])
-  @@index([authorId])
   @@index([contentType])
-}
-
-model InsightIndustryTarget {
-  id        String         @id @default(uuid())
-  insightId String
-  industry  IndustryTarget
-  insight   Insight        @relation(fields: [insightId], references: [id], onDelete: Cascade)
-
-  @@unique([insightId, industry])
-  @@index([insightId])
 }
 
 model InsightCategoryMap {
@@ -1276,16 +1260,6 @@ model InsightCategoryMap {
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([insightId, categoryId])
-}
-
-model InsightTagMap {
-  id        String  @id @default(uuid())
-  insightId String
-  tagId     String
-  insight   Insight @relation(fields: [insightId], references: [id], onDelete: Cascade)
-  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([insightId, tagId])
 }
 
 enum InsightStatus {

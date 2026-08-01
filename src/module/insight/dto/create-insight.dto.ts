@@ -44,11 +44,6 @@ export class CreateInsightDto {
   @MaxLength(1000)
   summary?: string;
 
-  @ApiPropertyOptional({ example: 'uuid-of-author-user' })
-  @IsOptional()
-  @IsUUID()
-  authorId?: string;
-
   @ApiPropertyOptional({ example: 8 })
   @IsOptional()
   @IsInt()
@@ -112,9 +107,9 @@ export class CreateInsightDto {
   @IsUUID('4', { each: true })
   categoryIds?: string[];
 
-  @ApiPropertyOptional({ type: [String], example: ['uuid-tag-1'] })
+  @ApiPropertyOptional({ type: [String], example: ['#AI2026', '#Governance'] })
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
-  tagIds?: string[];
+  @IsString({ each: true })
+  tags?: string[];
 }
