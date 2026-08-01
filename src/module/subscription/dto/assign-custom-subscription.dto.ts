@@ -3,7 +3,6 @@ import { BillingInterval, EntitlementType, PlanAudience } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
   IsNumber,
@@ -38,10 +37,6 @@ export class AssignCustomSubscriptionDto {
   @IsString()
   @IsOptional()
   currency?: string;
-
-  @ApiProperty({ description: 'Subscription end date', example: '2025-12-31' })
-  @IsDateString()
-  endsAt!: string;
 
   @ApiPropertyOptional({ description: 'Trial period in days for the custom plan', example: 14, default: 0 })
   @IsInt()

@@ -17,10 +17,12 @@ import {
   BillingProvider,
   PlanAudience,
   Prisma,
+  CustomSubscriptionAssignmentStatus,
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from 'common/mail/mail.service';
 import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
+import { QueryCustomSubscriptionHistoryDto } from './dto/query-custom-subscription-history.dto';
 
 @Injectable()
 export class SubscriptionService {
@@ -309,7 +311,7 @@ export class SubscriptionService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await tx.subscription.create({
+        const subscription = await tx.subscription.create({
           data: {
             userId: user.id,
             planId: plan.id,
@@ -326,6 +328,15 @@ export class SubscriptionService {
             lastPaymentAt: new Date(),
             lastPaymentAmount: new Prisma.Decimal(plan.priceAmount),
             seats: seats,
+          },
+        });
+
+        await tx.customSubscriptionAssignment.updateMany({
+          where: { checkoutSessionId: sessionId },
+          data: {
+            status: CustomSubscriptionAssignmentStatus.PAID,
+            paidAt: new Date(),
+            subscriptionId: subscription.id,
           },
         });
 
@@ -378,6 +389,96 @@ export class SubscriptionService {
     return date;
   }
 
+  private formatCustomAssignment(assignment: any) {
+    return {
+      id: assignment.id,
+      userId: assignment.userId,
+      user: assignment.user
+        ? {
+            id: assignment.user.id,
+            email: assignment.user.email,
+            fullName: assignment.user.fullName,
+            avatarUrl: assignment.user.avatarUrl,
+          }
+        : null,
+      assignedBy: assignment.assignedBy,
+      assignedByUser: assignment.assignedByUser
+        ? {
+            id: assignment.assignedByUser.id,
+            email: assignment.assignedByUser.email,
+            fullName: assignment.assignedByUser.fullName,
+            avatarUrl: assignment.assignedByUser.avatarUrl,
+          }
+        : null,
+      planId: assignment.planId,
+      plan: assignment.plan
+        ? {
+            id: assignment.plan.id,
+            code: assignment.plan.code,
+            name: assignment.plan.name,
+            planTitle: assignment.plan.planTitle,
+          }
+        : null,
+      checkoutSessionId: assignment.checkoutSessionId,
+      checkoutUrl: assignment.checkoutUrl,
+      amount: Number(assignment.amount),
+      currency: assignment.currency,
+      billingInterval: assignment.billingInterval,
+      seats: assignment.seats,
+      status: assignment.status,
+      note: assignment.note,
+      paidAt: assignment.paidAt,
+      subscriptionId: assignment.subscriptionId,
+      createdAt: assignment.createdAt,
+      updatedAt: assignment.updatedAt,
+    };
+  }
+
+  async getCustomAssignmentHistory(query: QueryCustomSubscriptionHistoryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CustomSubscriptionAssignmentWhereInput = {
+      ...(query.userId && { userId: query.userId }),
+      ...(query.assignedBy && { assignedBy: query.assignedBy }),
+      ...(query.status && { status: query.status }),
+      ...(query.billingInterval && { billingInterval: query.billingInterval }),
+      ...(query.search && {
+        OR: [
+          { checkoutSessionId: { contains: query.search, mode: 'insensitive' } },
+          { note: { contains: query.search, mode: 'insensitive' } },
+          { user: { email: { contains: query.search, mode: 'insensitive' } } },
+          { user: { fullName: { contains: query.search, mode: 'insensitive' } } },
+          { assignedByUser: { email: { contains: query.search, mode: 'insensitive' } } },
+          { assignedByUser: { fullName: { contains: query.search, mode: 'insensitive' } } },
+          { plan: { name: { contains: query.search, mode: 'insensitive' } } },
+          { plan: { code: { contains: query.search, mode: 'insensitive' } } },
+        ],
+      }),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.customSubscriptionAssignment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
+          assignedByUser: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
+          plan: { select: { id: true, code: true, name: true, planTitle: true } },
+        },
+      }),
+      this.prisma.customSubscriptionAssignment.count({ where }),
+    ]);
+
+    return {
+      items: items.map((assignment) => this.formatCustomAssignment(assignment)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async assignCustomSubscription(
     adminUserId: string,
     dto: AssignCustomSubscriptionDto,
@@ -388,79 +489,106 @@ export class SubscriptionService {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    let customPlan = await this.prisma.plan.findUnique({ where: { code: 'CUSTOM' } });
-    if (!customPlan) {
-      customPlan = await this.prisma.plan.create({
-        data: {
-          code: 'CUSTOM',
-          name: dto.planTitle ?? 'Custom Plan',
-          planTitle: dto.planTitle ?? 'Custom Plan',
-          description: 'Admin-created custom subscription',
-          billingProvider: BillingProvider.MANUAL,
-          billingInterval: dto.billingInterval ?? BillingInterval.MONTHLY,
-          currency: dto.currency?.toUpperCase() ?? 'USD',
-          priceAmount: new Prisma.Decimal(dto.customPrice ?? 0),
-          trialDays: dto.trialDays ?? 0,
-          isAutoRenew: dto.autoRenew ?? true,
-          isPublic: false,
-          isActive: true,
-          targetAudience: PlanAudience.B2C,
+    const billingInterval = dto.billingInterval ?? BillingInterval.MONTHLY;
+    const customPlan = await this.prisma.plan.create({
+      data: {
+        code: `CUSTOM_${Date.now()}`,
+        name: dto.planTitle ?? 'Custom Plan',
+        planTitle: dto.planTitle ?? 'Custom Plan',
+        description: 'Admin-created custom subscription',
+        billingProvider: BillingProvider.MANUAL,
+        billingInterval,
+        currency: dto.currency?.toUpperCase() ?? 'USD',
+        priceAmount: new Prisma.Decimal(dto.customPrice ?? 0),
+        trialDays: dto.trialDays ?? 0,
+        isAutoRenew: dto.autoRenew ?? true,
+        isPublic: false,
+        isActive: true,
+        targetAudience: dto.targetAudience ?? PlanAudience.B2C,
+        metadata: {
+          isCustom: true,
+          assignedUserId: dto.userId,
+          assignedBy: adminUserId,
+          note: dto.note ?? null,
+          seats: dto.seats ?? 1,
         },
-      });
-    } else {
-      await this.prisma.plan.update({
-        where: { id: customPlan.id },
-        data: {
-          ...(dto.planTitle ? { name: dto.planTitle, planTitle: dto.planTitle } : {}),
-          ...(dto.billingInterval ? { billingInterval: dto.billingInterval } : {}),
-          ...(dto.trialDays !== undefined ? { trialDays: dto.trialDays } : {}),
-          ...(dto.autoRenew !== undefined ? { isAutoRenew: dto.autoRenew } : {}),
-        },
-      });
-    }
-
-    const paymentSessionId = `custom_payment_${dto.userId}_${Date.now()}`;
-    const paymentUrl = `${frontendUrl}/payment-success?session_id=${paymentSessionId}`;
-
-    const customSubscriptionData = {
-      userId: dto.userId,
-      planId: customPlan.id,
-      provider: BillingProvider.MANUAL,
-      providerSubscriptionId: paymentSessionId,
-      status: SubscriptionStatus.INCOMPLETE,
-      startedAt: new Date(),
-      currentPeriodStart: new Date(),
-      currentPeriodEnd: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      currency: dto.currency?.toUpperCase() ?? 'USD',
-      lastPaymentAt: null,
-      lastPaymentAmount: new Prisma.Decimal(dto.customPrice ?? 0),
-      seats: dto.seats ?? 1,
-      metadata: {
-        isCustom: true,
-        customPrice: dto.customPrice ?? 0,
-        note: dto.note ?? null,
-        assignedBy: adminUserId,
-        paymentUrl,
-        paymentPending: true,
       },
-    };
-
-    const subscription = await this.prisma.subscription.create({
-      data: customSubscriptionData,
     });
 
-    this.audit(adminUserId, subscription.id, 'CREATE', undefined, {
+    const unitAmount = Math.round(Number(customPlan.priceAmount) * 100);
+    const session = await this.stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: customPlan.currency.toLowerCase(),
+            product_data: {
+              name: customPlan.name,
+              description: customPlan.description || undefined,
+            },
+            unit_amount: unitAmount,
+            recurring: {
+              interval: billingInterval === BillingInterval.YEARLY ? 'year' : 'month',
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      subscription_data: {
+        trial_period_days: customPlan.trialDays > 0 ? customPlan.trialDays : 14,
+      },
+      customer_email: user.email,
+      success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/plan`,
+      metadata: {
+        userId: user.id,
+        planId: customPlan.id,
+        seats: String(dto.seats ?? 1),
+        isCustom: 'true',
+        note: dto.note ?? '',
+        assignedBy: adminUserId,
+      },
+    });
+
+    if (!session.url) {
+      throw new BadRequestException('Stripe payment link could not be created');
+    }
+
+    const assignment = await this.prisma.customSubscriptionAssignment.create({
+      data: {
+        userId: dto.userId,
+        assignedBy: adminUserId,
+        planId: customPlan.id,
+        checkoutSessionId: session.id,
+        checkoutUrl: session.url,
+        amount: customPlan.priceAmount,
+        currency: customPlan.currency,
+        billingInterval,
+        seats: dto.seats ?? 1,
+        status: CustomSubscriptionAssignmentStatus.PENDING,
+        note: dto.note ?? null,
+      },
+      include: {
+        user: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
+        assignedByUser: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
+        plan: { select: { id: true, code: true, name: true, planTitle: true } },
+      },
+    });
+
+    this.audit(adminUserId, assignment.id, 'CREATE', undefined, {
       isCustom: true,
       userId: dto.userId,
       paymentPending: true,
       planId: customPlan.id,
+      checkoutSessionId: session.id,
     });
 
     try {
       await this.mailService.sendCustomPlanPaymentLink(
         user.email,
         dto.planTitle ?? customPlan.name,
-        paymentUrl,
+        session.url,
         dto.customPrice ?? Number(customPlan.priceAmount),
         dto.currency ?? customPlan.currency,
       );
@@ -469,9 +597,9 @@ export class SubscriptionService {
     }
 
     return {
-      subscription,
-      paymentUrl,
-      paymentSessionId,
+      assignment: this.formatCustomAssignment(assignment),
+      paymentUrl: session.url,
+      paymentSessionId: session.id,
       message: 'Payment link created. User can complete payment to activate the subscription.',
     };
   }

@@ -4,6 +4,7 @@ import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { AssignPlanDto } from './dto/assign-plan.dto';
 import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
 import { CancelSubscriptionDto } from './dto/cancel-subscription.dto';
+import { QueryCustomSubscriptionHistoryDto } from './dto/query-custom-subscription-history.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { Roles } from 'common/decorators/roles.decorator';
@@ -52,6 +53,20 @@ export class SubscriptionController {
       statusCode: 200,
       message: 'Payment verified and security role updated.',
       data: { verified: true }
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Get('custom-assignment-history')
+  @ApiOperation({ summary: 'Get custom subscription assignment history' })
+  async getCustomAssignmentHistory(@Query() query: QueryCustomSubscriptionHistoryDto) {
+    const data = await this.subscriptionService.getCustomAssignmentHistory(query);
+    return {
+      statusCode: 200,
+      message: 'Custom subscription assignment history fetched successfully',
+      data,
     };
   }
 
