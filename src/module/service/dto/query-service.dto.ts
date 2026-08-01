@@ -8,6 +8,11 @@ export class QueryServiceDto {
   @IsOptional()
   search?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by service group ID' })
+  @IsString()
+  @IsOptional()
+  serviceGroupId?: string;
+
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Type(() => Number)
   @IsInt()

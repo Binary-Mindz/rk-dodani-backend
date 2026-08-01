@@ -1,60 +1,44 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRoleCode } from '@prisma/client';
-import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  ValidateNested,
-} from 'class-validator';
-import { CreateTargetClientDto } from './create-target-client.dto';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateProductDto {
-  @ApiProperty({ example: 'Core Banking Intelligence Platform' })
+  @ApiProperty({ description: 'Product name', example: 'AI Leadership Whitepaper 2026' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  name: string;
 
-  @ApiProperty({ example: 'Decision intelligence for financial operations' })
-  @IsString()
-  @IsNotEmpty()
-  subTitle: string;
-
-  @ApiPropertyOptional({
-    enum: UserRoleCode,
-    default: UserRoleCode.STUDENT,
-    example: UserRoleCode.STUDENT,
-  })
-  @IsEnum(UserRoleCode)
-  @IsOptional()
-  role?: UserRoleCode;
-
-  @ApiPropertyOptional({ example: 'Banking AI Suite' })
-  @IsString()
-  @IsOptional()
-  module?: string;
-
-  @ApiProperty({ example: 'A platform for improving banking workflows.' })
+  @ApiProperty({ description: 'Product description', example: 'How modern leaders are adopting AI' })
   @IsString()
   @IsNotEmpty()
   description: string;
 
-  @ApiPropertyOptional({ example: 'Legacy core to composable platform' })
+  @ApiPropertyOptional({ description: 'Product group ID', example: '#154' })
   @IsString()
   @IsOptional()
-  migrationVector?: string;
+  productGroupId?: string | null;
 
-  @ApiPropertyOptional({ example: 'Reduced onboarding time by 40%' })
+  @ApiPropertyOptional({ example: 'Athenion Solution Architecture Blueprint' })
   @IsString()
   @IsOptional()
-  scaleValueImpact?: string;
+  architectureBlueprint?: string;
 
-  @ApiPropertyOptional({ type: [CreateTargetClientDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateTargetClientDto)
+  @ApiPropertyOptional({ description: 'Retail banking sector copy' })
+  @IsString()
   @IsOptional()
-  targetClient?: CreateTargetClientDto[];
+  retailBanking?: string;
+
+  @ApiPropertyOptional({ description: 'Capital markets sector copy' })
+  @IsString()
+  @IsOptional()
+  capitalMarkets?: string;
+
+  @ApiPropertyOptional({ description: 'Wealth and asset sector copy' })
+  @IsString()
+  @IsOptional()
+  wealthAndAsset?: string;
+
+  @ApiPropertyOptional({ description: 'Initiate Athenion discussion copy' })
+  @IsString()
+  @IsOptional()
+  initiateAthenionDiscussion?: string;
 }

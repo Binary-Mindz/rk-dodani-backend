@@ -1,11 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { CreateTargetClientDto } from './dto/create-target-client.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { UpdateTargetClientDto } from './dto/update-target-client.dto';
 
 @Injectable()
 export class ProductService {
@@ -34,49 +32,85 @@ export class ProductService {
       .catch(() => {});
   }
 
+  private includeRelations() {
+    return {
+      productGroup: true,
+    };
+  }
+
+  private formatProduct(product: any) {
+    if (!product) return product;
+    return {
+      id: product.id,
+      name: product.title,
+      description: product.description,
+      productGroupId: product.productGroupId,
+      productGroup: product.productGroup
+        ? {
+            id: product.productGroup.id,
+            name: product.productGroup.name,
+            description: product.productGroup.description,
+            icon: product.productGroup.icon,
+          }
+        : null,
+      architectureBlueprint: product.architectureBlueprint,
+      retailBanking: product.retailBanking,
+      capitalMarkets: product.capitalMarkets,
+      wealthAndAsset: product.wealthAndAsset,
+      initiateAthenionDiscussion: product.initiateAthenionDiscussion,
+    };
+  }
+
+  private async validateProductGroupId(productGroupId?: string | null) {
+    if (!productGroupId) return;
+    const productGroup = await this.prisma.productGroup.findUnique({ where: { id: productGroupId } });
+    if (!productGroup) {
+      throw new BadRequestException('Product group not found');
+    }
+  }
+
   async create(userId: string | null, dto: CreateProductDto) {
+    if (!dto.name?.trim()) {
+      throw new BadRequestException('Product name is required');
+    }
+
+    await this.validateProductGroupId(dto.productGroupId);
+
     const created = await this.prisma.product.create({
       data: {
-        title: dto.title,
-        subTitle: dto.subTitle,
-        module: dto.module ?? null,
+        title: dto.name,
+        subTitle: dto.name,
         description: dto.description,
-        migrationVector: dto.migrationVector ?? null,
-        scaleValueImpact: dto.scaleValueImpact ?? null,
-        targetClient: dto.targetClient?.length
-          ? {
-              create: dto.targetClient.map((targetClient) => ({
-                type: targetClient.type,
-                title: targetClient.title,
-                description: targetClient.description ?? null,
-                image: targetClient.image ?? null,
-                keyFeature: targetClient.keyFeature ?? [],
-              })),
-            }
-          : undefined,
+        architectureBlueprint: dto.architectureBlueprint ?? null,
+        retailBanking: dto.retailBanking ?? null,
+        capitalMarkets: dto.capitalMarkets ?? null,
+        wealthAndAsset: dto.wealthAndAsset ?? null,
+        initiateAthenionDiscussion: dto.initiateAthenionDiscussion ?? null,
+        productGroupId: dto.productGroupId ?? null,
       },
-      include: { targetClient: true },
+      include: this.includeRelations(),
     });
 
     this.audit(userId, 'PRODUCT', created.id, 'CREATE', null, created);
-    return created;
+    return this.formatProduct(created);
   }
 
   async findAll(query: QueryProductDto, publicOnly = false) {
-    const { search,  isActive, page = 1, limit = 10 } = query;
+    const { search, productGroupId, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       ...(publicOnly && { isActive: true }),
-      ...(isActive !== undefined && !publicOnly && { isActive }),
+      ...(productGroupId && { productGroupId }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
-          { subTitle: { contains: search, mode: 'insensitive' } },
-          { module: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { migrationVector: { contains: search, mode: 'insensitive' } },
-          { scaleValueImpact: { contains: search, mode: 'insensitive' } },
+          { architectureBlueprint: { contains: search, mode: 'insensitive' } },
+          { retailBanking: { contains: search, mode: 'insensitive' } },
+          { capitalMarkets: { contains: search, mode: 'insensitive' } },
+          { wealthAndAsset: { contains: search, mode: 'insensitive' } },
+          { initiateAthenionDiscussion: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
@@ -86,14 +120,14 @@ export class ProductService {
         where,
         skip,
         take: limit,
-        include: { targetClient: true },
+        include: this.includeRelations(),
         orderBy: { title: 'asc' },
       }),
       this.prisma.product.count({ where }),
     ]);
 
     return {
-      items,
+      items: items.map((item) => this.formatProduct(item)),
       meta: {
         total,
         page,
@@ -106,60 +140,41 @@ export class ProductService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { targetClient: true },
+      include: this.includeRelations(),
     });
 
     if (!product) {
       throw new NotFoundException(`Product with ID "${id}" not found`);
     }
 
-    return product;
+    return this.formatProduct(product);
   }
 
   async update(userId: string | null, id: string, dto: UpdateProductDto) {
     const existing = await this.findOne(id);
-    const { targetClient, ...productData } = dto;
+    await this.validateProductGroupId(dto.productGroupId);
+    const { name, ...productData } = dto;
+    const mappedProductData = {
+      ...productData,
+      ...(name !== undefined && { title: name, subTitle: name }),
+    };
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (Object.keys(productData).length > 0) {
+      if (Object.keys(mappedProductData).length > 0) {
         await tx.product.update({
           where: { id },
-          data: productData,
+          data: mappedProductData,
         });
-      }
-
-      if (targetClient !== undefined) {
-        await tx.targetClient.deleteMany({
-          where: { productId: id },
-        });
-
-        const validTargetClients = targetClient.filter(
-          (client): client is CreateTargetClientDto =>
-            typeof client.title === 'string' && client.title.trim().length > 0,
-        );
-
-        if (validTargetClients.length > 0) {
-          await tx.targetClient.createMany({
-            data: validTargetClients.map((client) => ({
-              type: client.type,
-              title: client.title,
-              description: client.description ?? null,
-              image: client.image ?? null,
-              keyFeature: client.keyFeature ?? [],
-              productId: id,
-            })),
-          });
-        }
       }
 
       return tx.product.findUnique({
         where: { id },
-        include: { targetClient: true },
+        include: this.includeRelations(),
       });
     });
 
     this.audit(userId, 'PRODUCT', id, 'UPDATE', existing, updated);
-    return updated;
+    return this.formatProduct(updated);
   }
 
   async remove(userId: string | null, id: string) {
@@ -173,72 +188,4 @@ export class ProductService {
     return { success: true, id };
   }
 
-  async addTargetClient(
-    userId: string | null,
-    productId: string,
-    dto: CreateTargetClientDto,
-  ) {
-    await this.findOne(productId);
-
-    const created = await this.prisma.targetClient.create({
-      data: {
-        type: dto.type,
-        title: dto.title,
-        description: dto.description ?? null,
-        image: dto.image ?? null,
-        keyFeature: dto.keyFeature ?? [],
-        productId,
-      },
-    });
-
-    this.audit(userId, 'TARGET_CLIENT', created.id, 'CREATE', null, created);
-    return created;
-  }
-
-  async updateTargetClient(
-    userId: string | null,
-    id: string,
-    dto: UpdateTargetClientDto,
-  ) {
-    const existing = await this.prisma.targetClient.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`TargetClient with ID "${id}" not found`);
-    }
-
-    const updated = await this.prisma.targetClient.update({
-      where: { id },
-      data: {
-        ...(dto.type !== undefined && { type: dto.type }),
-        ...(dto.title !== undefined && { title: dto.title }),
-        ...(dto.description !== undefined && {
-          description: dto.description,
-        }),
-        ...(dto.image !== undefined && { image: dto.image }),
-        ...(dto.keyFeature !== undefined && { keyFeature: dto.keyFeature }),
-      },
-    });
-
-    this.audit(userId, 'TARGET_CLIENT', id, 'UPDATE', existing, updated);
-    return updated;
-  }
-
-  async removeTargetClient(userId: string | null, id: string) {
-    const existing = await this.prisma.targetClient.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`TargetClient with ID "${id}" not found`);
-    }
-
-    await this.prisma.targetClient.delete({
-      where: { id },
-    });
-
-    this.audit(userId, 'TARGET_CLIENT', id, 'DELETE', existing, null);
-    return { success: true, id };
-  }
 }

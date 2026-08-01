@@ -100,11 +100,6 @@ export class CreateInsightDto {
   @IsEnum(InsightFileType)
   fileType?: InsightFileType;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/files/report.pdf' })
-  @IsOptional()
-  @IsUrl()
-  fileUrl?: string;
-
   @ApiPropertyOptional({ enum: IndustryTarget, isArray: true, example: [IndustryTarget.BANKING] })
   @IsOptional()
   @IsArray()

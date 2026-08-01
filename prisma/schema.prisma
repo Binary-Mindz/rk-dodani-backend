@@ -1301,12 +1301,32 @@ enum IndustryTarget {
 }
 
 model Services {
-  id          String  @id @default(uuid())
-  title       String
-  heading     String
-  description String?
+  id                       String        @id @default(uuid())
+  title                    String
+  heading                  String
+  description              String?
+  criticalFriction         String?
+  agentarumParadigm        String?
+  hardTangibleDeliverables String?
+  serviceGroupId           String?
+  serviceGroup             ServiceGroup? @relation(fields: [serviceGroupId], references: [id], onDelete: SetNull)
 
   deepPoints DeepPoint[]
+
+  @@index([serviceGroupId])
+}
+
+model ServiceGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  services Services[]
+
+  @@index([name])
 }
 
 model DeepPoint {
@@ -1331,10 +1351,32 @@ model Product {
   description      String
   migrationVector  String?
   scaleValueImpact String?
+  architectureBlueprint      String?
+  retailBanking              String?
+  capitalMarkets             String?
+  wealthAndAsset             String?
+  initiateAthenionDiscussion String?
+  productGroupId             String?
+  productGroup               ProductGroup? @relation(fields: [productGroupId], references: [id], onDelete: SetNull)
 
   isActive Boolean @default(true)
 
   targetClient TargetClient[]
+
+  @@index([productGroupId])
+}
+
+model ProductGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([name])
 }
 
 model TargetClient {

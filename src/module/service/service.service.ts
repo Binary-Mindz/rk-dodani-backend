@@ -1,11 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServiceDto } from './dto/query-service.dto';
-import { CreateDeepPointDto } from './dto/create-deep-point.dto';
-import { UpdateDeepPointDto } from './dto/update-deep-point.dto';
 
 @Injectable()
 export class ServiceService {
@@ -34,61 +32,95 @@ export class ServiceService {
       .catch(() => {});
   }
 
+  private includeRelations() {
+    return {
+      serviceGroup: true,
+    };
+  }
+
+  private formatService(service: any) {
+    if (!service) return service;
+    return {
+      id: service.id,
+      name: service.title,
+      description: service.description,
+      serviceGroupId: service.serviceGroupId,
+      serviceGroup: service.serviceGroup
+        ? {
+            id: service.serviceGroup.id,
+            name: service.serviceGroup.name,
+            description: service.serviceGroup.description,
+            icon: service.serviceGroup.icon,
+          }
+        : null,
+      criticalFriction: service.criticalFriction,
+      agentarumParadigm: service.agentarumParadigm,
+      hardTangibleDeliverables: service.hardTangibleDeliverables,
+    };
+  }
+
+  private async validateServiceGroupId(serviceGroupId?: string | null) {
+    if (!serviceGroupId) return;
+    const serviceGroup = await this.prisma.serviceGroup.findUnique({ where: { id: serviceGroupId } });
+    if (!serviceGroup) {
+      throw new BadRequestException('Service group not found');
+    }
+  }
+
   async create(userId: string | null, dto: CreateServiceDto) {
+    if (!dto.name?.trim()) {
+      throw new BadRequestException('Service name is required');
+    }
+
+    await this.validateServiceGroupId(dto.serviceGroupId);
+
     const created = await this.prisma.services.create({
       data: {
-        title: dto.title,
-        heading: dto.heading,
+        title: dto.name,
+        heading: dto.name,
         description: dto.description ?? null,
-        deepPoints: dto.deepPoints?.length
-          ? {
-              create: dto.deepPoints.map((dp) => ({
-                title: dp.title,
-                description: dp.description ?? null,
-                criticalFriction: dp.criticalFriction ?? null,
-                paradigm: dp.paradigm ?? null,
-                keyFeatures: dp.keyFeatures ?? [],
-              })),
-            }
-          : undefined,
+        criticalFriction: dto.criticalFriction ?? null,
+        agentarumParadigm: dto.agentarumParadigm ?? null,
+        hardTangibleDeliverables: dto.hardTangibleDeliverables ?? null,
+        serviceGroupId: dto.serviceGroupId ?? null,
       },
-      include: {
-        deepPoints: true,
-      },
+      include: this.includeRelations(),
     });
 
     this.audit(userId, 'SERVICES', created.id, 'CREATE', null, created);
-    return created;
+    return this.formatService(created);
   }
 
   async findAll(query: QueryServiceDto) {
-    const { search, page = 1, limit = 10 } = query;
+    const { search, serviceGroupId, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = search
-      ? {
+    const where: any = {
+      ...(serviceGroupId && { serviceGroupId }),
+      ...(search && {
           OR: [
             { title: { contains: search, mode: 'insensitive' } },
             { heading: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
+            { criticalFriction: { contains: search, mode: 'insensitive' } },
+            { agentarumParadigm: { contains: search, mode: 'insensitive' } },
+            { hardTangibleDeliverables: { contains: search, mode: 'insensitive' } },
           ],
-        }
-      : {};
+        }),
+    };
 
     const [items, total] = await Promise.all([
       this.prisma.services.findMany({
         where,
         skip,
         take: limit,
-        include: {
-          deepPoints: true,
-        },
+        include: this.includeRelations(),
       }),
       this.prisma.services.count({ where }),
     ]);
 
     return {
-      items,
+      items: items.map((item) => this.formatService(item)),
       meta: {
         total,
         page,
@@ -101,62 +133,42 @@ export class ServiceService {
   async findOne(id: string) {
     const service = await this.prisma.services.findUnique({
       where: { id },
-      include: {
-        deepPoints: true,
-      },
+      include: this.includeRelations(),
     });
 
     if (!service) {
       throw new NotFoundException(`Service with ID "${id}" not found`);
     }
 
-    return service;
+    return this.formatService(service);
   }
 
   async update(userId: string | null, id: string, dto: UpdateServiceDto) {
     const existing = await this.findOne(id);
+    await this.validateServiceGroupId(dto.serviceGroupId);
 
-    const { deepPoints, ...serviceData } = dto;
+    const { name, ...serviceData } = dto;
+    const mappedServiceData = {
+      ...serviceData,
+      ...(name !== undefined && { title: name, heading: name }),
+    };
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (Object.keys(serviceData).length > 0) {
+      if (Object.keys(mappedServiceData).length > 0) {
         await tx.services.update({
           where: { id },
-          data: serviceData,
+          data: mappedServiceData,
         });
-      }
-
-      if (deepPoints !== undefined) {
-        await tx.deepPoint.deleteMany({
-          where: { serviceId: id },
-        });
-
-        const validDeepPoints = deepPoints.filter(
-          (dp): dp is typeof dp & { title: string } => typeof dp.title === 'string' && dp.title.trim().length > 0,
-        );
-
-        if (validDeepPoints.length > 0) {
-          await tx.deepPoint.createMany({
-            data: validDeepPoints.map((dp) => ({
-              title: dp.title,
-              description: dp.description ?? null,
-              criticalFriction: dp.criticalFriction ?? null,
-              paradigm: dp.paradigm ?? null,
-              keyFeatures: dp.keyFeatures ?? [],
-              serviceId: id,
-            })),
-          });
-        }
       }
 
       return tx.services.findUnique({
         where: { id },
-        include: { deepPoints: true },
+        include: this.includeRelations(),
       });
     });
 
     this.audit(userId, 'SERVICES', id, 'UPDATE', existing, updated);
-    return updated;
+    return this.formatService(updated);
   }
 
   async remove(userId: string | null, id: string) {
@@ -170,62 +182,4 @@ export class ServiceService {
     return { success: true, id };
   }
 
-  async addDeepPoint(userId: string | null, serviceId: string, dto: CreateDeepPointDto) {
-    await this.findOne(serviceId);
-
-    const created = await this.prisma.deepPoint.create({
-      data: {
-        title: dto.title,
-        description: dto.description ?? null,
-        criticalFriction: dto.criticalFriction ?? null,
-        paradigm: dto.paradigm ?? null,
-        keyFeatures: dto.keyFeatures ?? [],
-        serviceId,
-      },
-    });
-
-    this.audit(userId, 'DEEP_POINT', created.id, 'CREATE', null, created);
-    return created;
-  }
-
-  async updateDeepPoint(userId: string | null, id: string, dto: UpdateDeepPointDto) {
-    const existing = await this.prisma.deepPoint.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`DeepPoint with ID "${id}" not found`);
-    }
-
-    const updated = await this.prisma.deepPoint.update({
-      where: { id },
-      data: {
-        ...(dto.title !== undefined && { title: dto.title }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.criticalFriction !== undefined && { criticalFriction: dto.criticalFriction }),
-        ...(dto.paradigm !== undefined && { paradigm: dto.paradigm }),
-        ...(dto.keyFeatures !== undefined && { keyFeatures: dto.keyFeatures }),
-      },
-    });
-
-    this.audit(userId, 'DEEP_POINT', id, 'UPDATE', existing, updated);
-    return updated;
-  }
-
-  async removeDeepPoint(userId: string | null, id: string) {
-    const existing = await this.prisma.deepPoint.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`DeepPoint with ID "${id}" not found`);
-    }
-
-    await this.prisma.deepPoint.delete({
-      where: { id },
-    });
-
-    this.audit(userId, 'DEEP_POINT', id, 'DELETE', existing, null);
-    return { success: true, id };
-  }
 }

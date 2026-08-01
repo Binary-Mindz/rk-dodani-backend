@@ -95,7 +95,6 @@ export class InsightService {
           allowDownload: dto.allowDownload ?? false,
           contentType: dto.contentType ?? 'ARTICLE',
           fileType: dto.fileType ?? null,
-          fileUrl: dto.fileUrl ?? null,
         },
       });
 
@@ -225,7 +224,6 @@ export class InsightService {
           ...(dto.allowDownload !== undefined && { allowDownload: dto.allowDownload }),
           ...(dto.contentType !== undefined && { contentType: dto.contentType }),
           ...(dto.fileType !== undefined && { fileType: dto.fileType }),
-          ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
         },
       });
 
@@ -258,6 +256,7 @@ export class InsightService {
           });
         }
       }
+
     });
 
     this.audit(userId, id, 'UPDATE', { title: existing.title, status: existing.status }, { title: dto.title, status: dto.status });

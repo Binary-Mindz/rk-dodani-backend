@@ -28,6 +28,8 @@ import { AlertService } from './module/alert/alert.service';
 import { AlertModule } from './module/alert/alert.module';
 import { ProductModule } from './module/product/product.module';
 import { InsightModule } from './module/insight/insight.module';
+import { ServiceGroupModule } from './module/service-group/service-group.module';
+import { ProductGroupModule } from './module/product-group/product-group.module';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { InsightModule } from './module/insight/insight.module';
     AlertModule,
     ProductModule,
     InsightModule,
+    ServiceGroupModule,
+    ProductGroupModule,
   ],
   controllers: [AppController, AlertController],
   providers: [AlertService],

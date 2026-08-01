@@ -1,28 +1,34 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { CreateDeepPointDto } from './create-deep-point.dto';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateServiceDto {
-  @ApiProperty({ description: 'Service title', example: 'AI Strategy Consulting' })
+  @ApiProperty({ description: 'Service name', example: 'AI Leadership Whitepaper 2026' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  name: string;
 
-  @ApiProperty({ description: 'Service main heading', example: 'Transform your enterprise with tailored AI models' })
-  @IsString()
-  @IsNotEmpty()
-  heading: string;
-
-  @ApiPropertyOptional({ description: 'Service detailed description' })
+  @ApiPropertyOptional({ description: 'Service description', example: 'How modern leaders are adopting AI' })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ type: [CreateDeepPointDto], description: 'List of deep points for this service' })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateDeepPointDto)
+  @ApiPropertyOptional({ description: 'Service group ID', example: '#154' })
+  @IsString()
   @IsOptional()
-  deepPoints?: CreateDeepPointDto[];
+  serviceGroupId?: string | null;
+
+  @ApiPropertyOptional({ description: 'The critical friction' })
+  @IsString()
+  @IsOptional()
+  criticalFriction?: string;
+
+  @ApiPropertyOptional({ description: 'The Agentarum paradigm' })
+  @IsString()
+  @IsOptional()
+  agentarumParadigm?: string;
+
+  @ApiPropertyOptional({ description: 'Hard tangible deliverables' })
+  @IsString()
+  @IsOptional()
+  hardTangibleDeliverables?: string;
 }
