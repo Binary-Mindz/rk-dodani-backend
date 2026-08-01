@@ -1,16 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BillingInterval, BillingProvider, PlanAudience } from '@prisma/client';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
   Min,
-  IsNumber,
-  IsNotEmpty,
-  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -32,6 +32,15 @@ export class CreatePlanDto {
   @IsString()
   @MaxLength(150)
   name!: string;
+
+  @ApiPropertyOptional({
+    description: 'Display title used for custom plan cards.',
+    example: 'Enterprise Starter',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  planTitle?: string;
 
   @ApiPropertyOptional({
     description: 'Subtitle or brief description context.',
@@ -103,6 +112,15 @@ export class CreatePlanDto {
   @IsInt()
   @Min(0)
   trialDays?: number;
+
+  @ApiPropertyOptional({
+    description: 'Whether the plan will auto-renew when the billing period ends.',
+    default: true,
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoRenew?: boolean;
 
   @ApiPropertyOptional({
     default: true,

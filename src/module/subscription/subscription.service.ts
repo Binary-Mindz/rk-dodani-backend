@@ -8,6 +8,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { Stripe as StripeType } from 'stripe';
 import {
+  BillingInterval,
   UserRoleCode,
   SubscriptionStatus,
   EntitlementSourceType,
@@ -18,17 +19,19 @@ import {
   Prisma,
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { MailService } from 'common/mail/mail.service';
 import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
 
 @Injectable()
 export class SubscriptionService {
-  private stripe: StripeType;
+  private stripe!: StripeType;
   private readonly logger = new Logger(SubscriptionService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly mailService: MailService,
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
@@ -359,9 +362,10 @@ export class SubscriptionService {
         });
       });
     } catch (error) {
+      const err = error as Error;
       this.logger.error(
         `❌ DB Transaction failure inside gateway routing:`,
-        error.stack,
+        err.stack,
       );
       throw error;
     }
@@ -381,109 +385,143 @@ export class SubscriptionService {
     const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const endsAt = new Date(dto.endsAt);
-    if (endsAt <= new Date()) throw new BadRequestException('endsAt must be a future date');
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    // Find or create the CUSTOM plan
     let customPlan = await this.prisma.plan.findUnique({ where: { code: 'CUSTOM' } });
     if (!customPlan) {
       customPlan = await this.prisma.plan.create({
         data: {
           code: 'CUSTOM',
-          name: 'Custom Plan',
-          description: 'Admin-assigned custom subscription',
+          name: dto.planTitle ?? 'Custom Plan',
+          planTitle: dto.planTitle ?? 'Custom Plan',
+          description: 'Admin-created custom subscription',
           billingProvider: BillingProvider.MANUAL,
-          billingInterval: 'MONTHLY',
+          billingInterval: dto.billingInterval ?? BillingInterval.MONTHLY,
           currency: dto.currency?.toUpperCase() ?? 'USD',
           priceAmount: new Prisma.Decimal(dto.customPrice ?? 0),
+          trialDays: dto.trialDays ?? 0,
+          isAutoRenew: dto.autoRenew ?? true,
           isPublic: false,
           isActive: true,
           targetAudience: PlanAudience.B2C,
         },
       });
+    } else {
+      await this.prisma.plan.update({
+        where: { id: customPlan.id },
+        data: {
+          ...(dto.planTitle ? { name: dto.planTitle, planTitle: dto.planTitle } : {}),
+          ...(dto.billingInterval ? { billingInterval: dto.billingInterval } : {}),
+          ...(dto.trialDays !== undefined ? { trialDays: dto.trialDays } : {}),
+          ...(dto.autoRenew !== undefined ? { isAutoRenew: dto.autoRenew } : {}),
+        },
+      });
     }
 
-    const entitlementType = dto.entitlementType ?? EntitlementType.PREMIUM_ACCESS;
-    const customSubId = `custom_${dto.userId}_${Date.now()}`;
+    const paymentSessionId = `custom_payment_${dto.userId}_${Date.now()}`;
+    const paymentUrl = `${frontendUrl}/payment-success?session_id=${paymentSessionId}`;
 
-    const targetRoleCode =
-      dto.targetAudience === PlanAudience.B2B
-        ? UserRoleCode.ENTERPRISE
-        : UserRoleCode.STUDENT;
+    const customSubscriptionData = {
+      userId: dto.userId,
+      planId: customPlan.id,
+      provider: BillingProvider.MANUAL,
+      providerSubscriptionId: paymentSessionId,
+      status: SubscriptionStatus.INCOMPLETE,
+      startedAt: new Date(),
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      currency: dto.currency?.toUpperCase() ?? 'USD',
+      lastPaymentAt: null,
+      lastPaymentAmount: new Prisma.Decimal(dto.customPrice ?? 0),
+      seats: dto.seats ?? 1,
+      metadata: {
+        isCustom: true,
+        customPrice: dto.customPrice ?? 0,
+        note: dto.note ?? null,
+        assignedBy: adminUserId,
+        paymentUrl,
+        paymentPending: true,
+      },
+    };
 
-    const roleRecord = await this.prisma.role.findUnique({ where: { code: targetRoleCode } });
-    if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
-
-    const subscription = await this.prisma.$transaction(async (tx) => {
-      await tx.subscription.updateMany({
-        where: { userId: dto.userId, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] } },
-        data: { status: SubscriptionStatus.CANCELED, endedAt: new Date() },
-      });
-
-      await tx.entitlement.updateMany({
-        where: { userId: dto.userId, status: EntitlementStatus.ACTIVE },
-        data: { status: EntitlementStatus.REVOKED, endsAt: new Date() },
-      });
-
-      const sub = await tx.subscription.create({
-        data: {
-          userId: dto.userId,
-          planId: customPlan.id,
-          provider: BillingProvider.MANUAL,
-          providerSubscriptionId: customSubId,
-          status: SubscriptionStatus.ACTIVE,
-          startedAt: new Date(),
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: endsAt,
-          currency: dto.currency?.toUpperCase() ?? 'USD',
-          lastPaymentAt: new Date(),
-          lastPaymentAmount: new Prisma.Decimal(dto.customPrice ?? 0),
-          seats: dto.seats ?? 1,
-          metadata: {
-            isCustom: true,
-            customPrice: dto.customPrice ?? 0,
-            note: dto.note ?? null,
-            assignedBy: adminUserId,
-          },
-        },
-      });
-
-      await tx.entitlement.create({
-        data: {
-          userId: dto.userId,
-          planId: customPlan.id,
-          sourceType: EntitlementSourceType.SUBSCRIPTION,
-          entitlementType,
-          status: EntitlementStatus.ACTIVE,
-          startsAt: new Date(),
-          endsAt,
-          grantedById: adminUserId,
-          reason: dto.note ?? 'Custom admin assignment',
-        },
-      });
-
-      await tx.userRole.updateMany({
-        where: { userId: dto.userId, isActive: true },
-        data: { isActive: false },
-      });
-
-      await tx.userRole.upsert({
-        where: { userId_roleId: { userId: dto.userId, roleId: roleRecord.id } },
-        update: { isActive: true, expiresAt: endsAt },
-        create: { userId: dto.userId, roleId: roleRecord.id, isActive: true, expiresAt: endsAt },
-      });
-
-      return sub;
+    const subscription = await this.prisma.subscription.create({
+      data: customSubscriptionData,
     });
 
     this.audit(adminUserId, subscription.id, 'CREATE', undefined, {
       isCustom: true,
       userId: dto.userId,
-      endsAt,
-      entitlementType,
+      paymentPending: true,
+      planId: customPlan.id,
     });
 
-    return subscription;
+    try {
+      await this.mailService.sendCustomPlanPaymentLink(
+        user.email,
+        dto.planTitle ?? customPlan.name,
+        paymentUrl,
+        dto.customPrice ?? Number(customPlan.priceAmount),
+        dto.currency ?? customPlan.currency,
+      );
+    } catch (mailError) {
+      this.logger.warn(`Could not send custom plan payment email to ${user.email}: ${mailError}`);
+    }
+
+    return {
+      subscription,
+      paymentUrl,
+      paymentSessionId,
+      message: 'Payment link created. User can complete payment to activate the subscription.',
+    };
+  }
+
+  async cancelSubscription(userId: string, subscriptionId?: string) {
+    const subscription = subscriptionId
+      ? await this.prisma.subscription.findFirst({
+          where: { id: subscriptionId, userId },
+        })
+      : await this.prisma.subscription.findFirst({
+          where: {
+            userId,
+            status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.PAST_DUE] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+    if (!subscription) {
+      throw new NotFoundException('Active subscription not found');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: SubscriptionStatus.CANCELED,
+          endedAt: new Date(),
+          cancelAtPeriodEnd: false,
+        },
+      });
+
+      await tx.entitlement.updateMany({
+        where: { userId, status: EntitlementStatus.ACTIVE },
+        data: { status: EntitlementStatus.REVOKED, endsAt: new Date() },
+      });
+
+      await tx.userRole.updateMany({
+        where: { userId, isActive: true },
+        data: { isActive: false },
+      });
+
+      return tx.subscription.findUnique({ where: { id: subscription.id } });
+    });
+
+    this.audit(userId, updated!.id, 'UPDATE', undefined, {
+      canceled: true,
+      subscriptionId: subscription.id,
+    });
+
+    return updated;
   }
 
   async assignPlanManually(

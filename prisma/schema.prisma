@@ -182,6 +182,7 @@ model Plan {
   id                   String          @id @default(uuid())
   code                 String          @unique
   name                 String
+  planTitle            String?
   description          String?
   targetAudience       PlanAudience    @default(B2C)
   billingProvider      BillingProvider @default(STRIPE)
@@ -192,6 +193,7 @@ model Plan {
   priceAmount          Decimal         @db.Decimal(12, 2)
   isPerUser            Boolean         @default(false)
   trialDays            Int             @default(0)
+  isAutoRenew          Boolean         @default(true)
   isPublic             Boolean         @default(true)
   isActive             Boolean         @default(true)
   isFeatured           Boolean         @default(false)
