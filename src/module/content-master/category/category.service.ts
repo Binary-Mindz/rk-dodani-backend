@@ -74,7 +74,11 @@ export class CategoryService {
     return created;
   }
 
-  async findAll(query: QueryCategoryDto) {
+  async findAll(query: QueryCategoryDto, allowActiveFilter = false) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
     const where = {
       ...(query.search
         ? {
@@ -85,23 +89,15 @@ export class CategoryService {
             ],
           }
         : {}),
-      ...(typeof query.isActive === 'boolean' ? { isActive: query.isActive } : {}),
+      ...(allowActiveFilter && typeof query.isActive === 'boolean' ? { isActive: query.isActive } : {}),
     };
 
-    if (query.page || query.limit) {
-      const page = query.page ?? 1;
-      const limit = query.limit ?? 10;
-      const skip = (page - 1) * limit;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.category.findMany({ where, orderBy: [{ createdAt: 'desc' }], skip, take: limit }),
+      this.prisma.category.count({ where }),
+    ]);
 
-      const [items, total] = await this.prisma.$transaction([
-        this.prisma.category.findMany({ where, orderBy: [{ name: 'asc' }], skip, take: limit }),
-        this.prisma.category.count({ where }),
-      ]);
-
-      return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
-    }
-
-    return this.prisma.category.findMany({ where, orderBy: [{ name: 'asc' }] });
+    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {

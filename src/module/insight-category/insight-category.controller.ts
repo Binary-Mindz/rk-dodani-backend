@@ -69,7 +69,7 @@ export class InsightCategoryController {
   @Get('admin/insight-categories')
   @ApiOperation({ summary: 'Get admin insight category list' })
   async findAdminAll(@Query() query: QueryInsightCategoryDto) {
-    const data = await this.service.findAll(query);
+    const data = await this.service.findAll(query, true);
 
     return {
       statusCode: 200,

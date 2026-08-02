@@ -70,7 +70,7 @@ export class CategoryController {
   @Get('admin/categories')
   @ApiOperation({ summary: 'Get admin category list' })
   async findAdminAll(@Query() query: QueryCategoryDto) {
-    const data = await this.service.findAll(query);
+    const data = await this.service.findAll(query, true);
 
     return {
       statusCode: 200,

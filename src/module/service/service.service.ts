@@ -56,6 +56,8 @@ export class ServiceService {
       criticalFriction: service.criticalFriction,
       agentarumParadigm: service.agentarumParadigm,
       hardTangibleDeliverables: service.hardTangibleDeliverables,
+      createdAt: service.createdAt,
+      updatedAt: service.updatedAt,
     };
   }
 
@@ -115,6 +117,7 @@ export class ServiceService {
         skip,
         take: limit,
         include: this.includeRelations(),
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.services.count({ where }),
     ]);

@@ -58,6 +58,8 @@ export class ProductService {
       capitalMarkets: product.capitalMarkets,
       wealthAndAsset: product.wealthAndAsset,
       initiateAthenionDiscussion: product.initiateAthenionDiscussion,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
     };
   }
 
@@ -121,7 +123,7 @@ export class ProductService {
         skip,
         take: limit,
         include: this.includeRelations(),
-        orderBy: { title: 'asc' },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.product.count({ where }),
     ]);

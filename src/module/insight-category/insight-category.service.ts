@@ -70,29 +70,42 @@ export class InsightCategoryService {
     return created;
   }
 
-  async findAll(query: QueryInsightCategoryDto) {
-    return this.prisma.insightCategory.findMany({
-      where: {
-        ...(query.search
-          ? {
-              OR: [
-                { name: { contains: query.search, mode: 'insensitive' } },
-                { slug: { contains: query.search, mode: 'insensitive' } },
-                {
-                  description: {
-                    contains: query.search,
-                    mode: 'insensitive',
-                  },
+  async findAll(query: QueryInsightCategoryDto, allowActiveFilter = false) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' as const } },
+              { slug: { contains: query.search, mode: 'insensitive' as const } },
+              {
+                description: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
                 },
-              ],
-            }
-          : {}),
-        ...(typeof query.isActive === 'boolean'
-          ? { isActive: query.isActive }
-          : {}),
-      },
-      orderBy: [{ name: 'asc' }],
-    });
+              },
+            ],
+          }
+        : {}),
+      ...(allowActiveFilter && typeof query.isActive === 'boolean'
+        ? { isActive: query.isActive }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.insightCategory.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.insightCategory.count({ where }),
+    ]);
+
+    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {

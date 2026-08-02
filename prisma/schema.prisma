@@ -1340,6 +1340,9 @@ model Services {
 
   deepPoints DeepPoint[]
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([serviceGroupId])
 }
 
@@ -1387,6 +1390,9 @@ model Product {
   productGroup               ProductGroup? @relation(fields: [productGroupId], references: [id], onDelete: SetNull)
 
   isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   targetClient TargetClient[]
 
