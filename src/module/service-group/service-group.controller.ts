@@ -11,14 +11,15 @@ import { UpdateServiceGroupDto } from './dto/update-service-group.dto';
 import { ServiceGroupService } from './service-group.service';
 
 @ApiTags('Service Groups')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRoleCode.SUPER_ADMIN)
+
 @Controller('admin/service-groups')
 export class ServiceGroupController {
   constructor(private readonly service: ServiceGroupService) {}
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create service group' })
   async create(@CurrentUser('id') userId: string, @Body() dto: CreateServiceGroupDto) {
     const data = await this.service.create(userId, dto);
@@ -40,6 +41,9 @@ export class ServiceGroupController {
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update service group' })
   async update(@CurrentUser('id') userId: string, @Param('id') id: string, @Body() dto: UpdateServiceGroupDto) {
     const data = await this.service.update(userId, id, dto);
@@ -47,6 +51,9 @@ export class ServiceGroupController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete service group' })
   async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     const data = await this.service.remove(userId, id);

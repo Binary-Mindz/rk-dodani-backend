@@ -11,14 +11,15 @@ import { UpdateProductGroupDto } from './dto/update-product-group.dto';
 import { ProductGroupService } from './product-group.service';
 
 @ApiTags('Product Groups')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRoleCode.SUPER_ADMIN)
+
 @Controller('admin/product-groups')
 export class ProductGroupController {
-  constructor(private readonly service: ProductGroupService) {}
+  constructor(private readonly service: ProductGroupService) { }
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create product group' })
   async create(@CurrentUser('id') userId: string, @Body() dto: CreateProductGroupDto) {
     const data = await this.service.create(userId, dto);
@@ -40,6 +41,9 @@ export class ProductGroupController {
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update product group' })
   async update(@CurrentUser('id') userId: string, @Param('id') id: string, @Body() dto: UpdateProductGroupDto) {
     const data = await this.service.update(userId, id, dto);
@@ -47,6 +51,9 @@ export class ProductGroupController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete product group' })
   async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     const data = await this.service.remove(userId, id);

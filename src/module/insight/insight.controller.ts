@@ -22,14 +22,15 @@ import { UpdateInsightStatusDto } from './dto/update-insight-status.dto';
 import { InsightService } from './insight.service';
 
 @ApiTags('Insights')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRoleCode.SUPER_ADMIN)
+
 @Controller('admin/insights')
 export class InsightController {
-  constructor(private readonly service: InsightService) {}
+  constructor(private readonly service: InsightService) { }
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create insight' })
   async create(@CurrentUser('id') userId: string, @Body() dto: CreateInsightDto) {
     const data = await this.service.create(userId, dto);
@@ -51,6 +52,9 @@ export class InsightController {
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update insight' })
   async update(
     @CurrentUser('id') userId: string,
@@ -62,6 +66,9 @@ export class InsightController {
   }
 
   @Patch(':id/status')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update insight status' })
   async updateStatus(
     @CurrentUser('id') userId: string,
@@ -73,6 +80,9 @@ export class InsightController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete insight (soft delete)' })
   async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     const data = await this.service.remove(userId, id);

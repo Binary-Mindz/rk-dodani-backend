@@ -5,7 +5,7 @@ export class CreateServiceGroupDto {
   @ApiProperty({ description: 'Group name', example: 'AI Leadership Whitepaper 2026' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Group description', example: 'How modern leaders are adopting AI' })
   @IsString()

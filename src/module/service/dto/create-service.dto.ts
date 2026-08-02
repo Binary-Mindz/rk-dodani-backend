@@ -5,7 +5,7 @@ export class CreateServiceDto {
   @ApiProperty({ description: 'Service name', example: 'AI Leadership Whitepaper 2026' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Service description', example: 'How modern leaders are adopting AI' })
   @IsString()
