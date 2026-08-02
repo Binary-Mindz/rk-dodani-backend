@@ -64,8 +64,8 @@ export class InsightService {
     if (existing) throw new BadRequestException('Insight with same title already exists');
 
     if (dto.categoryIds?.length) {
-      const count = await this.prisma.category.count({ where: { id: { in: dto.categoryIds } } });
-      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more categories are invalid');
+      const count = await this.prisma.insightCategory.count({ where: { id: { in: dto.categoryIds } } });
+      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more insight categories are invalid');
     }
 
     const tags = this.normalizeTags(dto.tags);
@@ -171,8 +171,8 @@ export class InsightService {
     }
 
     if (dto.categoryIds?.length) {
-      const count = await this.prisma.category.count({ where: { id: { in: dto.categoryIds } } });
-      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more categories are invalid');
+      const count = await this.prisma.insightCategory.count({ where: { id: { in: dto.categoryIds } } });
+      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more insight categories are invalid');
     }
 
     const tags = this.normalizeTags(dto.tags);

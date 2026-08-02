@@ -28,6 +28,7 @@ import { AlertService } from './module/alert/alert.service';
 import { AlertModule } from './module/alert/alert.module';
 import { ProductModule } from './module/product/product.module';
 import { InsightModule } from './module/insight/insight.module';
+import { InsightCategoryModule } from './module/insight-category/insight-category.module';
 import { ServiceGroupModule } from './module/service-group/service-group.module';
 import { ProductGroupModule } from './module/product-group/product-group.module';
 
@@ -63,6 +64,7 @@ import { ProductGroupModule } from './module/product-group/product-group.module'
     AlertModule,
     ProductModule,
     InsightModule,
+    InsightCategoryModule,
     ServiceGroupModule,
     ProductGroupModule,
   ],

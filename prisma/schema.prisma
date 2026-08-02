@@ -443,7 +443,20 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  contentItems    ContentCategory[]
+  contentItems ContentCategory[]
+
+  @@index([isActive])
+}
+
+model InsightCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   insightMappings InsightCategoryMap[]
 
   @@index([isActive])
@@ -1256,10 +1269,11 @@ model InsightCategoryMap {
   id         String   @id @default(uuid())
   insightId  String
   categoryId String
-  insight    Insight  @relation(fields: [insightId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  insight    Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  category   InsightCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([insightId, categoryId])
+  @@index([categoryId])
 }
 
 enum InsightStatus {
