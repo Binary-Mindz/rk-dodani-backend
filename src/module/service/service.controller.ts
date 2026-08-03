@@ -14,6 +14,7 @@ import { ServiceService } from './service.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServiceDto } from './dto/query-service.dto';
+import { QueryServiceUserDto } from './dto/query-service-user.dto';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
@@ -27,7 +28,7 @@ export class ServiceController {
 
   @Get('services')
   @ApiOperation({ summary: 'Get all services with deep points (Public)' })
-  async findAllPublic(@Query() query: QueryServiceDto) {
+  async findAllPublic(@Query() query: QueryServiceUserDto) {
     const data = await this.service.findAll(query);
     return {
       statusCode: 200,

@@ -27,19 +27,38 @@ export class ChatService {
 
       const uniqueMemberIds = [...new Set([userId, ...data.participantIds])];
 
-      // Check if creator & participant user IDs exist in DB
       const existingUsers = await this.prisma.user.findMany({
         where: { id: { in: uniqueMemberIds } },
         select: { id: true },
       });
       const existingUserIds = new Set(existingUsers.map((u) => u.id));
-      const missingIds = uniqueMemberIds.filter(
-        (id) => !existingUserIds.has(id),
-      );
+      const missingIds = uniqueMemberIds.filter((id) => !existingUserIds.has(id));
       if (missingIds.length > 0) {
         throw new BadRequestException(
           `User ID(s) not found in database: ${missingIds.join(', ')}`,
         );
+      }
+
+      // DIRECT conversation — existing check
+      if (data.type === 'DIRECT') {
+        if (uniqueMemberIds.length !== 2) {
+          throw new BadRequestException('Direct conversation must have exactly 2 participants');
+        }
+        const otherUserId = data.participantIds[0];
+        const existing = await this.prisma.conversation.findFirst({
+          where: {
+            type: 'DIRECT',
+            members: { every: { userId: { in: uniqueMemberIds }, leftAt: null } },
+          },
+          include: {
+            members: {
+              include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+            },
+          },
+        });
+        if (existing) {
+          return { existing: true, conversation: existing };
+        }
       }
 
       const members = uniqueMemberIds.map((id) => ({
@@ -52,38 +71,20 @@ export class ChatService {
           name: data.name,
           type: data.type,
           createdBy: userId,
-          members: {
-            create: members,
-          },
+          members: { create: members },
         },
         include: {
           members: {
             include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                },
-              },
+              user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
             },
           },
         },
       });
     } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      )
-        throw error;
-      this.logger.error(
-        `Error creating conversation: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        `Failed to create conversation: ${error.message}`,
-      );
+      if (error instanceof BadRequestException || error instanceof NotFoundException) throw error;
+      this.logger.error(`Error creating conversation: ${error.message}`, error.stack);
+      throw new InternalServerErrorException(`Failed to create conversation: ${error.message}`);
     }
   }
 
@@ -113,6 +114,29 @@ export class ChatService {
         'Failed to create team conversation',
       );
     }
+  }
+
+  async updateGroupName(conversationId: string, userId: string, name: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { members: true },
+    });
+
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    if (conversation.type !== ConversationType.GROUP) {
+      throw new BadRequestException('Only group conversations can be renamed');
+    }
+
+    const member = conversation.members.find((m) => m.userId === userId && !m.leftAt);
+    if (!member) throw new NotFoundException('Conversation not found or access denied');
+    if (!['OWNER', 'ADMIN'].includes(member.role)) {
+      throw new ForbiddenException('Only the conversation owner or admin can rename this group');
+    }
+
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { name },
+    });
   }
 
   async getConversations(userId: string) {

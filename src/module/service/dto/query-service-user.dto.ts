@@ -1,17 +1,17 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
-export class QueryServiceDto {
-  @ApiPropertyOptional({ description: 'Search term for title, heading, or description' })
+export class QueryServiceUserDto {
+  @ApiPropertyOptional({ description: 'Search term' })
   @IsString()
   @IsOptional()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by service group ID' })
+  @ApiProperty({ description: 'Filter by service group ID (required)' })
   @IsString()
-  @IsOptional()
-  serviceGroupId?: string;
+  @IsNotEmpty()
+  serviceGroupId!: string;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Type(() => Number)

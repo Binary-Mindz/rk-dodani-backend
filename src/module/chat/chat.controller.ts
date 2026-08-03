@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -178,6 +179,19 @@ export class ChatController {
     }
   }
 
+  @Patch('conversations/:id/name')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Rename a group conversation' })
+  async renameGroup(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body('name') name: string,
+  ) {
+    const data = await this.chatService.updateGroupName(id, userId, name);
+    return { statusCode: 200, message: 'Group name updated successfully', data };
+  }
+
   @Post('conversations/:id/members/:memberUserId/block')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -189,20 +203,8 @@ export class ChatController {
     @Param('memberUserId') memberUserId: string,
     @Body() data: BlockConversationMemberDto,
   ) {
-    try {
-      return await this.chatService.blockConversationMember(
-        id,
-        userId,
-        memberUserId,
-        data?.reason,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to block conversation member: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    const result = await this.chatService.blockConversationMember(id, userId, memberUserId, data?.reason);
+    return { statusCode: 200, message: 'Member blocked successfully', data: result };
   }
 
   @Post('conversations/:id/members/:memberUserId/unblock')
@@ -214,19 +216,8 @@ export class ChatController {
     @Param('id') id: string,
     @Param('memberUserId') memberUserId: string,
   ) {
-    try {
-      return await this.chatService.unblockConversationMember(
-        id,
-        userId,
-        memberUserId,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to unblock conversation member: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    const result = await this.chatService.unblockConversationMember(id, userId, memberUserId);
+    return { statusCode: 200, message: 'Member unblocked successfully', data: result };
   }
 
   @Post('team/conversations/:id/members/:memberUserId/block')
@@ -241,20 +232,8 @@ export class ChatController {
     @Param('memberUserId') memberUserId: string,
     @Body() data: BlockConversationMemberDto,
   ) {
-    try {
-      return await this.chatService.blockTeamConversationMember(
-        id,
-        userId,
-        memberUserId,
-        data?.reason,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to block team conversation member: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    const result = await this.chatService.blockTeamConversationMember(id, userId, memberUserId, data?.reason);
+    return { statusCode: 200, message: 'Team member blocked successfully', data: result };
   }
 
   @Post('team/conversations/:id/members/:memberUserId/unblock')
@@ -267,18 +246,7 @@ export class ChatController {
     @Param('id') id: string,
     @Param('memberUserId') memberUserId: string,
   ) {
-    try {
-      return await this.chatService.unblockTeamConversationMember(
-        id,
-        userId,
-        memberUserId,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to unblock team conversation member: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    const result = await this.chatService.unblockTeamConversationMember(id, userId, memberUserId);
+    return { statusCode: 200, message: 'Team member unblocked successfully', data: result };
   }
 }
