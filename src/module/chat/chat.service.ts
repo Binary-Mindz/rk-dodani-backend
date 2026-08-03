@@ -125,7 +125,13 @@ export class ChatService {
         },
         include: {
           members: {
-            include: {
+            select: {
+              id: true,
+              userId: true,
+              role: true,
+              blockedAt: true,
+              blockedById: true,
+              blockReason: true,
               user: {
                 select: {
                   id: true,

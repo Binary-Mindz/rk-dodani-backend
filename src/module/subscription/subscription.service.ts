@@ -19,6 +19,7 @@ import {
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -29,6 +30,7 @@ export class SubscriptionService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly chatService: ChatService,
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
@@ -78,6 +80,9 @@ export class SubscriptionService {
         `Triggering instant deployment schema for free plan tier: ${plan.code}`,
       );
       await this.executeInstantFreeActivation(user, plan, resolvedSeats);
+      if (plan.targetAudience === PlanAudience.B2B) {
+        await this.chatService.ensureTeamConversation(userId, []);
+      }
       this.audit(userId, planId, 'CREATE', undefined, {
         planId,
         seats: resolvedSeats,
@@ -358,6 +363,10 @@ export class SubscriptionService {
           },
         });
       });
+
+      if (plan.targetAudience === PlanAudience.B2B) {
+        await this.chatService.ensureTeamConversation(user.id, []);
+      }
     } catch (error) {
       this.logger.error(
         `❌ DB Transaction failure inside gateway routing:`,
@@ -606,6 +615,10 @@ export class SubscriptionService {
 
       return subscription;
     });
+    if (plan.targetAudience === PlanAudience.B2B) {
+      await this.chatService.ensureTeamConversation(targetUserId, []);
+    }
+
     this.audit(targetUserId, subscription.id, 'CREATE', undefined, {
       planId,
       seats,

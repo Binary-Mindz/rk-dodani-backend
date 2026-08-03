@@ -1298,13 +1298,17 @@ export class TeamService {
         data: { status: InvitationStatus.ACCEPTED },
       });
 
-      return tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
           parentUserId: invitation.invitedById,
           teamRole: invitation.role,
         },
       });
+
+      await this.chatService.ensureTeamConversation(invitation.invitedById, [userId]);
+
+      return updatedUser;
     });
   }
 
