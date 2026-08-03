@@ -166,15 +166,24 @@ export class ChatService {
     try {
       const isMember = await this.prisma.conversationMember.findFirst({
         where: { conversationId, userId, leftAt: null },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true } },
+        },
       });
       if (!isMember) {
         throw new NotFoundException('Conversation not found or access denied');
       }
       if (isMember.blockedAt) {
-        throw new ForbiddenException('You are blocked from this conversation');
+        return {
+          isBlocked: true,
+          blockedAt: isMember.blockedAt,
+          blockedById: isMember.blockedById,
+          blockReason: isMember.blockReason ?? null,
+          messages: [],
+        };
       }
 
-      return await this.prisma.message.findMany({
+      const messages = await this.prisma.message.findMany({
         where: { conversationId },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -191,6 +200,8 @@ export class ChatService {
           readReceipts: true,
         },
       });
+
+      return { isBlocked: false, messages };
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       this.logger.error(
@@ -216,7 +227,15 @@ export class ChatService {
         throw new NotFoundException('Conversation not found or access denied');
       }
       if (isMember.blockedAt) {
-        throw new ForbiddenException('You are blocked from this conversation');
+        return {
+          isBlocked: true,
+          blockedAt: isMember.blockedAt,
+          blockedById: isMember.blockedById,
+          blockReason: isMember.blockReason ?? null,
+          conversationId,
+          messages: [],
+          meta: { total: 0, page: 1, limit: take, skip, take, totalPages: 0, hasMore: false },
+        };
       }
 
       const [messages, total] = await this.prisma.$transaction([
@@ -285,7 +304,9 @@ export class ChatService {
         );
       }
       if (isMember.blockedAt) {
-        throw new ForbiddenException('You are blocked from this conversation');
+        throw new ForbiddenException(
+          'You have been blocked from sending messages in this conversation.',
+        );
       }
 
       return await this.prisma.message.create({
