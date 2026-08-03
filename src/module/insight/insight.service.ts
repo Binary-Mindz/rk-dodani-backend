@@ -48,11 +48,13 @@ export class InsightService {
 
   private includeRelations() {
     return {
-      author: { select: { id: true, fullName: true, avatarUrl: true } },
-      industryTargets: true,
       categories: { include: { category: true } },
-      tags: { include: { tag: true } },
     };
+  }
+
+  private normalizeTags(tags?: string[]) {
+    if (!tags?.length) return [];
+    return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
   }
 
   async create(userId: string, dto: CreateInsightDto) {
@@ -61,20 +63,12 @@ export class InsightService {
     const existing = await this.prisma.insight.findUnique({ where: { slug } });
     if (existing) throw new BadRequestException('Insight with same title already exists');
 
-    if (dto.authorId) {
-      const author = await this.prisma.user.findUnique({ where: { id: dto.authorId } });
-      if (!author) throw new BadRequestException('Author not found');
-    }
-
     if (dto.categoryIds?.length) {
-      const count = await this.prisma.category.count({ where: { id: { in: dto.categoryIds } } });
-      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more categories are invalid');
+      const count = await this.prisma.insightCategory.count({ where: { id: { in: dto.categoryIds } } });
+      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more insight categories are invalid');
     }
 
-    if (dto.tagIds?.length) {
-      const count = await this.prisma.tag.count({ where: { id: { in: dto.tagIds } } });
-      if (count !== dto.tagIds.length) throw new BadRequestException('One or more tags are invalid');
-    }
+    const tags = this.normalizeTags(dto.tags);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const insight = await tx.insight.create({
@@ -84,7 +78,6 @@ export class InsightService {
           subtitle: dto.subtitle ?? null,
           excerpt: dto.excerpt ?? null,
           summary: dto.summary ?? null,
-          authorId: dto.authorId ?? null,
           readingTimeMinutes: dto.readingTimeMinutes ?? null,
           coverImageUrl: dto.coverImageUrl ?? null,
           externalUrl: dto.externalUrl ?? null,
@@ -95,27 +88,14 @@ export class InsightService {
           allowDownload: dto.allowDownload ?? false,
           contentType: dto.contentType ?? 'ARTICLE',
           fileType: dto.fileType ?? null,
-          fileUrl: dto.fileUrl ?? null,
+          industryTargets: dto.industryTargets ?? [],
+          tags,
         },
       });
-
-      if (dto.industryTargets?.length) {
-        await tx.insightIndustryTarget.createMany({
-          data: dto.industryTargets.map((industry) => ({ insightId: insight.id, industry })),
-          skipDuplicates: true,
-        });
-      }
 
       if (dto.categoryIds?.length) {
         await tx.insightCategoryMap.createMany({
           data: dto.categoryIds.map((categoryId) => ({ insightId: insight.id, categoryId })),
-          skipDuplicates: true,
-        });
-      }
-
-      if (dto.tagIds?.length) {
-        await tx.insightTagMap.createMany({
-          data: dto.tagIds.map((tagId) => ({ insightId: insight.id, tagId })),
           skipDuplicates: true,
         });
       }
@@ -145,13 +125,13 @@ export class InsightService {
       ...(query.visibility && { visibility: query.visibility }),
       ...(query.contentType && { contentType: query.contentType }),
       ...(query.industry && {
-        industryTargets: { some: { industry: query.industry } },
+        industryTargets: { has: query.industry },
       }),
       ...(query.categoryId && {
         categories: { some: { categoryId: query.categoryId } },
       }),
-      ...(query.tagId && {
-        tags: { some: { tagId: query.tagId } },
+      ...(query.tag && {
+        tags: { has: query.tag },
       }),
     };
 
@@ -190,20 +170,12 @@ export class InsightService {
       if (slugExists && slugExists.id !== id) throw new BadRequestException('Slug already exists');
     }
 
-    if (dto.authorId) {
-      const author = await this.prisma.user.findUnique({ where: { id: dto.authorId } });
-      if (!author) throw new BadRequestException('Author not found');
-    }
-
     if (dto.categoryIds?.length) {
-      const count = await this.prisma.category.count({ where: { id: { in: dto.categoryIds } } });
-      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more categories are invalid');
+      const count = await this.prisma.insightCategory.count({ where: { id: { in: dto.categoryIds } } });
+      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more insight categories are invalid');
     }
 
-    if (dto.tagIds?.length) {
-      const count = await this.prisma.tag.count({ where: { id: { in: dto.tagIds } } });
-      if (count !== dto.tagIds.length) throw new BadRequestException('One or more tags are invalid');
-    }
+    const tags = this.normalizeTags(dto.tags);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.insight.update({
@@ -214,7 +186,6 @@ export class InsightService {
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
           ...(dto.summary !== undefined && { summary: dto.summary }),
-          ...(dto.authorId !== undefined && { authorId: dto.authorId }),
           ...(dto.readingTimeMinutes !== undefined && { readingTimeMinutes: dto.readingTimeMinutes }),
           ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
           ...(dto.externalUrl !== undefined && { externalUrl: dto.externalUrl }),
@@ -225,35 +196,16 @@ export class InsightService {
           ...(dto.allowDownload !== undefined && { allowDownload: dto.allowDownload }),
           ...(dto.contentType !== undefined && { contentType: dto.contentType }),
           ...(dto.fileType !== undefined && { fileType: dto.fileType }),
-          ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
+          ...(dto.industryTargets !== undefined && { industryTargets: dto.industryTargets }),
+          ...(dto.tags !== undefined && { tags }),
         },
       });
-
-      if (dto.industryTargets !== undefined) {
-        await tx.insightIndustryTarget.deleteMany({ where: { insightId: id } });
-        if (dto.industryTargets.length) {
-          await tx.insightIndustryTarget.createMany({
-            data: dto.industryTargets.map((industry) => ({ insightId: id, industry })),
-            skipDuplicates: true,
-          });
-        }
-      }
 
       if (dto.categoryIds !== undefined) {
         await tx.insightCategoryMap.deleteMany({ where: { insightId: id } });
         if (dto.categoryIds.length) {
           await tx.insightCategoryMap.createMany({
             data: dto.categoryIds.map((categoryId) => ({ insightId: id, categoryId })),
-            skipDuplicates: true,
-          });
-        }
-      }
-
-      if (dto.tagIds !== undefined) {
-        await tx.insightTagMap.deleteMany({ where: { insightId: id } });
-        if (dto.tagIds.length) {
-          await tx.insightTagMap.createMany({
-            data: dto.tagIds.map((tagId) => ({ insightId: id, tagId })),
             skipDuplicates: true,
           });
         }

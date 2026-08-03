@@ -16,10 +16,8 @@ import { Roles } from 'common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { CreateProductDto } from './dto/create-product.dto';
-import { CreateTargetClientDto } from './dto/create-target-client.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { UpdateTargetClientDto } from './dto/update-target-client.dto';
 import { ProductService } from './product.service';
 
 @ApiTags('Products')
@@ -126,56 +124,4 @@ export class ProductController {
     };
   }
 
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN)
-  @Post('admin/products/:productId/target-clients')
-  @ApiOperation({ summary: 'Add a target client to a product' })
-  async addTargetClient(
-    @CurrentUser('id') userId: string,
-    @Param('productId') productId: string,
-    @Body() dto: CreateTargetClientDto,
-  ) {
-    const data = await this.service.addTargetClient(userId, productId, dto);
-    return {
-      statusCode: 201,
-      message: 'Target client added successfully',
-      data,
-    };
-  }
-
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN)
-  @Patch('admin/products/target-clients/:id')
-  @ApiOperation({ summary: 'Update a target client by ID' })
-  async updateTargetClient(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-    @Body() dto: UpdateTargetClientDto,
-  ) {
-    const data = await this.service.updateTargetClient(userId, id, dto);
-    return {
-      statusCode: 200,
-      message: 'Target client updated successfully',
-      data,
-    };
-  }
-
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRoleCode.SUPER_ADMIN)
-  @Delete('admin/products/target-clients/:id')
-  @ApiOperation({ summary: 'Delete a target client by ID' })
-  async removeTargetClient(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-  ) {
-    const data = await this.service.removeTargetClient(userId, id);
-    return {
-      statusCode: 200,
-      message: 'Target client deleted successfully',
-      data,
-    };
-  }
 }

@@ -28,40 +28,41 @@ model User {
   deletedAt         DateTime?
 
   // Relations
-  roles                 UserRole[]
-  authProviders         AuthProvider[]
-  sessions              UserSession[]
-  userOtps              UserOtp[]
-  subscriptions         Subscription[]
-  entitlements          Entitlement[]
-  patreonConnection     PatreonConnection?
-  assignedInquiries     ContactInquiry[]      @relation("InquiryAssignedTo")
-  relatedInquiries      ContactInquiry[]      @relation("InquiryRelatedUser")
-  inquiryActivities     InquiryActivity[]
-  grantedEntitlements   Entitlement[]         @relation("EntitlementGrantedBy")
-  revokedEntitlements   Entitlement[]         @relation("EntitlementRevokedBy")
-  updatedSettings       AppSetting[]          @relation("AppSettingUpdatedBy")
-  emailLogs             EmailLog[]
-  auditLogs             AuditLog[]
-  passwordResetTokens   PasswordResetToken[]
-  subscriptionEvents    SubscriptionEvent[]
-  notifications         Notification[]
-  notificationTokens    NotificationToken[]
-  notificationSetting   NotificationSetting?
-  conversationMembers   ConversationMember[]
-  messages              Message[]
-  readReceipts          MessageReadReceipt[]
-  userContentProgresses UserContentProgress[]
-  userActivityLogs      UserActivityLog[]
-  ratings               ContentRating[]
-  authoredInsights      Insight[]             @relation("InsightAuthor")
-  parentUserId          String?
-  parentUser            User?                 @relation("TeamMembers", fields: [parentUserId], references: [id], onDelete: SetNull)
-  teamMembers           User[]                @relation("TeamMembers")
-  teamInvitations       TeamInvitation[]
-  teamRole              TeamRole?
-  joinRequests          TeamJoinRequest[]     @relation("UserJoinRequests")
-  adminJoinRequests     TeamJoinRequest[]     @relation("AdminJoinRequests")
+  roles                                 UserRole[]
+  authProviders                         AuthProvider[]
+  sessions                              UserSession[]
+  userOtps                              UserOtp[]
+  subscriptions                         Subscription[]
+  entitlements                          Entitlement[]
+  patreonConnection                     PatreonConnection?
+  assignedInquiries                     ContactInquiry[]               @relation("InquiryAssignedTo")
+  relatedInquiries                      ContactInquiry[]               @relation("InquiryRelatedUser")
+  inquiryActivities                     InquiryActivity[]
+  grantedEntitlements                   Entitlement[]                  @relation("EntitlementGrantedBy")
+  revokedEntitlements                   Entitlement[]                  @relation("EntitlementRevokedBy")
+  updatedSettings                       AppSetting[]                   @relation("AppSettingUpdatedBy")
+  emailLogs                             EmailLog[]
+  auditLogs                             AuditLog[]
+  passwordResetTokens                   PasswordResetToken[]
+  subscriptionEvents                    SubscriptionEvent[]
+  customSubscriptionAssignments         CustomSubscriptionAssignment[] @relation("CustomAssignmentUser")
+  assignedCustomSubscriptionAssignments CustomSubscriptionAssignment[] @relation("CustomAssignmentAdmin")
+  notifications                         Notification[]
+  notificationTokens                    NotificationToken[]
+  notificationSetting                   NotificationSetting?
+  conversationMembers                   ConversationMember[]
+  messages                              Message[]
+  readReceipts                          MessageReadReceipt[]
+  userContentProgresses                 UserContentProgress[]
+  userActivityLogs                      UserActivityLog[]
+  ratings                               ContentRating[]
+  parentUserId                          String?
+  parentUser                            User?                          @relation("TeamMembers", fields: [parentUserId], references: [id], onDelete: SetNull)
+  teamMembers                           User[]                         @relation("TeamMembers")
+  teamInvitations                       TeamInvitation[]
+  teamRole                              TeamRole?
+  joinRequests                          TeamJoinRequest[]              @relation("UserJoinRequests")
+  adminJoinRequests                     TeamJoinRequest[]              @relation("AdminJoinRequests")
 }
 
 model Role {
@@ -179,32 +180,35 @@ model AuthProvider {
 // ==========================================
 
 model Plan {
-  id                   String          @id @default(uuid())
-  code                 String          @unique
-  name                 String
-  description          String?
-  targetAudience       PlanAudience    @default(B2C)
-  billingProvider      BillingProvider @default(STRIPE)
-  stripeProductId      String?
-  stripePriceId        String?
-  billingInterval      BillingInterval
-  currency             String
-  priceAmount          Decimal         @db.Decimal(12, 2)
-  isPerUser            Boolean         @default(false)
-  trialDays            Int             @default(0)
-  isPublic             Boolean         @default(true)
-  isActive             Boolean         @default(true)
-  isFeatured           Boolean         @default(false)
-  sortOrder            Int             @default(0)
-  maxUsers             Int             @default(1)
-  subtitle             String?
-  features             Json?
-  metadata             Json?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  id              String          @id @default(uuid())
+  code            String          @unique
+  name            String
+  planTitle       String?
+  description     String?
+  targetAudience  PlanAudience    @default(B2C)
+  billingProvider BillingProvider @default(STRIPE)
+  stripeProductId String?
+  stripePriceId   String?
+  billingInterval BillingInterval
+  currency        String
+  priceAmount     Decimal         @db.Decimal(12, 2)
+  isPerUser       Boolean         @default(false)
+  trialDays       Int             @default(0)
+  isAutoRenew     Boolean         @default(true)
+  isPublic        Boolean         @default(true)
+  isActive        Boolean         @default(true)
+  isFeatured      Boolean         @default(false)
+  sortOrder       Int             @default(0)
+  maxUsers        Int             @default(1)
+  subtitle        String?
+  features        Json?
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  subscriptions Subscription[]
-  entitlements  Entitlement[]
+  subscriptions                 Subscription[]
+  entitlements                  Entitlement[]
+  customSubscriptionAssignments CustomSubscriptionAssignment[]
 
   @@index([isPublic])
   @@index([isActive])
@@ -269,6 +273,35 @@ model SubscriptionEvent {
   @@index([subscriptionId])
   @@index([userId])
   @@index([processed])
+}
+
+model CustomSubscriptionAssignment {
+  id                String                             @id @default(uuid())
+  userId            String
+  assignedBy        String?
+  planId            String
+  checkoutSessionId String                             @unique
+  checkoutUrl       String
+  amount            Decimal                            @db.Decimal(12, 2)
+  currency          String
+  billingInterval   BillingInterval
+  seats             Int                                @default(1)
+  status            CustomSubscriptionAssignmentStatus @default(PENDING)
+  note              String?
+  paidAt            DateTime?
+  subscriptionId    String?
+  createdAt         DateTime                           @default(now())
+  updatedAt         DateTime                           @updatedAt
+
+  user           User  @relation("CustomAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedByUser User? @relation("CustomAssignmentAdmin", fields: [assignedBy], references: [id], onDelete: SetNull)
+  plan           Plan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([assignedBy])
+  @@index([planId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PatreonConnection {
@@ -410,7 +443,20 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  contentItems    ContentCategory[]
+  contentItems ContentCategory[]
+
+  @@index([isActive])
+}
+
+model InsightCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   insightMappings InsightCategoryMap[]
 
   @@index([isActive])
@@ -439,8 +485,7 @@ model Tag {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  contentTags     ContentTag[]
-  insightMappings InsightTagMap[]
+  contentTags ContentTag[]
 
   @@index([isActive])
 }
@@ -877,6 +922,13 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum CustomSubscriptionAssignmentStatus {
+  PENDING
+  PAID
+  CANCELED
+  EXPIRED
+}
+
 enum EntitlementSourceType {
   SUBSCRIPTION
   PATREON
@@ -1179,33 +1231,30 @@ model PlatformInfo {
 // ==========================================
 
 model Insight {
-  id          String   @id @default(uuid())
-  slug        String   @unique
-  title       String
-  subtitle    String?
-  excerpt     String?
-  summary     String?
-
-  authorId    String?
-  author      User?    @relation("InsightAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  id       String  @id @default(uuid())
+  slug     String  @unique
+  title    String
+  subtitle String?
+  excerpt  String?
+  summary  String?
 
   readingTimeMinutes Int?
   coverImageUrl      String?
   externalUrl        String?
 
-  status          InsightStatus     @default(DRAFT)
-  visibility      InsightVisibility @default(PUBLIC)
-  scheduledAt     DateTime?
-  allowComments   Boolean           @default(false)
-  allowDownload   Boolean           @default(false)
+  status        InsightStatus     @default(DRAFT)
+  visibility    InsightVisibility @default(PUBLIC)
+  scheduledAt   DateTime?
+  allowComments Boolean           @default(false)
+  allowDownload Boolean           @default(false)
 
-  contentType     InsightContentType @default(ARTICLE)
-  fileType        InsightFileType?
-  fileUrl         String?
+  contentType InsightContentType @default(ARTICLE)
+  fileType    InsightFileType?
+  fileUrl     String?
 
-  industryTargets InsightIndustryTarget[]
+  industryTargets IndustryTarget[] @default([])
+  tags            String[]         @default([])
   categories      InsightCategoryMap[]
-  tags            InsightTagMap[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1213,38 +1262,18 @@ model Insight {
 
   @@index([status])
   @@index([visibility])
-  @@index([authorId])
   @@index([contentType])
-}
-
-model InsightIndustryTarget {
-  id         String         @id @default(uuid())
-  insightId  String
-  industry   IndustryTarget
-  insight    Insight        @relation(fields: [insightId], references: [id], onDelete: Cascade)
-
-  @@unique([insightId, industry])
-  @@index([insightId])
 }
 
 model InsightCategoryMap {
   id         String   @id @default(uuid())
   insightId  String
   categoryId String
-  insight    Insight  @relation(fields: [insightId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  insight    Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  category   InsightCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([insightId, categoryId])
-}
-
-model InsightTagMap {
-  id        String  @id @default(uuid())
-  insightId String
-  tagId     String
-  insight   Insight @relation(fields: [insightId], references: [id], onDelete: Cascade)
-  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([insightId, tagId])
+  @@index([categoryId])
 }
 
 enum InsightStatus {
@@ -1299,12 +1328,35 @@ enum IndustryTarget {
 }
 
 model Services {
-  id          String  @id @default(uuid())
-  title       String
-  heading     String
-  description String?
+  id                       String        @id @default(uuid())
+  title                    String
+  heading                  String
+  description              String?
+  criticalFriction         String?
+  agentarumParadigm        String?
+  hardTangibleDeliverables String?
+  serviceGroupId           String?
+  serviceGroup             ServiceGroup? @relation(fields: [serviceGroupId], references: [id], onDelete: SetNull)
 
   deepPoints DeepPoint[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceGroupId])
+}
+
+model ServiceGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  services Services[]
+
+  @@index([name])
 }
 
 model DeepPoint {
@@ -1322,17 +1374,42 @@ model DeepPoint {
 model Product {
   id String @id @default(uuid())
 
-  title            String
-  subTitle         String
-  role             UserRoleCode @default(STUDENT)
-  module           String?
-  description      String
-  migrationVector  String?
-  scaleValueImpact String?
+  title                      String
+  subTitle                   String
+  role                       UserRoleCode  @default(STUDENT)
+  module                     String?
+  description                String
+  migrationVector            String?
+  scaleValueImpact           String?
+  architectureBlueprint      String?
+  retailBanking              String?
+  capitalMarkets             String?
+  wealthAndAsset             String?
+  initiateAthenionDiscussion String?
+  productGroupId             String?
+  productGroup               ProductGroup? @relation(fields: [productGroupId], references: [id], onDelete: SetNull)
 
   isActive Boolean @default(true)
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   targetClient TargetClient[]
+
+  @@index([productGroupId])
+}
+
+model ProductGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([name])
 }
 
 model TargetClient {

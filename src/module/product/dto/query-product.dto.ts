@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRoleCode } from '@prisma/client';
-import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class QueryProductDto {
   @ApiPropertyOptional({ description: 'Search term for product fields' })
@@ -9,16 +8,10 @@ export class QueryProductDto {
   @IsOptional()
   search?: string;
 
-  @ApiPropertyOptional({ enum: UserRoleCode, description: 'Filter by role' })
-  @IsEnum(UserRoleCode)
+  @ApiPropertyOptional({ description: 'Filter by product group ID' })
+  @IsString()
   @IsOptional()
-  role?: UserRoleCode;
-
-  @ApiPropertyOptional({ description: 'Filter by active status' })
-  @Transform(({ value }) => value === 'true' ? true : value === 'false' ? false : undefined)
-  @IsBoolean()
-  @IsOptional()
-  isActive?: boolean;
+  productGroupId?: string;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Type(() => Number)

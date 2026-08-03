@@ -4,9 +4,9 @@ import { SubscriptionController } from './subscription.controller';
 import { SubscriptionService } from './subscription.service';
 import { AuditModule } from '../audit/audit.module';
 import { ChatModule } from '../chat/chat.module';
-
+import { MailModule } from 'common/mail/mail.module';
 @Module({
-  imports: [ConfigModule, AuditModule, ChatModule],
+  imports: [ConfigModule, AuditModule, ChatModule,MailModule],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],
   exports: [SubscriptionService],

@@ -28,12 +28,29 @@ import { AlertService } from './module/alert/alert.service';
 import { AlertModule } from './module/alert/alert.module';
 import { ProductModule } from './module/product/product.module';
 import { InsightModule } from './module/insight/insight.module';
+import { InsightCategoryModule } from './module/insight-category/insight-category.module';
+import { ServiceGroupModule } from './module/service-group/service-group.module';
+import { ProductGroupModule } from './module/product-group/product-group.module';
+import {CacheModule} from "@nestjs/cache-manager";
+import KeyvRedis from "@keyv/redis";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    CacheModule.register({
+      isGlobal: true,
+      inject: [ConfigModule],
+      useFactory: async () => {
+        const redisUrl = process.env.REDIS_URL;
+        return {
+          stores: [new KeyvRedis({ url: redisUrl })],
+          url: redisUrl,
+          ttl: 60_000, 
+        };
+      }
     }),
     PrismaModule,
     ScheduleModule.forRoot(),
@@ -61,6 +78,9 @@ import { InsightModule } from './module/insight/insight.module';
     AlertModule,
     ProductModule,
     InsightModule,
+    InsightCategoryModule,
+    ServiceGroupModule,
+    ProductGroupModule,
   ],
   controllers: [AppController, AlertController],
   providers: [AlertService],

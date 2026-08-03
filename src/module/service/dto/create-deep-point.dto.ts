@@ -5,7 +5,7 @@ export class CreateDeepPointDto {
   @ApiProperty({ description: 'Title of the deep point', example: 'System Architecture' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @ApiPropertyOptional({ description: 'Description of the deep point' })
   @IsString()

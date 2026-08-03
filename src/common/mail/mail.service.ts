@@ -39,6 +39,45 @@ export class MailService {
     });
   }
 
+  async sendCustomPlanPaymentLink(
+    email: string,
+    planName: string,
+    paymentUrl: string,
+    price: number,
+    currency: string,
+  ): Promise<void> {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: `Complete your ${planName} payment`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; background: #f8fafc; border-radius: 16px;">
+          <div style="background: #2563eb; color: white; padding: 24px; border-radius: 12px; text-align: center;">
+            <h2 style="margin: 0; font-size: 24px;">AgentArum</h2>
+            <p style="margin: 8px 0 0; opacity: 0.9;">Complete your subscription payment</p>
+          </div>
+          <div style="background: white; padding: 24px; border-radius: 12px; margin-top: 16px;">
+            <h3 style="margin-top: 0;">Hello,</h3>
+            <p style="line-height: 1.7; color: #374151;">
+              Please use the button below to complete your payment for <strong>${planName}</strong>.
+            </p>
+            <p style="font-size: 18px; font-weight: 700; color: #111827; margin: 16px 0;">
+              Amount: ${currency.toUpperCase()} ${Number(price).toFixed(2)}
+            </p>
+            <p style="margin: 24px 0; text-align: center;">
+              <a href="${paymentUrl}" style="display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-weight: 700;">
+                Pay Now
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #6b7280; line-height: 1.6;">
+              If the button does not work, copy and open this link manually:<br />
+              <a href="${paymentUrl}">${paymentUrl}</a>
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   private buildOtpTemplate(params: {
     title: string;
     heading: string;

@@ -1,8 +1,10 @@
-import { Body, Controller, Post, Get, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, Get, Query, UseGuards, HttpCode, HttpStatus, Delete } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { AssignPlanDto } from './dto/assign-plan.dto';
 import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
+import { CancelSubscriptionDto } from './dto/cancel-subscription.dto';
+import { QueryCustomSubscriptionHistoryDto } from './dto/query-custom-subscription-history.dto';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { Roles } from 'common/decorators/roles.decorator';
@@ -57,6 +59,20 @@ export class SubscriptionController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
+  @Get('custom-assignment-history')
+  @ApiOperation({ summary: 'Get custom subscription assignment history' })
+  async getCustomAssignmentHistory(@Query() query: QueryCustomSubscriptionHistoryDto) {
+    const data = await this.subscriptionService.getCustomAssignmentHistory(query);
+    return {
+      statusCode: 200,
+      message: 'Custom subscription assignment history fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('assign')
   @ApiOperation({ summary: 'Manually assign a subscription plan to a user (Super Admin only, bypassing Stripe)' })
   async assignSubscription(
@@ -74,7 +90,7 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('custom-assign')
-  @ApiOperation({ summary: 'Assign a fully custom subscription to a user (no plan required, admin sets price/duration/type)' })
+  @ApiOperation({ summary: 'Create a custom payment-link based subscription request for a user' })
   async assignCustomSubscription(
     @CurrentUser('id') adminUserId: string,
     @Body() dto: AssignCustomSubscriptionDto,
@@ -82,7 +98,23 @@ export class SubscriptionController {
     const data = await this.subscriptionService.assignCustomSubscription(adminUserId, dto);
     return {
       statusCode: 201,
-      message: 'Custom subscription assigned successfully',
+      message: 'Custom subscription payment link created successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete('cancel')
+  @ApiOperation({ summary: 'Cancel the current user\'s active subscription' })
+  async cancelSubscription(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CancelSubscriptionDto,
+  ) {
+    const data = await this.subscriptionService.cancelSubscription(userId, dto.subscriptionId);
+    return {
+      statusCode: 200,
+      message: 'Subscription canceled successfully',
       data,
     };
   }

@@ -66,6 +66,36 @@ export class CategoryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Get('admin/categories')
+  @ApiOperation({ summary: 'Get admin category list' })
+  async findAdminAll(@Query() query: QueryCategoryDto) {
+    const data = await this.service.findAll(query, true);
+
+    return {
+      statusCode: 200,
+      message: 'Categories fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Get('admin/categories/:id')
+  @ApiOperation({ summary: 'Get admin category details' })
+  async findAdminOne(@Param('id') id: string) {
+    const data = await this.service.findOne(id);
+
+    return {
+      statusCode: 200,
+      message: 'Category fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN   )
   @Patch('admin/categories/:id')
   @ApiOperation({ summary: 'Update category' })

@@ -61,8 +61,8 @@ export class QueryInsightDto {
   @IsString()
   categoryId?: string;
 
-  @ApiPropertyOptional({ example: 'uuid-tag' })
+  @ApiPropertyOptional({ example: '#AI2026' })
   @IsOptional()
   @IsString()
-  tagId?: string;
+  tag?: string;
 }

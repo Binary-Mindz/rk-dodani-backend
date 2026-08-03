@@ -15,7 +15,7 @@ import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class PlanService {
-  private stripe: StripeType;
+  private stripe!: StripeType;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -141,6 +141,7 @@ export class PlanService {
       data: {
         code: dto.code.trim().toUpperCase(),
         name: dto.name,
+        planTitle: dto.planTitle ?? dto.name,
         description: dto.description ?? null,
         subtitle: dto.subtitle ?? null,
         targetAudience: dto.targetAudience ?? PlanAudience.B2C,
@@ -150,6 +151,7 @@ export class PlanService {
         priceAmount: new Prisma.Decimal(dto.priceAmount),
         isPerUser: dto.isPerUser ?? false,
         trialDays: dto.trialDays ?? 0,
+        isAutoRenew: dto.autoRenew ?? true,
         isPublic: dto.isPublic ?? true,
         isActive: dto.isActive ?? true,
         isFeatured: dto.isFeatured ?? false,
@@ -275,6 +277,7 @@ export class PlanService {
       id: plan.id,
       code: plan.code,
       name: plan.name,
+      planTitle: (plan as any).planTitle,
       description: plan.description,
       subtitle: plan.subtitle,
       targetAudience: plan.targetAudience,
@@ -284,6 +287,7 @@ export class PlanService {
       priceAmount: Number(plan.priceAmount),
       isPerUser: plan.isPerUser,
       trialDays: plan.trialDays,
+      autoRenew: (plan as any).isAutoRenew,
       isPublic: plan.isPublic,
       isActive: plan.isActive,
       isFeatured: plan.isFeatured,
@@ -401,6 +405,7 @@ export class PlanService {
       data: {
         ...(dto.code !== undefined && { code: dto.code.trim().toUpperCase() }),
         ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.planTitle !== undefined && { planTitle: dto.planTitle }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
         ...(dto.targetAudience !== undefined && {
@@ -420,6 +425,7 @@ export class PlanService {
         }),
         ...(dto.isPerUser !== undefined && { isPerUser: dto.isPerUser }),
         ...(dto.trialDays !== undefined && { trialDays: dto.trialDays }),
+        ...(dto.autoRenew !== undefined && { isAutoRenew: dto.autoRenew }),
         ...(dto.isPublic !== undefined && { isPublic: dto.isPublic }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
@@ -537,6 +543,7 @@ export class PlanService {
           isActive: true,
           isPerUser: true,
           trialDays: true,
+          isAutoRenew: true,
           isFeatured: true,
           sortOrder: true,
           maxUsers: true,
@@ -578,6 +585,7 @@ export class PlanService {
         priceAmount: true,
         isPerUser: true,
         trialDays: true,
+        isAutoRenew: true,
         isFeatured: true,
         sortOrder: true,
         maxUsers: true,

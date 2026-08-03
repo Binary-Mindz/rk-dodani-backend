@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,6 +15,8 @@ import { CreateRatingDto } from './dto/create-rating.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ContentAccessService } from '../content-access/content-access.service';
+import {Cache} from "@nestjs/cache-manager";
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
 export class ContentService {
@@ -21,6 +24,8 @@ export class ContentService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly contentAccessService: ContentAccessService,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   private serializeBigInt(data: any) {

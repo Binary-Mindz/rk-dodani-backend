@@ -74,29 +74,30 @@ export class CategoryService {
     return created;
   }
 
-  async findAll(query: QueryCategoryDto) {
-    return this.prisma.category.findMany({
-      where: {
-        ...(query.search
-          ? {
-              OR: [
-                { name: { contains: query.search, mode: 'insensitive' } },
-                { slug: { contains: query.search, mode: 'insensitive' } },
-                {
-                  description: {
-                    contains: query.search,
-                    mode: 'insensitive',
-                  },
-                },
-              ],
-            }
-          : {}),
-        ...(typeof query.isActive === 'boolean'
-          ? { isActive: query.isActive }
-          : {}),
-      },
-      orderBy: [{ name: 'asc' }],
-    });
+  async findAll(query: QueryCategoryDto, allowActiveFilter = false) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' as const } },
+              { slug: { contains: query.search, mode: 'insensitive' as const } },
+              { description: { contains: query.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+      ...(allowActiveFilter && typeof query.isActive === 'boolean' ? { isActive: query.isActive } : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.category.findMany({ where, orderBy: [{ createdAt: 'desc' }], skip, take: limit }),
+      this.prisma.category.count({ where }),
+    ]);
+
+    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {

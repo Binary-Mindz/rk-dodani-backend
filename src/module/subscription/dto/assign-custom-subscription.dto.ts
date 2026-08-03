@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EntitlementType, PlanAudience } from '@prisma/client';
+import { BillingInterval, EntitlementType, PlanAudience } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  IsDateString,
+  IsBoolean,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -14,7 +15,17 @@ import {
 export class AssignCustomSubscriptionDto {
   @ApiProperty({ example: 'user-uuid' })
   @IsUUID()
-  userId: string;
+  userId!: string;
+
+  @ApiPropertyOptional({ description: 'Display title of the custom plan', example: 'Enterprise Starter' })
+  @IsString()
+  @IsOptional()
+  planTitle?: string;
+
+  @ApiPropertyOptional({ enum: BillingInterval, default: BillingInterval.MONTHLY, description: 'Billing interval for the custom plan' })
+  @IsEnum(BillingInterval)
+  @IsOptional()
+  billingInterval?: BillingInterval;
 
   @ApiPropertyOptional({ description: 'Custom price (for record only)', example: 49.99 })
   @IsNumber()
@@ -27,9 +38,16 @@ export class AssignCustomSubscriptionDto {
   @IsOptional()
   currency?: string;
 
-  @ApiProperty({ description: 'Subscription end date', example: '2025-12-31' })
-  @IsDateString()
-  endsAt: string;
+  @ApiPropertyOptional({ description: 'Trial period in days for the custom plan', example: 14, default: 0 })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  trialDays?: number;
+
+  @ApiPropertyOptional({ description: 'Whether the custom plan should auto-renew', example: true, default: true })
+  @IsBoolean()
+  @IsOptional()
+  autoRenew?: boolean;
 
   @ApiPropertyOptional({ enum: EntitlementType, default: EntitlementType.PREMIUM_ACCESS })
   @IsEnum(EntitlementType)
