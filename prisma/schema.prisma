@@ -1376,15 +1376,11 @@ model Product {
 
   title                      String
   subTitle                   String
-  role                       UserRoleCode  @default(STUDENT)
-  module                     String?
   description                String
+  productImage               String?
   migrationVector            String?
   scaleValueImpact           String?
   architectureBlueprint      String?
-  retailBanking              String?
-  capitalMarkets             String?
-  wealthAndAsset             String?
   initiateAthenionDiscussion String?
   productGroupId             String?
   productGroup               ProductGroup? @relation(fields: [productGroupId], references: [id], onDelete: SetNull)
@@ -1395,6 +1391,7 @@ model Product {
   updatedAt DateTime @updatedAt
 
   targetClient TargetClient[]
+  sectors      ProductSector[]
 
   @@index([productGroupId])
 }
@@ -1410,6 +1407,22 @@ model ProductGroup {
   products Product[]
 
   @@index([name])
+}
+
+model ProductSector {
+  id          String            @id @default(uuid())
+  productId   String
+  sectorType  ProductSectorType
+  title       String
+  description String?
+  keyFeatures String[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, sectorType])
+  @@index([productId])
 }
 
 model TargetClient {
@@ -1431,4 +1444,24 @@ enum TargetType {
   RETAIL_BANKING
   CAPITAL_MARKET
   WEALTH_AND_ASSET
+}
+
+enum ProductSectorType {
+  RETAIL_BANKING
+  CAPITAL_MARKETS
+  WEALTH_AND_ASSET
+}
+
+
+model customNavLink {
+  id          String   @id @default(uuid())
+ 
+  isIndustriesEnabled Boolean @default(true)
+  isCapabilitiesEnabled Boolean @default(true)
+  isProductsEnabled     Boolean @default(true)
+  isInsightsEnabled     Boolean @default(true)
+  isServicesEnabled     Boolean @default(true)
+  isCareersEnabled      Boolean @default(true)
+  
+  updatedAt   DateTime @updatedAt
 }

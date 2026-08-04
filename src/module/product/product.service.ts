@@ -14,27 +14,21 @@ export class ProductService {
 
   private audit(
     actorUserId: string | null,
-    entityType: string,
     entityId: string,
     action: 'CREATE' | 'UPDATE' | 'DELETE',
     oldValues?: any,
     newValues?: any,
   ) {
     this.auditService
-      .logCustom({
-        actorUserId,
-        entityType,
-        entityId,
-        action: action as any,
-        oldValues,
-        newValues,
-      })
+      .logCustom({ actorUserId, entityType: 'PRODUCT', entityId, action: action as any, oldValues, newValues })
       .catch(() => {});
   }
 
   private includeRelations() {
     return {
       productGroup: true,
+      sectors: { orderBy: { sectorType: 'asc' as const } },
+      targetClient: true,
     };
   }
 
@@ -44,20 +38,14 @@ export class ProductService {
       id: product.id,
       name: product.title,
       description: product.description,
+      productImage: product.productImage,
       productGroupId: product.productGroupId,
-      productGroup: product.productGroup
-        ? {
-            id: product.productGroup.id,
-            name: product.productGroup.name,
-            description: product.productGroup.description,
-            icon: product.productGroup.icon,
-          }
-        : null,
+      productGroup: product.productGroup ?? null,
       architectureBlueprint: product.architectureBlueprint,
-      retailBanking: product.retailBanking,
-      capitalMarkets: product.capitalMarkets,
-      wealthAndAsset: product.wealthAndAsset,
       initiateAthenionDiscussion: product.initiateAthenionDiscussion,
+      sectors: product.sectors ?? [],
+      targetClient: product.targetClient ?? [],
+      isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
@@ -65,35 +53,44 @@ export class ProductService {
 
   private async validateProductGroupId(productGroupId?: string | null) {
     if (!productGroupId) return;
-    const productGroup = await this.prisma.productGroup.findUnique({ where: { id: productGroupId } });
-    if (!productGroup) {
-      throw new BadRequestException('Product group not found');
-    }
+    const group = await this.prisma.productGroup.findUnique({ where: { id: productGroupId } });
+    if (!group) throw new BadRequestException('Product group not found');
   }
 
   async create(userId: string | null, dto: CreateProductDto) {
-    if (!dto.name?.trim()) {
-      throw new BadRequestException('Product name is required');
-    }
-
+    if (!dto.name?.trim()) throw new BadRequestException('Product name is required');
     await this.validateProductGroupId(dto.productGroupId);
 
-    const created = await this.prisma.product.create({
-      data: {
-        title: dto.name,
-        subTitle: dto.name,
-        description: dto.description,
-        architectureBlueprint: dto.architectureBlueprint ?? null,
-        retailBanking: dto.retailBanking ?? null,
-        capitalMarkets: dto.capitalMarkets ?? null,
-        wealthAndAsset: dto.wealthAndAsset ?? null,
-        initiateAthenionDiscussion: dto.initiateAthenionDiscussion ?? null,
-        productGroupId: dto.productGroupId ?? null,
-      },
-      include: this.includeRelations(),
+    const created = await this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          title: dto.name,
+          subTitle: dto.name,
+          description: dto.description,
+          productImage: dto.productImage ?? null,
+          architectureBlueprint: dto.architectureBlueprint ?? null,
+          initiateAthenionDiscussion: dto.initiateAthenionDiscussion ?? null,
+          productGroupId: dto.productGroupId ?? null,
+        },
+      });
+
+      if (dto.sectors?.length) {
+        await tx.productSector.createMany({
+          data: dto.sectors.map((s) => ({
+            productId: product.id,
+            sectorType: s.sectorType,
+            title: s.title,
+            description: s.description ?? null,
+            keyFeatures: s.keyFeatures ?? [],
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return tx.product.findUnique({ where: { id: product.id }, include: this.includeRelations() });
     });
 
-    this.audit(userId, 'PRODUCT', created.id, 'CREATE', null, created);
+    this.audit(userId, created!.id, 'CREATE', null, created);
     return this.formatProduct(created);
   }
 
@@ -108,11 +105,6 @@ export class ProductService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { architectureBlueprint: { contains: search, mode: 'insensitive' } },
-          { retailBanking: { contains: search, mode: 'insensitive' } },
-          { capitalMarkets: { contains: search, mode: 'insensitive' } },
-          { wealthAndAsset: { contains: search, mode: 'insensitive' } },
-          { initiateAthenionDiscussion: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
@@ -130,12 +122,7 @@ export class ProductService {
 
     return {
       items: items.map((item) => this.formatProduct(item)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
@@ -144,50 +131,58 @@ export class ProductService {
       where: { id },
       include: this.includeRelations(),
     });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID "${id}" not found`);
-    }
-
+    if (!product) throw new NotFoundException(`Product with ID "${id}" not found`);
     return this.formatProduct(product);
   }
 
   async update(userId: string | null, id: string, dto: UpdateProductDto) {
-    const existing = await this.findOne(id);
+    const existing = await this.prisma.product.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Product with ID "${id}" not found`);
+
     await this.validateProductGroupId(dto.productGroupId);
-    const { name, ...productData } = dto;
-    const mappedProductData = {
-      ...productData,
-      ...(name !== undefined && { title: name, subTitle: name }),
-    };
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (Object.keys(mappedProductData).length > 0) {
-        await tx.product.update({
-          where: { id },
-          data: mappedProductData,
-        });
+      await tx.product.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { title: dto.name, subTitle: dto.name }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.productImage !== undefined && { productImage: dto.productImage }),
+          ...(dto.architectureBlueprint !== undefined && { architectureBlueprint: dto.architectureBlueprint }),
+          ...(dto.initiateAthenionDiscussion !== undefined && { initiateAthenionDiscussion: dto.initiateAthenionDiscussion }),
+          ...(dto.productGroupId !== undefined && { productGroupId: dto.productGroupId }),
+        },
+      });
+
+      if (dto.sectors !== undefined) {
+        await tx.productSector.deleteMany({ where: { productId: id } });
+        if (dto.sectors.length) {
+          await tx.productSector.createMany({
+            data: dto.sectors.map((s) => ({
+              productId: id,
+              sectorType: s.sectorType,
+              title: s.title,
+              description: s.description ?? null,
+              keyFeatures: s.keyFeatures ?? [],
+            })),
+            skipDuplicates: true,
+          });
+        }
       }
 
-      return tx.product.findUnique({
-        where: { id },
-        include: this.includeRelations(),
-      });
+      return tx.product.findUnique({ where: { id }, include: this.includeRelations() });
     });
 
-    this.audit(userId, 'PRODUCT', id, 'UPDATE', existing, updated);
+    this.audit(userId, id, 'UPDATE', existing, updated);
     return this.formatProduct(updated);
   }
 
   async remove(userId: string | null, id: string) {
-    const existing = await this.findOne(id);
+    const existing = await this.prisma.product.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Product with ID "${id}" not found`);
 
-    await this.prisma.product.delete({
-      where: { id },
-    });
-
-    this.audit(userId, 'PRODUCT', id, 'DELETE', existing, null);
+    await this.prisma.product.delete({ where: { id } });
+    this.audit(userId, id, 'DELETE', existing, null);
     return { success: true, id };
   }
-
 }

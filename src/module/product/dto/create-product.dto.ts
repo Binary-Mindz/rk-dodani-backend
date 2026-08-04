@@ -1,44 +1,43 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ProductSectorDto } from './product-sector.dto';
 
 export class CreateProductDto {
-  @ApiProperty({ description: 'Product name', example: 'AI Leadership Whitepaper 2026' })
+  @ApiProperty({ example: 'AI Leadership Platform' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
-  @ApiProperty({ description: 'Product description', example: 'How modern leaders are adopting AI' })
+  @ApiProperty({ example: 'How modern leaders are adopting AI' })
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
-  @ApiPropertyOptional({ description: 'Product group ID', example: '#154' })
+  @ApiPropertyOptional({ example: 'uuid-of-product-group' })
   @IsString()
   @IsOptional()
   productGroupId?: string | null;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/product.jpg' })
+  @IsString()
+  @IsOptional()
+  productImage?: string;
 
   @ApiPropertyOptional({ example: 'Athenion Solution Architecture Blueprint' })
   @IsString()
   @IsOptional()
   architectureBlueprint?: string;
 
-  @ApiPropertyOptional({ description: 'Retail banking sector copy' })
-  @IsString()
-  @IsOptional()
-  retailBanking?: string;
-
-  @ApiPropertyOptional({ description: 'Capital markets sector copy' })
-  @IsString()
-  @IsOptional()
-  capitalMarkets?: string;
-
-  @ApiPropertyOptional({ description: 'Wealth and asset sector copy' })
-  @IsString()
-  @IsOptional()
-  wealthAndAsset?: string;
-
-  @ApiPropertyOptional({ description: 'Initiate Athenion discussion copy' })
+  @ApiPropertyOptional({ example: 'Initiate Athenion discussion copy' })
   @IsString()
   @IsOptional()
   initiateAthenionDiscussion?: string;
+
+  @ApiPropertyOptional({ type: [ProductSectorDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductSectorDto)
+  sectors?: ProductSectorDto[];
 }

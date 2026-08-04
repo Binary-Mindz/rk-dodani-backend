@@ -20,7 +20,7 @@ export class CreateTargetClientDto {
   @ApiProperty({ example: 'Retail banking leaders' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @ApiPropertyOptional({ example: 'Banks modernizing customer journeys' })
   @IsString()
