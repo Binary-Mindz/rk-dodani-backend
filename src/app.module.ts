@@ -35,6 +35,7 @@ import { ServiceGroupModule } from './module/service-group/service-group.module'
 import { ProductGroupModule } from './module/product-group/product-group.module';
 import {CacheModule} from "@nestjs/cache-manager";
 import KeyvRedis from "@keyv/redis";
+import { NavLinkModule } from './module/nav-link/nav-link.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import KeyvRedis from "@keyv/redis";
     InsightCategoryModule,
     ServiceGroupModule,
     ProductGroupModule,
+    NavLinkModule
   ],
   controllers: [AppController, AlertController],
   providers: [AlertService],
