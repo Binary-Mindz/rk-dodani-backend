@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class UpdateServiceDto {
   @ApiPropertyOptional({ description: 'Service name' })
@@ -27,8 +27,9 @@ export class UpdateServiceDto {
   @IsOptional()
   agentarumParadigm?: string;
 
-  @ApiPropertyOptional({ description: 'Hard tangible deliverables' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'Hard tangible deliverables', example: ['Strategy playbook', 'Operating model', 'Implementation roadmap'], isArray: true, type: String })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  hardTangibleDeliverables?: string;
+  hardTangibleDeliverables?: string[];
 }

@@ -10,6 +10,8 @@ import { ContentMasterModule } from 'module/content-master/content-master.module
 import { ContentModule } from 'module/content/content.module';
 import { ContentAccessModule } from 'module/content-access/content-access.module';
 import { ServiceModule } from 'module/service/service.module';
+import { ServiceSubmissionModule } from './module/service-submission/service-submission.module';
+import { ProductSubmissionModule } from './module/product-submission/product-submission.module';
 import { PlanModule } from 'module/plan/plan.module';
 import { AppSettingModule } from 'module/app-setting/app-setting.module';
 import { AuditModule } from 'module/audit/audit.module';
@@ -65,6 +67,8 @@ import KeyvRedis from "@keyv/redis";
     ContentModule,
     ContentAccessModule,
     ServiceModule,
+    ServiceSubmissionModule,
+    ProductSubmissionModule,
     PlanModule,
     TicketsModule,
     AppSettingModule,

@@ -83,7 +83,7 @@ export class ServiceService {
         description: dto.description ?? null,
         criticalFriction: dto.criticalFriction ?? null,
         agentarumParadigm: dto.agentarumParadigm ?? null,
-        hardTangibleDeliverables: dto.hardTangibleDeliverables ?? null,
+        hardTangibleDeliverables: dto.hardTangibleDeliverables ?? [],
         serviceGroupId: dto.serviceGroupId ?? null,
       },
       include: this.includeRelations(),
@@ -106,7 +106,7 @@ export class ServiceService {
             { description: { contains: search, mode: 'insensitive' } },
             { criticalFriction: { contains: search, mode: 'insensitive' } },
             { agentarumParadigm: { contains: search, mode: 'insensitive' } },
-            { hardTangibleDeliverables: { contains: search, mode: 'insensitive' } },
+            { hardTangibleDeliverables: { has: search } },
           ],
         }),
     };

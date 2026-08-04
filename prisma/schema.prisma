@@ -577,6 +577,37 @@ model ContactInquiry {
   @@index([inquiryType])
 }
 
+model ServiceSubmission {
+  id               String                  @id @default(uuid())
+  fullName         String
+  corporateEmail   String
+  primaryFocusArea PrimaryFocusArea
+  message          String?
+  status           ServiceSubmissionStatus @default(NEW)
+  adminNotes       String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([status])
+  @@index([primaryFocusArea])
+}
+
+model ProductSubmission {
+  id                   String                  @id @default(uuid())
+  fullName             String
+  corporateEmail       String
+  company              String?
+  targetDeployTimeline TargetDeployTimeline
+  useCase              String?
+  status               ProductSubmissionStatus @default(NEW)
+  adminNotes           String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([status])
+  @@index([targetDeployTimeline])
+}
+
 model InquiryActivity {
   id            String              @id @default(uuid())
   inquiryId     String
@@ -982,6 +1013,32 @@ enum InquiryActivityType {
   CLOSED
 }
 
+enum PrimaryFocusArea {
+  EXECUTIVE_COACHING_ECOSYSTEM
+  ENGINEERING_TO_WIN_WORKSHOPS
+  FRACTIONAL_CIO_CAIO
+}
+
+enum TargetDeployTimeline {
+  IMMEDIATE_PILOT_14_DAYS
+  QUARTERLY_PILOT_90_DAYS
+  CUSTOM_TIMELINE
+}
+
+enum ProductSubmissionStatus {
+  NEW
+  REVIEWED
+  APPROVED
+  REJECTED
+}
+
+enum ServiceSubmissionStatus {
+  NEW
+  REVIEWED
+  ACCEPTED
+  REJECTED
+}
+
 enum AccessRuleType {
   ROLE
   PLAN
@@ -1252,8 +1309,8 @@ model Insight {
   fileType    InsightFileType?
   fileUrl     String?
 
-  industryTargets IndustryTarget[] @default([])
-  tags            String[]         @default([])
+  industryTargets IndustryTarget[]     @default([])
+  tags            String[]             @default([])
   categories      InsightCategoryMap[]
 
   createdAt DateTime  @default(now())
@@ -1266,7 +1323,7 @@ model Insight {
 }
 
 model InsightCategoryMap {
-  id         String   @id @default(uuid())
+  id         String          @id @default(uuid())
   insightId  String
   categoryId String
   insight    Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
@@ -1334,7 +1391,7 @@ model Services {
   description              String?
   criticalFriction         String?
   agentarumParadigm        String?
-  hardTangibleDeliverables String?
+  hardTangibleDeliverables String[]      @default([])
   serviceGroupId           String?
   serviceGroup             ServiceGroup? @relation(fields: [serviceGroupId], references: [id], onDelete: SetNull)
 
@@ -1452,16 +1509,15 @@ enum ProductSectorType {
   WEALTH_AND_ASSET
 }
 
-
 model customNavLink {
-  id          String   @id @default(uuid())
- 
-  isIndustriesEnabled Boolean @default(true)
+  id String @id @default(uuid())
+
+  isIndustriesEnabled   Boolean @default(true)
   isCapabilitiesEnabled Boolean @default(true)
   isProductsEnabled     Boolean @default(true)
   isInsightsEnabled     Boolean @default(true)
   isServicesEnabled     Boolean @default(true)
   isCareersEnabled      Boolean @default(true)
-  
-  updatedAt   DateTime @updatedAt
+
+  updatedAt DateTime @updatedAt
 }
