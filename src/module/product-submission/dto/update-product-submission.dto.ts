@@ -1,33 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { ProductSubmissionStatus, TargetDeployTimeline } from '@prisma/client';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { ProductSubmissionStatus } from '@prisma/client';
 
 export class UpdateProductSubmissionDto {
-  @ApiPropertyOptional({ description: 'Full name of the requester' })
-  @IsString()
-  @IsOptional()
-  fullName?: string;
-
-  @ApiPropertyOptional({ description: 'Corporate email address' })
-  @IsEmail()
-  @IsOptional()
-  corporateEmail?: string;
-
-  @ApiPropertyOptional({ description: 'Company / institution name' })
-  @IsString()
-  @IsOptional()
-  company?: string;
-
-  @ApiPropertyOptional({ description: 'Target deploy timeline', enum: TargetDeployTimeline })
-  @IsEnum(TargetDeployTimeline)
-  @IsOptional()
-  targetDeployTimeline?: TargetDeployTimeline;
-
-  @ApiPropertyOptional({ description: 'Use case / architectural requirements' })
-  @IsString()
-  @IsOptional()
-  useCase?: string;
-
   @ApiPropertyOptional({ description: 'Submission status', enum: ProductSubmissionStatus })
   @IsOptional()
   status?: ProductSubmissionStatus;
@@ -36,9 +11,4 @@ export class UpdateProductSubmissionDto {
   @IsString()
   @IsOptional()
   adminNotes?: string;
-
-  @ApiPropertyOptional({ description: 'ID of the product this submission is for' })
-  @IsUUID()
-  @IsOptional()
-  productId?: string;
 }
