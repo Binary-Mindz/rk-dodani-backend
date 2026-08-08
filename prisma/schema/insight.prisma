@@ -1,0 +1,59 @@
+model Insight {
+  id       String  @id @default(uuid())
+  slug     String  @unique
+  title    String
+  subtitle String?
+  excerpt  String?
+  summary  String?
+
+  readingTimeMinutes Int?
+  coverImageUrl      String?
+  externalUrl        String?
+
+  status        InsightStatus     @default(DRAFT)
+  visibility    InsightVisibility @default(PUBLIC)
+  scheduledAt   DateTime?
+  allowComments Boolean           @default(false)
+  allowDownload Boolean           @default(false)
+
+  contentType InsightContentType @default(ARTICLE)
+  fileType    InsightFileType?
+  fileUrl     String?
+
+  industryTargets IndustryTarget[]     @default([])
+  tags            String[]             @default([])
+  categories      InsightCategoryMap[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([visibility])
+  @@index([contentType])
+}
+
+model InsightCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  insightMappings InsightCategoryMap[]
+
+  @@index([isActive])
+}
+
+model InsightCategoryMap {
+  id         String          @id @default(uuid())
+  insightId  String
+  categoryId String
+  insight    Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  category   InsightCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([insightId, categoryId])
+  @@index([categoryId])
+}

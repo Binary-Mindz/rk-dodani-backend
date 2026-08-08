@@ -1,0 +1,88 @@
+model ContactInquiry {
+  id            String          @id @default(uuid())
+  ticketId      String
+  name          String
+  email         String
+  phone         String?
+  company       String?
+  jobTitle      String?
+  country       String?
+  subject       String?
+  message       String
+  inquiryType   InquiryType
+  source        String?
+  status        InquiryStatus   @default(NEW)
+  priority      InquiryPriority @default(NORMAL)
+  assignedToId  String?
+  relatedUserId String?
+  tags          Json?
+  adminNotes    String?
+  respondedAt   DateTime?
+  closedAt      DateTime?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  assignedTo  User?             @relation("InquiryAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  relatedUser User?             @relation("InquiryRelatedUser", fields: [relatedUserId], references: [id], onDelete: SetNull)
+  activities  InquiryActivity[]
+
+  @@index([status, createdAt])
+  @@index([assignedToId])
+  @@index([inquiryType])
+}
+
+model InquiryActivity {
+  id            String              @id @default(uuid())
+  inquiryId     String
+  actionType    InquiryActivityType
+  oldValue      Json?
+  newValue      Json?
+  note          String?
+  performedById String?
+  createdAt     DateTime            @default(now())
+
+  inquiry     ContactInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  performedBy User?          @relation(fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId])
+  @@index([performedById])
+}
+
+model ServiceSubmission {
+  id               String                  @id @default(uuid())
+  fullName         String
+  corporateEmail   String
+  primaryFocusArea PrimaryFocusArea
+  message          String?
+  serviceId        String?
+  service          Services?               @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  status           ServiceSubmissionStatus @default(NEW)
+  adminNotes       String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([status])
+  @@index([primaryFocusArea])
+  @@index([serviceId])
+}
+
+model ProductSubmission {
+  id                   String                  @id @default(uuid())
+  fullName             String
+  corporateEmail       String
+  company              String?
+  targetDeployTimeline TargetDeployTimeline
+  useCase              String?
+  productId            String?
+  product              Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
+  status               ProductSubmissionStatus @default(NEW)
+  adminNotes           String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([status])
+  @@index([targetDeployTimeline])
+  @@index([productId])
+}

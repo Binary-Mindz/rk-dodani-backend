@@ -8,7 +8,7 @@ if (!connectionString) {
 }
 
 export default defineConfig({
-  schema: './prisma/schema.prisma',
+  schema: './prisma/schema',
   
   // Prisma 7-এ মাইগ্রেশনের জন্য শুধু এটি লাগবে
   datasource: {

@@ -25,8 +25,9 @@ export class CreateServiceSubmissionDto {
   @IsOptional()
   message?: string;
 
-  @ApiPropertyOptional({ description: 'ID of the service this submission is for' })
+  @ApiProperty({ description: 'ID of the service being requested', example: 'service-uuid' })
   @IsUUID()
-  @IsOptional()
-  serviceId?: string;
+  @IsNotEmpty()
+  serviceId!: string;
+
 }

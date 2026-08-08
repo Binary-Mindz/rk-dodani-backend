@@ -1,0 +1,74 @@
+model FileInstance {
+  id               String   @id @default(uuid())
+  filename         String
+  originalFilename String
+  path             String
+  url              String
+  fileType         FileType @default(ANY)
+  mimeType         String
+  size             Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("file_instances")
+}
+
+model WebhookLog {
+  id               String                  @id @default(uuid())
+  provider         WebhookProvider
+  eventId          String?
+  eventType        String?
+  signatureHeader  String?
+  requestHeaders   Json?
+  requestBody      Json?
+  responseStatus   Int?
+  processingStatus WebhookProcessingStatus @default(RECEIVED)
+  errorMessage     String?
+  processedAt      DateTime?
+  createdAt        DateTime                @default(now())
+
+  @@index([provider])
+  @@index([eventId])
+  @@index([processingStatus])
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  actorUserId String?
+  entityType  String
+  entityId    String?
+  action      AuditAction
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?
+  createdAt   DateTime    @default(now())
+
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([action])
+}
+
+model EmailLog {
+  id                String              @id @default(uuid())
+  templateCode      String
+  recipientEmail    String
+  recipientUserId   String?
+  subject           String
+  payload           Json?
+  status            EmailDeliveryStatus @default(QUEUED)
+  provider          String?
+  providerMessageId String?
+  failureReason     String?
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  recipientUser User? @relation(fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([recipientUserId])
+  @@index([status])
+}

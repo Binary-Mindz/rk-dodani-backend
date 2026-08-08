@@ -1,0 +1,41 @@
+model Alert {
+  id          String      @id @default(uuid())
+  alertType   AlertType   @default(INFO)
+  message     String
+  alertMethod AlertMethod @default(PUSH)
+  isEdited    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model SystemMaintenance {
+  id                 String    @id @default(uuid())
+  isUnderMaintenance Boolean   @default(false)
+  message            String?
+  endTime            DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model PlatformInfo {
+  id           String   @id @default(uuid())
+  platformName String   @default("AgentArum")
+  supportEmail String   @default("support@agentarum.io")
+  timezone     String   @default("UTC+0 London")
+  language     String   @default("English")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model customNavLink {
+  id String @id @default(uuid())
+
+  isIndustriesEnabled   Boolean @default(true)
+  isCapabilitiesEnabled Boolean @default(true)
+  isProductsEnabled     Boolean @default(true)
+  isInsightsEnabled     Boolean @default(true)
+  isServicesEnabled     Boolean @default(true)
+  isCareersEnabled      Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}

@@ -149,12 +149,6 @@ export class ServiceSubmissionService {
       throw new NotFoundException(`Service submission with ID "${id}" not found`);
     }
 
-    if (dto.serviceId) {
-      const service = await this.prisma.services.findUnique({ where: { id: dto.serviceId } });
-      if (!service) {
-        throw new BadRequestException('Service not found');
-      }
-    }
 
     const updated = await this.prisma.serviceSubmission.update({
       where: { id },

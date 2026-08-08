@@ -18,7 +18,7 @@ export class QueryProductSubmissionDto {
   @IsEnum(TargetDeployTimeline)
   @IsOptional()
   targetDeployTimeline?: TargetDeployTimeline;
-
+  
   @ApiPropertyOptional({ description: 'Filter by product ID' })
   @IsUUID()
   @IsOptional()

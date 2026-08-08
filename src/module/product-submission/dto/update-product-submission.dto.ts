@@ -11,4 +11,9 @@ export class UpdateProductSubmissionDto {
   @IsString()
   @IsOptional()
   adminNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Linked product ID' })
+  @IsString()
+  @IsOptional()
+  productId?: string;
 }
