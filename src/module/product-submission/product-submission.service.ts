@@ -161,14 +161,8 @@ export class ProductSubmissionService {
     const updated = await this.prisma.productSubmission.update({
       where: { id },
       data: {
-        fullName: dto.fullName?.trim() ?? existing.fullName,
-        corporateEmail: dto.corporateEmail?.trim() ?? existing.corporateEmail,
-        company: dto.company?.trim() ?? existing.company,
-        targetDeployTimeline: dto.targetDeployTimeline ?? existing.targetDeployTimeline,
-        useCase: dto.useCase?.trim() ?? existing.useCase,
         status: dto.status ?? existing.status,
         adminNotes: dto.adminNotes ?? existing.adminNotes,
-        productId: dto.productId !== undefined ? dto.productId : existing.productId,
       },
       include: this.includeProduct(),
     });

@@ -159,13 +159,8 @@ export class ServiceSubmissionService {
     const updated = await this.prisma.serviceSubmission.update({
       where: { id },
       data: {
-        fullName: dto.fullName?.trim() ?? existing.fullName,
-        corporateEmail: dto.corporateEmail?.trim() ?? existing.corporateEmail,
-        primaryFocusArea: dto.primaryFocusArea ?? existing.primaryFocusArea,
-        message: dto.message ?? existing.message,
         status: dto.status ?? existing.status,
         adminNotes: dto.adminNotes ?? existing.adminNotes,
-        serviceId: dto.serviceId !== undefined ? dto.serviceId : existing.serviceId,
       },
       include: this.includeService(),
     });
