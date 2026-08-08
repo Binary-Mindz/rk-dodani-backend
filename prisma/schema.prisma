@@ -583,6 +583,8 @@ model ServiceSubmission {
   corporateEmail   String
   primaryFocusArea PrimaryFocusArea
   message          String?
+  serviceId        String?
+  service          Services?               @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   status           ServiceSubmissionStatus @default(NEW)
   adminNotes       String?
   createdAt        DateTime                @default(now())
@@ -590,6 +592,7 @@ model ServiceSubmission {
 
   @@index([status])
   @@index([primaryFocusArea])
+  @@index([serviceId])
 }
 
 model ProductSubmission {
@@ -599,6 +602,8 @@ model ProductSubmission {
   company              String?
   targetDeployTimeline TargetDeployTimeline
   useCase              String?
+  productId            String?
+  product              Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
   status               ProductSubmissionStatus @default(NEW)
   adminNotes           String?
   createdAt            DateTime                @default(now())
@@ -606,6 +611,7 @@ model ProductSubmission {
 
   @@index([status])
   @@index([targetDeployTimeline])
+  @@index([productId])
 }
 
 model InquiryActivity {
@@ -1395,7 +1401,8 @@ model Services {
   serviceGroupId           String?
   serviceGroup             ServiceGroup? @relation(fields: [serviceGroupId], references: [id], onDelete: SetNull)
 
-  deepPoints DeepPoint[]
+  deepPoints   DeepPoint[]
+  submissions  ServiceSubmission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1449,6 +1456,7 @@ model Product {
 
   targetClient TargetClient[]
   sectors      ProductSector[]
+  submissions  ProductSubmission[]
 
   @@index([productGroupId])
 }

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PrimaryFocusArea, ServiceSubmissionStatus } from '@prisma/client';
 
 export class UpdateServiceSubmissionDto {
@@ -32,4 +32,9 @@ export class UpdateServiceSubmissionDto {
   @IsString()
   @IsOptional()
   adminNotes?: string;
+
+  @ApiPropertyOptional({ description: 'ID of the service this submission is for' })
+  @IsUUID()
+  @IsOptional()
+  serviceId?: string;
 }

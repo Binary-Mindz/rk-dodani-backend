@@ -32,6 +32,20 @@ export class ProductSubmissionService {
       .catch(() => {});
   }
 
+  private includeProduct() {
+    return {
+      product: {
+        select: {
+          id: true,
+          title: true,
+          subTitle: true,
+          description: true,
+          productImage: true,
+        },
+      },
+    };
+  }
+
   private formatSubmission(submission: any) {
     if (!submission) return submission;
     return {
@@ -41,6 +55,8 @@ export class ProductSubmissionService {
       company: submission.company,
       targetDeployTimeline: submission.targetDeployTimeline,
       useCase: submission.useCase,
+      productId: submission.productId,
+      product: submission.product ?? null,
       status: submission.status,
       adminNotes: submission.adminNotes,
       createdAt: submission.createdAt,
@@ -56,6 +72,13 @@ export class ProductSubmissionService {
       throw new BadRequestException('Corporate email is required');
     }
 
+    if (dto.productId) {
+      const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+      if (!product) {
+        throw new BadRequestException('Product not found');
+      }
+    }
+
     const created = await this.prisma.productSubmission.create({
       data: {
         fullName: dto.fullName.trim(),
@@ -63,7 +86,9 @@ export class ProductSubmissionService {
         company: dto.company?.trim() ?? null,
         targetDeployTimeline: dto.targetDeployTimeline,
         useCase: dto.useCase?.trim() ?? null,
+        productId: dto.productId ?? null,
       },
+      include: this.includeProduct(),
     });
 
     this.audit(null, 'PRODUCT_SUBMISSION', created.id, 'CREATE', null, created);
@@ -71,11 +96,12 @@ export class ProductSubmissionService {
   }
 
   async findAll(query: QueryProductSubmissionDto) {
-    const { search, status, page = 1, limit = 10 } = query;
+    const { search, status, productId, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       ...(status && { status }),
+      ...(productId && { productId }),
       ...(search && {
         OR: [
           { fullName: { contains: search, mode: 'insensitive' } },
@@ -91,6 +117,7 @@ export class ProductSubmissionService {
         where,
         skip,
         take: limit,
+        include: this.includeProduct(),
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.productSubmission.count({ where }),
@@ -108,7 +135,10 @@ export class ProductSubmissionService {
   }
 
   async findOne(id: string) {
-    const submission = await this.prisma.productSubmission.findUnique({ where: { id } });
+    const submission = await this.prisma.productSubmission.findUnique({
+      where: { id },
+      include: this.includeProduct(),
+    });
     if (!submission) {
       throw new NotFoundException(`Product submission with ID "${id}" not found`);
     }
@@ -121,6 +151,13 @@ export class ProductSubmissionService {
       throw new NotFoundException(`Product submission with ID "${id}" not found`);
     }
 
+    if (dto.productId) {
+      const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+      if (!product) {
+        throw new BadRequestException('Product not found');
+      }
+    }
+
     const updated = await this.prisma.productSubmission.update({
       where: { id },
       data: {
@@ -131,7 +168,9 @@ export class ProductSubmissionService {
         useCase: dto.useCase?.trim() ?? existing.useCase,
         status: dto.status ?? existing.status,
         adminNotes: dto.adminNotes ?? existing.adminNotes,
+        productId: dto.productId !== undefined ? dto.productId : existing.productId,
       },
+      include: this.includeProduct(),
     });
 
     this.audit(userId, 'PRODUCT_SUBMISSION', id, 'UPDATE', existing, updated);

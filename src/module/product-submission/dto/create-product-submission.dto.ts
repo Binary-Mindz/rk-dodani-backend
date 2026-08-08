@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { TargetDeployTimeline } from '@prisma/client';
 
 export class CreateProductSubmissionDto {
@@ -29,4 +29,9 @@ export class CreateProductSubmissionDto {
   @IsString()
   @IsOptional()
   useCase?: string;
+
+  @ApiPropertyOptional({ description: 'ID of the product this submission is for' })
+  @IsUUID()
+  @IsOptional()
+  productId?: string;
 }

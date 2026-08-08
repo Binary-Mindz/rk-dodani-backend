@@ -32,6 +32,19 @@ export class ServiceSubmissionService {
       .catch(() => {});
   }
 
+  private includeService() {
+    return {
+      service: {
+        select: {
+          id: true,
+          title: true,
+          heading: true,
+          description: true,
+        },
+      },
+    };
+  }
+
   private formatSubmission(submission: any) {
     if (!submission) return submission;
     return {
@@ -40,6 +53,8 @@ export class ServiceSubmissionService {
       corporateEmail: submission.corporateEmail,
       primaryFocusArea: submission.primaryFocusArea,
       message: submission.message,
+      serviceId: submission.serviceId,
+      service: submission.service ?? null,
       status: submission.status,
       adminNotes: submission.adminNotes,
       createdAt: submission.createdAt,
@@ -52,13 +67,22 @@ export class ServiceSubmissionService {
       throw new BadRequestException('Full name is required');
     }
 
+    if (dto.serviceId) {
+      const service = await this.prisma.services.findUnique({ where: { id: dto.serviceId } });
+      if (!service) {
+        throw new BadRequestException('Service not found');
+      }
+    }
+
     const created = await this.prisma.serviceSubmission.create({
       data: {
         fullName: dto.fullName.trim(),
         corporateEmail: dto.corporateEmail.trim(),
         primaryFocusArea: dto.primaryFocusArea,
         message: dto.message ?? null,
+        serviceId: dto.serviceId ?? null,
       },
+      include: this.includeService(),
     });
 
     this.audit(null, 'SERVICE_SUBMISSION', created.id, 'CREATE', null, created);
@@ -66,12 +90,13 @@ export class ServiceSubmissionService {
   }
 
   async findAll(query: QueryServiceSubmissionDto) {
-    const { search, status, primaryFocusArea, page = 1, limit = 10 } = query;
+    const { search, status, primaryFocusArea, serviceId, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       ...(status && { status }),
       ...(primaryFocusArea && { primaryFocusArea }),
+      ...(serviceId && { serviceId }),
       ...(search && {
         OR: [
           { fullName: { contains: search, mode: 'insensitive' } },
@@ -86,6 +111,7 @@ export class ServiceSubmissionService {
         where,
         skip,
         take: limit,
+        include: this.includeService(),
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.serviceSubmission.count({ where }),
@@ -105,6 +131,7 @@ export class ServiceSubmissionService {
   async findOne(id: string) {
     const submission = await this.prisma.serviceSubmission.findUnique({
       where: { id },
+      include: this.includeService(),
     });
 
     if (!submission) {
@@ -122,6 +149,13 @@ export class ServiceSubmissionService {
       throw new NotFoundException(`Service submission with ID "${id}" not found`);
     }
 
+    if (dto.serviceId) {
+      const service = await this.prisma.services.findUnique({ where: { id: dto.serviceId } });
+      if (!service) {
+        throw new BadRequestException('Service not found');
+      }
+    }
+
     const updated = await this.prisma.serviceSubmission.update({
       where: { id },
       data: {
@@ -131,7 +165,9 @@ export class ServiceSubmissionService {
         message: dto.message ?? existing.message,
         status: dto.status ?? existing.status,
         adminNotes: dto.adminNotes ?? existing.adminNotes,
+        serviceId: dto.serviceId !== undefined ? dto.serviceId : existing.serviceId,
       },
+      include: this.includeService(),
     });
 
     this.audit(userId, 'SERVICE_SUBMISSION', id, 'UPDATE', existing, updated);

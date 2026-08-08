@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { ProductSubmissionStatus, TargetDeployTimeline } from '@prisma/client';
 
 export class QueryProductSubmissionDto {
@@ -18,15 +19,22 @@ export class QueryProductSubmissionDto {
   @IsOptional()
   targetDeployTimeline?: TargetDeployTimeline;
 
-  @ApiPropertyOptional({ description: 'Page number', example: 1 })
-  @IsInt()
-  @Min(1)
+  @ApiPropertyOptional({ description: 'Filter by product ID' })
+  @IsUUID()
   @IsOptional()
-  page?: number;
+  productId?: string;
 
-  @ApiPropertyOptional({ description: 'Items per page', example: 10 })
+  @ApiPropertyOptional({ description: 'Page number', default: 1 })
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @IsOptional()
-  limit?: number;
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Items per page', default: 10 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  limit?: number = 10;
 }
