@@ -353,6 +353,61 @@ export class UserManagementService {
     });
   }
 
+  async deleteUser(id: string, adminId: string) {
+    const existingUser = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const deletedUser = await this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          status: UserStatus.BLOCKED,
+        },
+      });
+
+      await tx.userRole.updateMany({
+        where: { userId: id },
+        data: { isActive: false },
+      });
+
+      await tx.subscription.updateMany({
+        where: { userId: id, status: SubscriptionStatus.ACTIVE },
+        data: { status: SubscriptionStatus.CANCELED },
+      });
+
+      await tx.entitlement.updateMany({
+        where: { userId: id, status: EntitlementStatus.ACTIVE },
+        data: { status: EntitlementStatus.REVOKED, endsAt: new Date() },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: adminId,
+          entityType: 'USER_ACCOUNT',
+          entityId: id,
+          action: AuditAction.DELETE,
+          newValues: {
+            deleted: true,
+            deletedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      return updatedUser;
+    });
+
+    return {
+      success: true,
+      id: deletedUser.id,
+    };
+  }
+
   async updateUserSubscription(userId: string, dto: UpdateSubscriptionDto, adminId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

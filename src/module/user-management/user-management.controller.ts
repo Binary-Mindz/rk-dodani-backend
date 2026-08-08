@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRoleCode } from '@prisma/client';
 import { Roles } from 'common/decorators/roles.decorator';
@@ -79,6 +79,21 @@ export class UserManagementController {
     return {
       statusCode: 200,
       message: 'User subscription updated successfully.',
+      data,
+    };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a user account from the admin panel' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully.' })
+  async deleteUser(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    const data = await this.userManagementService.deleteUser(id, adminId);
+    return {
+      statusCode: 200,
+      message: 'User deleted successfully.',
       data,
     };
   }
