@@ -23,6 +23,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { AuditService } from '../audit/audit.service';
+import { GoogleOAuthProfile } from '../../common/strategies/google.strategy';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +38,157 @@ export class AuthService {
     private readonly subscriptionService: SubscriptionService,
     private readonly auditService: AuditService,
   ) {}
+
+  async handleGoogleCallback(profile: unknown) {
+    const googleProfile = profile as GoogleOAuthProfile;
+
+    if (!googleProfile?.providerUserId || !googleProfile.email) {
+      throw new UnauthorizedException('Invalid Google profile');
+    }
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const existingProvider = await tx.authProvider.findUnique({
+        where: {
+          provider_providerUserId: {
+            provider: AuthProviderType.GOOGLE,
+            providerUserId: googleProfile.providerUserId,
+          },
+        },
+      });
+
+      if (existingProvider) {
+        await tx.authProvider.update({
+          where: { id: existingProvider.id },
+          data: {
+            providerEmail: googleProfile.email,
+            rawProfile: googleProfile.rawProfile as any,
+            lastSyncedAt: new Date(),
+          },
+        });
+
+        return tx.user.findUniqueOrThrow({
+          where: { id: existingProvider.userId },
+        });
+      }
+
+      const existingUser = await tx.user.findUnique({
+        where: { email: googleProfile.email },
+      });
+
+      if (existingUser) {
+        const updatedUser = await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            emailVerified: true,
+            emailVerifiedAt: existingUser.emailVerifiedAt ?? new Date(),
+            status:
+              existingUser.status === UserStatus.PENDING_VERIFICATION
+                ? UserStatus.ACTIVE
+                : existingUser.status,
+            firstName:
+              existingUser.firstName ?? googleProfile.firstName ?? null,
+            lastName: existingUser.lastName ?? googleProfile.lastName ?? null,
+            fullName: existingUser.fullName ?? googleProfile.fullName ?? null,
+            avatarUrl:
+              existingUser.avatarUrl ?? googleProfile.avatarUrl ?? null,
+          },
+        });
+
+        await tx.authProvider.create({
+          data: {
+            userId: existingUser.id,
+            provider: AuthProviderType.GOOGLE,
+            providerUserId: googleProfile.providerUserId,
+            providerEmail: googleProfile.email,
+            rawProfile: googleProfile.rawProfile as any,
+            isPrimary: existingUser.signupSource !== AuthProviderType.LOCAL,
+            lastSyncedAt: new Date(),
+          },
+        });
+
+        return updatedUser;
+      }
+
+      return tx.user.create({
+        data: {
+          email: googleProfile.email,
+          firstName: googleProfile.firstName ?? null,
+          lastName: googleProfile.lastName ?? null,
+          fullName:
+            googleProfile.fullName ||
+            [googleProfile.firstName, googleProfile.lastName]
+              .filter(Boolean)
+              .join(' ') ||
+            null,
+          avatarUrl: googleProfile.avatarUrl ?? null,
+          status: UserStatus.ACTIVE,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          signupSource: AuthProviderType.GOOGLE,
+          authProviders: {
+            create: {
+              provider: AuthProviderType.GOOGLE,
+              providerUserId: googleProfile.providerUserId,
+              providerEmail: googleProfile.email,
+              rawProfile: googleProfile.rawProfile as any,
+              isPrimary: true,
+              lastSyncedAt: new Date(),
+            },
+          },
+        },
+      });
+    });
+
+    if (
+      user.status === UserStatus.BLOCKED ||
+      user.status === UserStatus.DELETED ||
+      user.status === UserStatus.INACTIVE
+    ) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    await this.ensureBaselineAccess(user.id, 'google login');
+    await this.syncRoleFromActiveSubscription(user.id);
+
+    const freshUserWithRoles = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        roles: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
+    });
+
+    const roles = this.extractRoleCodes(freshUserWithRoles?.roles ?? []);
+    const tokens = await this.generateTokens(user.id, user.email, roles);
+    await this.saveRefreshSession(user.id, tokens.refreshToken);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    this.audit(user.id, 'AUTH', user.id, 'CREATE', undefined, {
+      email: user.email,
+      action: 'google_login',
+    });
+
+    return {
+      message: 'Google login successful',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: freshUserWithRoles?.firstName ?? user.firstName,
+          lastName: freshUserWithRoles?.lastName ?? user.lastName,
+          fullName: freshUserWithRoles?.fullName ?? user.fullName,
+          roles,
+        },
+        ...tokens,
+      },
+    };
+  }
 
   private audit(
     actorUserId: string | null,
@@ -643,6 +795,28 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  private async ensureBaselineAccess(userId: string, context: string) {
+    try {
+      await this.subscriptionService.ensureFreePlanForUser(userId);
+
+      const studentRole = await this.prisma.role.findUnique({
+        where: { code: UserRoleCode.STUDENT },
+      });
+      if (studentRole) {
+        await this.prisma.userRole.upsert({
+          where: { userId_roleId: { userId, roleId: studentRole.id } },
+          create: { userId, roleId: studentRole.id, isActive: true },
+          update: { isActive: true },
+        });
+      }
+    } catch (subError) {
+      console.error(
+        `💥 Baseline activation bypassed during ${context}:`,
+        subError,
+      );
+    }
+  }
+
   private extractRoleCodes(
     userRoles: Array<{ role: { code: UserRoleCode } }>,
   ): UserRoleCode[] {
@@ -666,7 +840,10 @@ export class AuthService {
       },
     });
 
-    if (!user || user.roles.some((item) => item.role.code === UserRoleCode.SUPER_ADMIN)) {
+    if (
+      !user ||
+      user.roles.some((item) => item.role.code === UserRoleCode.SUPER_ADMIN)
+    ) {
       return;
     }
 
