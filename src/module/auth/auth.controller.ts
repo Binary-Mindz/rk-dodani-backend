@@ -17,7 +17,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @Post('register')
   @ApiOperation({
@@ -35,37 +35,14 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
-  async login(
-    @Body() dto: LoginDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.authService.login(dto);
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    const accessCookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: (isProduction ? 'none' : 'lax') as any,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    };
-
-    const refreshCookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: (isProduction ? 'none' : 'lax') as any,
-      maxAge: 90 * 24 * 60 * 60 * 1000,
-    };
-
-    res.cookie('accessToken', result.data.accessToken, accessCookieOptions);
-    res.cookie('refreshToken', result.data.refreshToken, refreshCookieOptions);
-
-    return result;
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Start Google OAuth login' })
-  async googleLogin() {}
+  async googleLogin() { }
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
@@ -74,49 +51,18 @@ export class AuthController {
     const result = await this.authService.handleGoogleCallback(req.user);
     const { accessToken, refreshToken } = result.data;
 
-    const isProduction = process.env.NODE_ENV === 'production';
-    const cookieDomain = this.configService.get<string>('COOKIE_DOMAIN');
-
-    const accessCookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: (isProduction ? 'none' : 'lax') as any,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      ...(cookieDomain && { domain: cookieDomain }),
-    };
-
-    const refreshCookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: (isProduction ? 'none' : 'lax') as any,
-      maxAge: 90 * 24 * 60 * 60 * 1000,
-      ...(cookieDomain && { domain: cookieDomain }),
-    };
-
-    res.cookie('accessToken', accessToken, accessCookieOptions);
-    res.cookie('refreshToken', refreshToken, refreshCookieOptions);
-
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    return res.redirect(`${frontendUrl}/dashboard`);
+    return res.redirect(
+      `${frontendUrl}/social-login?accessToken=${accessToken}&refreshToken=${refreshToken}`,
+    );
   }
 
   @Post('logout')
-  @ApiOperation({ summary: 'Logout user and clear auth cookies' })
-  async logout(@Res({ passthrough: true }) res: Response) {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const cookieDomain = this.configService.get<string>('COOKIE_DOMAIN');
+  @ApiOperation({ summary: 'Logout user' })
+  async logout() {
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: (isProduction ? 'none' : 'lax') as any,
-      ...(cookieDomain && { domain: cookieDomain }),
-    };
-
-    res.clearCookie('accessToken', cookieOptions);
-    res.clearCookie('refreshToken', cookieOptions);
     return { message: 'Logged out successfully' };
   }
 
