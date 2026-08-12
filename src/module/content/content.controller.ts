@@ -9,7 +9,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import { CreateContentDto } from './dto/create-content.dto';
 import { UpdateContentDto } from './dto/update-content.dto';
@@ -27,7 +32,7 @@ import { CreateRatingDto } from './dto/create-rating.dto';
 @ApiTags('Content')
 @Controller()
 export class ContentController {
-  constructor(private readonly service: ContentService) { }
+  constructor(private readonly service: ContentService) {}
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -145,16 +150,34 @@ export class ContentController {
     };
   }
 
-
   @Get('content')
-  @ApiOperation({ summary: 'Get public content list with multiple content type filters' })
-  @ApiResponse({ status: 200, description: 'Public content list fetched successfully.' })
+  @ApiOperation({
+    summary: 'Get public content list with multiple content type filters',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Public content list fetched successfully.',
+  })
   async findPublicAll(@Query() query: QueryPublicContentDto) {
     const data = await this.service.findPublicAll(query);
 
     return {
       statusCode: 200,
       message: 'Public content list fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('content/bookmarks')
+  @ApiOperation({ summary: 'Get current user bookmarked content' })
+  async getBookmarks(@CurrentUser('id') userId: string) {
+    const data = await this.service.getBookmarks(userId);
+
+    return {
+      statusCode: 200,
+      message: 'Bookmarked content fetched successfully',
       data,
     };
   }
@@ -170,6 +193,25 @@ export class ContentController {
     return {
       statusCode: 200,
       message: 'Content fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('content/:id/bookmark')
+  @ApiOperation({ summary: 'Bookmark or unmark a content item' })
+  async toggleBookmark(
+    @CurrentUser('id') userId: string,
+    @Param('id') contentItemId: string,
+  ) {
+    const data = await this.service.toggleBookmark(userId, contentItemId);
+
+    return {
+      statusCode: 200,
+      message: data.isBookmarked
+        ? 'Content bookmarked successfully'
+        : 'Content unmarked successfully',
       data,
     };
   }
@@ -194,7 +236,9 @@ export class ContentController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('content/:id/rate')
-  @ApiOperation({ summary: 'Submit or update user rating for a content item (1-5 stars)' })
+  @ApiOperation({
+    summary: 'Submit or update user rating for a content item (1-5 stars)',
+  })
   async rateContent(
     @CurrentUser('id') userId: string,
     @Param('id') contentItemId: string,
@@ -209,7 +253,10 @@ export class ContentController {
   }
 
   @Get('content/:id/ratings')
-  @ApiOperation({ summary: 'Get all ratings & reviews for a content item (average, distribution, list)' })
+  @ApiOperation({
+    summary:
+      'Get all ratings & reviews for a content item (average, distribution, list)',
+  })
   async getRatings(@Param('id') contentItemId: string) {
     const data = await this.service.getRatings(contentItemId);
     return {

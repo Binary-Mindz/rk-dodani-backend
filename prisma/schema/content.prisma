@@ -45,6 +45,7 @@ model ContentItem {
   userContentProgresses UserContentProgress[]
   userActivityLogs      UserActivityLog[]
   ratings               ContentRating[]
+  bookmarks             ContentBookmark[]
 
   @@index([contentTypeId])
   @@index([status, publishedAt])
@@ -119,6 +120,20 @@ model Tag {
   contentTags ContentTag[]
 
   @@index([isActive])
+}
+
+model ContentBookmark {
+  id            String   @id @default(uuid())
+  userId        String
+  contentItemId String
+  createdAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId])
+  @@index([contentItemId])
 }
 
 model ContentAccessRule {

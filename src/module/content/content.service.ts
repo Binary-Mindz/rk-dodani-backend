@@ -15,7 +15,7 @@ import { CreateRatingDto } from './dto/create-rating.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ContentAccessService } from '../content-access/content-access.service';
-import {Cache} from "@nestjs/cache-manager";
+import { Cache } from '@nestjs/cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
@@ -76,6 +76,30 @@ export class ContentService {
         throw new BadRequestException('One or more tags are invalid');
       }
     }
+  }
+
+  private publicContentSelect() {
+    return {
+      id: true,
+      slug: true,
+      title: true,
+      subtitle: true,
+      excerpt: true,
+      summary: true,
+      authorDisplayName: true,
+      coverImageUrl: true,
+      thumbnailUrl: true,
+      publishedAt: true,
+      isFeatured: true,
+      isPinned: true,
+      readingTimeMinutes: true,
+      accessModel: true,
+      contentType: true,
+      isDownloadable: true,
+      fileUrl: true,
+      contentCategories: { include: { category: true } },
+      contentTags: { include: { tag: true } },
+    } satisfies Prisma.ContentItemSelect;
   }
 
   async create(userId: string, dto: CreateContentDto) {
@@ -605,27 +629,7 @@ export class ContentService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.contentItem.findMany({
         where,
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          subtitle: true,
-          excerpt: true,
-          summary: true,
-          authorDisplayName: true,
-          coverImageUrl: true,
-          thumbnailUrl: true,
-          publishedAt: true,
-          isFeatured: true,
-          isPinned: true,
-          readingTimeMinutes: true,
-          accessModel: true,
-          contentType: true,
-          isDownloadable: true,
-          fileUrl: true,
-          contentCategories: { include: { category: true } },
-          contentTags: { include: { tag: true } },
-        },
+        select: this.publicContentSelect(),
         orderBy: [
           { isPinned: 'desc' },
           { isFeatured: 'desc' },
@@ -648,6 +652,85 @@ export class ContentService {
       items: sanitized,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
+  }
+
+  async getBookmarks(userId: string) {
+    const bookmarks = await this.prisma.contentBookmark.findMany({
+      where: {
+        userId,
+        contentItem: {
+          deletedAt: null,
+          status: PublishStatus.PUBLISHED,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        contentItem: {
+          select: this.publicContentSelect(),
+        },
+      },
+    });
+
+    return this.serializeBigInt(
+      bookmarks.map((bookmark) => ({
+        id: bookmark.id,
+        contentItemId: bookmark.contentItemId,
+        bookmarkedAt: bookmark.createdAt,
+        content: {
+          ...bookmark.contentItem,
+          isBookmarked: true,
+        },
+      })),
+    );
+  }
+
+  async toggleBookmark(userId: string, contentItemId: string) {
+    const content = await this.prisma.contentItem.findFirst({
+      where: {
+        id: contentItemId,
+        deletedAt: null,
+        status: PublishStatus.PUBLISHED,
+      },
+      select: { id: true },
+    });
+
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    const existing = await this.prisma.contentBookmark.findUnique({
+      where: {
+        userId_contentItemId: {
+          userId,
+          contentItemId,
+        },
+      },
+    });
+
+    if (existing) {
+      await this.prisma.contentBookmark.delete({
+        where: { id: existing.id },
+      });
+
+      return {
+        contentItemId,
+        isBookmarked: false,
+      };
+    }
+
+    const bookmark = await this.prisma.contentBookmark.create({
+      data: {
+        userId,
+        contentItemId,
+      },
+    });
+
+    return {
+      id: bookmark.id,
+      contentItemId,
+      isBookmarked: true,
+      bookmarkedAt: bookmark.createdAt,
+    };
   }
 
   async findPublicBySlug(slug: string, userId: string | null) {
@@ -673,7 +756,9 @@ export class ContentService {
     // Step 3: download access check — hide fileUrl if no DOWNLOAD_ACCESS entitlement
     let fileUrl = content.fileUrl;
     if (content.isDownloadable && content.fileUrl && userId) {
-      const hasDownloadAccess = await (this.contentAccessService as any).checkDownloadAccess?.(userId, content.id);
+      const hasDownloadAccess = await (
+        this.contentAccessService as any
+      ).checkDownloadAccess?.(userId, content.id);
       if (!hasDownloadAccess) fileUrl = null;
     } else if (content.isDownloadable && content.fileUrl && !userId) {
       fileUrl = null;
@@ -684,7 +769,49 @@ export class ContentService {
       data: { viewCount: { increment: 1 } },
     });
 
-    return this.serializeBigInt({ ...content, fileUrl });
+    const categoryIds = content.contentCategories.map(
+      (contentCategory) => contentCategory.categoryId,
+    );
+
+    const [relatedContents, bookmark] = await Promise.all([
+      categoryIds.length
+        ? this.prisma.contentItem.findMany({
+            where: {
+              id: { not: content.id },
+              deletedAt: null,
+              status: PublishStatus.PUBLISHED,
+              contentCategories: {
+                some: { categoryId: { in: categoryIds } },
+              },
+            },
+            select: this.publicContentSelect(),
+            orderBy: [
+              { isFeatured: 'desc' },
+              { publishedAt: 'desc' },
+              { createdAt: 'desc' },
+            ],
+            take: 5,
+          })
+        : Promise.resolve([]),
+      userId
+        ? this.prisma.contentBookmark.findUnique({
+            where: {
+              userId_contentItemId: {
+                userId,
+                contentItemId: content.id,
+              },
+            },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    return this.serializeBigInt({
+      ...content,
+      fileUrl,
+      isBookmarked: Boolean(bookmark),
+      relatedContents,
+    });
   }
 
   async trackProgress(userId: string, contentItemId: string, dto: any) {
