@@ -5,7 +5,7 @@ import { CurrentUserData } from 'common/interfaces/current-user.interface';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 import { PrismaService } from 'prisma/prisma.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-
+import { Request } from 'express';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -16,7 +16,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const secret = configService.getOrThrow<string>('JWT_ACCESS_SECRET');
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) =>
+          req?.cookies?.accessToken ?? req?.cookies?.access_token ?? null,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: secret,
     });
