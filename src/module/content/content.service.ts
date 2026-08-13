@@ -14,6 +14,7 @@ import { QueryAdminContentDto } from './dto/query-admin-content.dto';
 import { QueryPublicContentDto } from './dto/query-public-content.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
+import { QueryBookmarksDto } from './dto/query-bookmarks.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ContentAccessService } from '../content-access/content-access.service';
@@ -676,39 +677,53 @@ export class ContentService {
     });
   }
 
-  async getBookmarks(userId: string) {
+  async getBookmarks(userId: string, query: QueryBookmarksDto) {
     if (!userId) {
       throw new UnauthorizedException('Authentication required');
     }
 
-    try {
-      const bookmarks = await this.prisma.contentBookmark.findMany({
-        where: {
-          userId,
-          contentItem: {
-            deletedAt: null,
-            status: PublishStatus.PUBLISHED,
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          contentItem: {
-            select: this.publicContentSelect(),
-          },
-        },
-      });
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
 
-      return this.serializeBigInt(
-        bookmarks.map((bookmark) => ({
-          id: bookmark.id,
-          contentItemId: bookmark.contentItemId,
-          bookmarkedAt: bookmark.createdAt,
-          content: {
-            ...bookmark.contentItem,
-            isBookmarked: true,
+    try {
+      const where: Prisma.ContentBookmarkWhereInput = {
+        userId,
+        contentItem: {
+          deletedAt: null,
+          status: PublishStatus.PUBLISHED,
+        },
+      };
+
+      const [bookmarks, total] = await this.prisma.$transaction([
+        this.prisma.contentBookmark.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+          include: {
+            contentItem: {
+              select: this.publicContentSelect(),
+            },
           },
-        })),
-      );
+        }),
+        this.prisma.contentBookmark.count({ where }),
+      ]);
+
+      const items = bookmarks.map((bookmark) => ({
+        id: bookmark.id,
+        contentItemId: bookmark.contentItemId,
+        bookmarkedAt: bookmark.createdAt,
+        content: {
+          ...bookmark.contentItem,
+          isBookmarked: true,
+        },
+      }));
+
+      return this.serializeBigInt({
+        items,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     } catch (error) {
       this.handleBookmarkPersistenceError(error);
     }

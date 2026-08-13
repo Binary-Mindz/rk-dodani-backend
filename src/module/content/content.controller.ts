@@ -28,6 +28,7 @@ import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { TrackProgressDto } from './dto/track-progress.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
+import { QueryBookmarksDto } from './dto/query-bookmarks.dto';
 
 @ApiTags('Content')
 @Controller()
@@ -172,8 +173,11 @@ export class ContentController {
   @UseGuards(JwtAuthGuard)
   @Get('content/bookmarks')
   @ApiOperation({ summary: 'Get current user bookmarked content' })
-  async getBookmarks(@CurrentUser('id') userId: string) {
-    const data = await this.service.getBookmarks(userId);
+  async getBookmarks(
+    @CurrentUser('id') userId: string,
+    @Query() query: QueryBookmarksDto,
+  ) {
+    const data = await this.service.getBookmarks(userId, query);
 
     return {
       statusCode: 200,
