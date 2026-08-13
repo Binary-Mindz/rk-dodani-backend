@@ -870,6 +870,7 @@ export class ContentService {
       externalEmbedCode: access.allowed ? content.externalEmbedCode : null,
       hasAccess: access.allowed,
       accessReason: access.reason,
+      isAuthenticated: Boolean(userId),
       isBookmarked: Boolean(bookmark),
       relatedContents,
     });
