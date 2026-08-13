@@ -25,6 +25,7 @@ import { Roles } from 'common/decorators/roles.decorator';
 import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from 'common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { TrackProgressDto } from './dto/track-progress.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
@@ -187,6 +188,7 @@ export class ContentController {
   }
 
   @Get('content/:slug')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get public content details by slug' })
   async findPublicBySlug(
     @Param('slug') slug: string,

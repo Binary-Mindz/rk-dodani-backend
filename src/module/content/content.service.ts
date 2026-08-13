@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -710,14 +709,22 @@ export class ContentService {
         this.prisma.contentBookmark.count({ where }),
       ]);
 
+      const GATED_MODELS: ContentAccessModel[] = [
+        ContentAccessModel.PREMIUM,
+        ContentAccessModel.PATREON,
+        ContentAccessModel.TIER_BASED,
+        ContentAccessModel.CUSTOM,
+      ];
+
       const items = bookmarks.map((bookmark) => ({
-        id: bookmark.id,
-        contentItemId: bookmark.contentItemId,
+        ...bookmark.contentItem,
+        isGated: GATED_MODELS.includes(bookmark.contentItem.accessModel),
+        fileUrl: GATED_MODELS.includes(bookmark.contentItem.accessModel)
+          ? null
+          : bookmark.contentItem.fileUrl,
+        isBookmarked: true,
+        bookmarkId: bookmark.id,
         bookmarkedAt: bookmark.createdAt,
-        content: {
-          ...bookmark.contentItem,
-          isBookmarked: true,
-        },
       }));
 
       return this.serializeBigInt({
@@ -790,10 +797,6 @@ export class ContentService {
     // Step 1: access check
     const access = await this.contentAccessService.checkAccess(slug, userId);
 
-    if (!access.allowed) {
-      throw new ForbiddenException(access.reason);
-    }
-
     // Step 2: fetch full content
     const content = await this.prisma.contentItem.findFirst({
       where: { slug, deletedAt: null, status: PublishStatus.PUBLISHED },
@@ -807,8 +810,8 @@ export class ContentService {
     if (!content) throw new NotFoundException('Content not found');
 
     // Step 3: download access check — hide fileUrl if no DOWNLOAD_ACCESS entitlement
-    let fileUrl = content.fileUrl;
-    if (content.isDownloadable && content.fileUrl && userId) {
+    let fileUrl = access.allowed ? content.fileUrl : null;
+    if (access.allowed && content.isDownloadable && content.fileUrl && userId) {
       const hasDownloadAccess = await (
         this.contentAccessService as any
       ).checkDownloadAccess?.(userId, content.id);
@@ -862,6 +865,11 @@ export class ContentService {
     return this.serializeBigInt({
       ...content,
       fileUrl,
+      plainTextBody: access.allowed ? content.plainTextBody : null,
+      externalUrl: access.allowed ? content.externalUrl : null,
+      externalEmbedCode: access.allowed ? content.externalEmbedCode : null,
+      hasAccess: access.allowed,
+      accessReason: access.reason,
       isBookmarked: Boolean(bookmark),
       relatedContents,
     });
