@@ -4,6 +4,8 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, PublishStatus, ContentAccessModel } from '@prisma/client';
 import { CreateContentDto } from './dto/create-content.dto';
@@ -43,6 +45,26 @@ export class ContentService {
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  private handleBookmarkPersistenceError(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2021'
+    ) {
+      throw new ServiceUnavailableException(
+        'Content bookmark storage is not ready. Run the latest Prisma migrations.',
+      );
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2003'
+    ) {
+      throw new BadRequestException('Invalid user or content item');
+    }
+
+    throw error;
   }
 
   private async validateRelations(dto: {
@@ -655,36 +677,48 @@ export class ContentService {
   }
 
   async getBookmarks(userId: string) {
-    const bookmarks = await this.prisma.contentBookmark.findMany({
-      where: {
-        userId,
-        contentItem: {
-          deletedAt: null,
-          status: PublishStatus.PUBLISHED,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        contentItem: {
-          select: this.publicContentSelect(),
-        },
-      },
-    });
+    if (!userId) {
+      throw new UnauthorizedException('Authentication required');
+    }
 
-    return this.serializeBigInt(
-      bookmarks.map((bookmark) => ({
-        id: bookmark.id,
-        contentItemId: bookmark.contentItemId,
-        bookmarkedAt: bookmark.createdAt,
-        content: {
-          ...bookmark.contentItem,
-          isBookmarked: true,
+    try {
+      const bookmarks = await this.prisma.contentBookmark.findMany({
+        where: {
+          userId,
+          contentItem: {
+            deletedAt: null,
+            status: PublishStatus.PUBLISHED,
+          },
         },
-      })),
-    );
+        orderBy: { createdAt: 'desc' },
+        include: {
+          contentItem: {
+            select: this.publicContentSelect(),
+          },
+        },
+      });
+
+      return this.serializeBigInt(
+        bookmarks.map((bookmark) => ({
+          id: bookmark.id,
+          contentItemId: bookmark.contentItemId,
+          bookmarkedAt: bookmark.createdAt,
+          content: {
+            ...bookmark.contentItem,
+            isBookmarked: true,
+          },
+        })),
+      );
+    } catch (error) {
+      this.handleBookmarkPersistenceError(error);
+    }
   }
 
   async toggleBookmark(userId: string, contentItemId: string) {
+    if (!userId) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
     const content = await this.prisma.contentItem.findFirst({
       where: {
         id: contentItemId,
@@ -698,39 +732,43 @@ export class ContentService {
       throw new NotFoundException('Content not found');
     }
 
-    const existing = await this.prisma.contentBookmark.findUnique({
-      where: {
-        userId_contentItemId: {
+    try {
+      const existing = await this.prisma.contentBookmark.findUnique({
+        where: {
+          userId_contentItemId: {
+            userId,
+            contentItemId,
+          },
+        },
+      });
+
+      if (existing) {
+        await this.prisma.contentBookmark.delete({
+          where: { id: existing.id },
+        });
+
+        return {
+          contentItemId,
+          isBookmarked: false,
+        };
+      }
+
+      const bookmark = await this.prisma.contentBookmark.create({
+        data: {
           userId,
           contentItemId,
         },
-      },
-    });
-
-    if (existing) {
-      await this.prisma.contentBookmark.delete({
-        where: { id: existing.id },
       });
 
       return {
+        id: bookmark.id,
         contentItemId,
-        isBookmarked: false,
+        isBookmarked: true,
+        bookmarkedAt: bookmark.createdAt,
       };
+    } catch (error) {
+      this.handleBookmarkPersistenceError(error);
     }
-
-    const bookmark = await this.prisma.contentBookmark.create({
-      data: {
-        userId,
-        contentItemId,
-      },
-    });
-
-    return {
-      id: bookmark.id,
-      contentItemId,
-      isBookmarked: true,
-      bookmarkedAt: bookmark.createdAt,
-    };
   }
 
   async findPublicBySlug(slug: string, userId: string | null) {
