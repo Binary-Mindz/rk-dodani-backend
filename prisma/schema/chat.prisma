@@ -1,13 +1,13 @@
 model Conversation {
-  id          String               @id @default(uuid())
-  type        ConversationType     @default(DIRECT)
+  id          String           @id @default(uuid())
+  type        ConversationType @default(DIRECT)
   name        String?
   title       String?
   description String?
   avatar      String?
   createdBy   String?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   members  ConversationMember[]
   messages Message[]

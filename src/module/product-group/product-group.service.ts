@@ -39,6 +39,7 @@ export class ProductGroupService {
       name: group.name,
       description: group.description,
       icon: group.icon,
+      order: group.order,
     };
   }
 
@@ -48,6 +49,7 @@ export class ProductGroupService {
         name: dto.name,
         description: dto.description ?? null,
         icon: dto.icon ?? null,
+        order: dto.order ?? 0,
       },
     });
 
@@ -72,7 +74,7 @@ export class ProductGroupService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
       }),
       this.prisma.productGroup.count({ where }),
     ]);
@@ -94,6 +96,7 @@ export class ProductGroupService {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.icon !== undefined && { icon: dto.icon }),
+        ...(dto.order !== undefined && { order: dto.order }),
       },
     });
 
