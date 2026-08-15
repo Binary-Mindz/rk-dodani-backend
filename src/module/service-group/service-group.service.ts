@@ -44,30 +44,38 @@ export class ServiceGroupService {
   }
 
   async create(userId: string | null, dto: CreateServiceGroupDto) {
-    let orderToSet = dto.order;
+    const created = await this.prisma.$transaction(async (tx) => {
+      let orderToSet = dto.order;
 
-    if (orderToSet !== undefined) {
-      const existingWithOrder = await this.prisma.serviceGroup.findUnique({
-        where: { order: orderToSet },
-      });
-      if (existingWithOrder) {
-        throw new ConflictException(`Service group with order ${orderToSet} already exists`);
+      if (orderToSet !== undefined) {
+        const affected = await tx.serviceGroup.findMany({
+          where: { order: { gte: orderToSet } },
+          orderBy: { order: 'desc' },
+          select: { id: true, order: true },
+        });
+
+        for (const item of affected) {
+          await tx.serviceGroup.update({
+            where: { id: item.id },
+            data: { order: item.order + 1 },
+          });
+        }
+      } else {
+        const lastGroup = await tx.serviceGroup.findFirst({
+          orderBy: { order: 'desc' },
+          select: { order: true },
+        });
+        orderToSet = (lastGroup?.order ?? 0) + 1;
       }
-    } else {
-      const lastGroup = await this.prisma.serviceGroup.findFirst({
-        orderBy: { order: 'desc' },
-        select: { order: true },
-      });
-      orderToSet = (lastGroup?.order ?? 0) + 1;
-    }
 
-    const created = await this.prisma.serviceGroup.create({
-      data: {
-        name: dto.name,
-        description: dto.description ?? null,
-        icon: dto.icon ?? null,
-        order: orderToSet,
-      },
+      return tx.serviceGroup.create({
+        data: {
+          name: dto.name,
+          description: dto.description ?? null,
+          icon: dto.icon ?? null,
+          order: orderToSet,
+        },
+      });
     });
 
     this.audit(userId, created.id, 'CREATE', null, created);
@@ -108,23 +116,64 @@ export class ServiceGroupService {
   async update(userId: string | null, id: string, dto: UpdateServiceGroupDto) {
     const existing = await this.findOne(id);
 
-    if (dto.order !== undefined && dto.order !== existing.order) {
-      const existingWithOrder = await this.prisma.serviceGroup.findUnique({
-        where: { order: dto.order },
-      });
-      if (existingWithOrder && existingWithOrder.id !== id) {
-        throw new ConflictException(`Service group with order ${dto.order} already exists`);
-      }
-    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      let orderToSet = existing.order;
 
-    const updated = await this.prisma.serviceGroup.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.icon !== undefined && { icon: dto.icon }),
-        ...(dto.order !== undefined && { order: dto.order }),
-      },
+      if (dto.order !== undefined && dto.order !== existing.order) {
+        const targetOrder = dto.order;
+
+        // Temporarily assign a safe negative value to free slot
+        await tx.serviceGroup.update({
+          where: { id },
+          data: { order: -existing.order },
+        });
+
+        if (targetOrder < existing.order) {
+          // Moving UP (e.g. 4 -> 1): Shift 1..3 up by 1 (1->2, 2->3, 3->4)
+          const affected = await tx.serviceGroup.findMany({
+            where: {
+              order: { gte: targetOrder, lt: existing.order },
+            },
+            orderBy: { order: 'desc' },
+            select: { id: true, order: true },
+          });
+
+          for (const item of affected) {
+            await tx.serviceGroup.update({
+              where: { id: item.id },
+              data: { order: item.order + 1 },
+            });
+          }
+        } else {
+          // Moving DOWN (e.g. 1 -> 4): Shift 2..4 down by 1 (2->1, 3->2, 4->3)
+          const affected = await tx.serviceGroup.findMany({
+            where: {
+              order: { gt: existing.order, lte: targetOrder },
+            },
+            orderBy: { order: 'asc' },
+            select: { id: true, order: true },
+          });
+
+          for (const item of affected) {
+            await tx.serviceGroup.update({
+              where: { id: item.id },
+              data: { order: item.order - 1 },
+            });
+          }
+        }
+
+        orderToSet = targetOrder;
+      }
+
+      return tx.serviceGroup.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.icon !== undefined && { icon: dto.icon }),
+          order: orderToSet,
+        },
+      });
     });
 
     this.audit(userId, id, 'UPDATE', existing, updated);
@@ -133,7 +182,24 @@ export class ServiceGroupService {
 
   async remove(userId: string | null, id: string) {
     const existing = await this.findOne(id);
-    await this.prisma.serviceGroup.delete({ where: { id } });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.serviceGroup.delete({ where: { id } });
+
+      const affected = await tx.serviceGroup.findMany({
+        where: { order: { gt: existing.order } },
+        orderBy: { order: 'asc' },
+        select: { id: true, order: true },
+      });
+
+      for (const item of affected) {
+        await tx.serviceGroup.update({
+          where: { id: item.id },
+          data: { order: item.order - 1 },
+        });
+      }
+    });
+
     this.audit(userId, id, 'DELETE', existing, null);
     return { success: true, id };
   }

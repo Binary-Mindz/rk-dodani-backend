@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateServiceGroupDto {
@@ -19,7 +19,8 @@ export class CreateServiceGroupDto {
   icon?: string;
 
   @ApiPropertyOptional({ description: 'Order of the group', example: 1 })
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   @IsOptional()
   order?: number;
