@@ -117,6 +117,16 @@ enum ContentAccessModel {
   CUSTOM
 }
 
+enum ContentFileFormat {
+  PDF_DOCUMENT
+  EXCEL_SPREADSHEET
+  PPT_PRESENTATION
+  AUDIO_FILE
+  MP4_VIDEO
+  IMAGE_PNG
+  MERMAID
+}
+
 enum StoredFileKind {
   IMAGE
   PDF

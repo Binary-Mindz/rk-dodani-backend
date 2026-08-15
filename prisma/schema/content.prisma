@@ -13,7 +13,7 @@ model ContentItem {
   status             PublishStatus      @default(DRAFT)
   visibility         ContentVisibility  @default(PUBLIC)
   accessModel        ContentAccessModel @default(PUBLIC)
-  contentFormat      String?
+  contentFormat      ContentFileFormat?
   externalUrl        String?
   externalEmbedCode  String?
   readingTimeMinutes Int?

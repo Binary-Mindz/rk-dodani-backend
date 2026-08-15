@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ContentAccessModel, ContentVisibility, PublishStatus } from '@prisma/client';
+import {
+  ContentAccessModel,
+  ContentFileFormat,
+  ContentVisibility,
+  PublishStatus,
+} from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -84,11 +89,14 @@ export class CreateContentDto {
   @IsEnum(ContentAccessModel)
   accessModel?: ContentAccessModel;
 
-  @ApiPropertyOptional({ description: 'Format of the content', example: 'PDF' })
+  @ApiPropertyOptional({
+    enum: ContentFileFormat,
+    example: ContentFileFormat.PDF_DOCUMENT,
+    description: 'Format of the content file',
+  })
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  contentFormat?: string;
+  @IsEnum(ContentFileFormat)
+  contentFormat?: ContentFileFormat;
 
   @ApiPropertyOptional({ description: 'External source URL if content is hosted elsewhere', example: 'https://example.com/external' })
   @IsOptional()
