@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -44,12 +44,29 @@ export class ServiceGroupService {
   }
 
   async create(userId: string | null, dto: CreateServiceGroupDto) {
+    let orderToSet = dto.order;
+
+    if (orderToSet !== undefined) {
+      const existingWithOrder = await this.prisma.serviceGroup.findUnique({
+        where: { order: orderToSet },
+      });
+      if (existingWithOrder) {
+        throw new ConflictException(`Service group with order ${orderToSet} already exists`);
+      }
+    } else {
+      const lastGroup = await this.prisma.serviceGroup.findFirst({
+        orderBy: { order: 'desc' },
+        select: { order: true },
+      });
+      orderToSet = (lastGroup?.order ?? 0) + 1;
+    }
+
     const created = await this.prisma.serviceGroup.create({
       data: {
         name: dto.name,
         description: dto.description ?? null,
         icon: dto.icon ?? null,
-        order: dto.order ?? 0,
+        order: orderToSet,
       },
     });
 
@@ -90,6 +107,16 @@ export class ServiceGroupService {
 
   async update(userId: string | null, id: string, dto: UpdateServiceGroupDto) {
     const existing = await this.findOne(id);
+
+    if (dto.order !== undefined && dto.order !== existing.order) {
+      const existingWithOrder = await this.prisma.serviceGroup.findUnique({
+        where: { order: dto.order },
+      });
+      if (existingWithOrder && existingWithOrder.id !== id) {
+        throw new ConflictException(`Service group with order ${dto.order} already exists`);
+      }
+    }
+
     const updated = await this.prisma.serviceGroup.update({
       where: { id },
       data: {
