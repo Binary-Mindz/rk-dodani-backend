@@ -13,7 +13,11 @@ import { QueryAdminContentDto } from './dto/query-admin-content.dto';
 import { QueryPublicContentDto } from './dto/query-public-content.dto';
 import { UpdateContentStatusDto } from './dto/update-content-status.dto';
 import { CreateRatingDto } from './dto/create-rating.dto';
-import { QueryBookmarksDto } from './dto/query-bookmarks.dto';
+import {
+  BookmarkSortBy,
+  BookmarkSortOrder,
+  QueryBookmarksDto,
+} from './dto/query-bookmarks.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ContentAccessService } from '../content-access/content-access.service';
@@ -684,20 +688,92 @@ export class ContentService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+    const sortOrder = query.sortOrder ?? BookmarkSortOrder.DESC;
+
+    let orderBy: Prisma.ContentBookmarkOrderByWithRelationInput = {
+      createdAt: sortOrder,
+    };
+
+    if (query.sortBy === BookmarkSortBy.PUBLISHED_AT) {
+      orderBy = { contentItem: { publishedAt: sortOrder } };
+    } else if (query.sortBy === BookmarkSortBy.CREATED_AT) {
+      orderBy = { contentItem: { createdAt: sortOrder } };
+    } else if (query.sortBy === BookmarkSortBy.TITLE) {
+      orderBy = { contentItem: { title: sortOrder } };
+    } else if (query.sortBy === BookmarkSortBy.BOOKMARKED_AT) {
+      orderBy = { createdAt: sortOrder };
+    }
 
     try {
+      const contentItemWhere: Prisma.ContentItemWhereInput = {
+        deletedAt: null,
+        status: PublishStatus.PUBLISHED,
+
+        ...(query.search && {
+          OR: [
+            { title: { contains: query.search, mode: 'insensitive' } },
+            { excerpt: { contains: query.search, mode: 'insensitive' } },
+            { summary: { contains: query.search, mode: 'insensitive' } },
+          ],
+        }),
+
+        ...(query.categorySlug && {
+          contentCategories: {
+            some: { category: { slug: query.categorySlug } },
+          },
+        }),
+
+        ...(query.categoryIds &&
+          query.categoryIds.length > 0 && {
+            contentCategories: {
+              some: { categoryId: { in: query.categoryIds } },
+            },
+          }),
+
+        ...(query.tagSlug && {
+          contentTags: { some: { tag: { slug: query.tagSlug } } },
+        }),
+
+        ...(query.tagIds &&
+          query.tagIds.length > 0 && {
+            contentTags: { some: { tagId: { in: query.tagIds } } },
+          }),
+
+        ...(query.contentTypeId && {
+          contentTypeId: query.contentTypeId,
+        }),
+
+        ...(query.contentTypeIds &&
+          query.contentTypeIds.length > 0 && {
+            contentTypeId: { in: query.contentTypeIds },
+          }),
+
+        ...(query.contentTypeCode && {
+          contentType: { code: query.contentTypeCode },
+        }),
+
+        ...(query.contentFormat && {
+          contentFormat: query.contentFormat,
+        }),
+
+        ...(query.accessModel && {
+          accessModel: query.accessModel,
+        }),
+
+        ...(query.isFeatured !== undefined && {
+          isFeatured: query.isFeatured,
+        }),
+      };
+
       const where: Prisma.ContentBookmarkWhereInput = {
         userId,
-        contentItem: {
-          deletedAt: null,
-          status: PublishStatus.PUBLISHED,
-        },
+        contentItem: contentItemWhere,
       };
 
       const [bookmarks, total] = await this.prisma.$transaction([
         this.prisma.contentBookmark.findMany({
           where,
-          orderBy: { createdAt: 'desc' },
+          orderBy,
           skip,
           take: limit,
           include: {
