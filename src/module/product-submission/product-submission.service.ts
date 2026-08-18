@@ -43,8 +43,8 @@ export class ProductSubmissionService {
           id: true,
           title: true,
           subTitle: true,
+          module: true,
           description: true,
-          productImage: true,
         },
       },
     };
