@@ -23,7 +23,9 @@ import { QueryProductSubmissionDto } from './dto/query-product-submission.dto';
 @ApiTags('Product Submissions')
 @Controller()
 export class ProductSubmissionController {
-  constructor(private readonly productSubmissionService: ProductSubmissionService) {}
+  constructor(
+    private readonly productSubmissionService: ProductSubmissionService,
+  ) {}
 
   @Post('product-submissions')
   @ApiOperation({ summary: 'Submit a new product request' })

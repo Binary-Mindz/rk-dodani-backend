@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { SubscriptionStatus, UserRoleCode, InquiryType, InquiryStatus } from '@prisma/client';
+import {
+  SubscriptionStatus,
+  UserRoleCode,
+  InquiryType,
+  InquiryStatus,
+} from '@prisma/client';
 
 @Injectable()
 export class SuperAdminOverviewService {
@@ -35,18 +40,16 @@ export class SuperAdminOverviewService {
         }
       }
 
-      const previousActiveSubscriptions = await this.prisma.subscription.findMany({
-        where: {
-          startedAt: { lte: thirtyDaysAgo },
-          OR: [
-            { endedAt: null },
-            { endedAt: { gt: thirtyDaysAgo } },
-          ],
-        },
-        include: {
-          plan: true,
-        },
-      });
+      const previousActiveSubscriptions =
+        await this.prisma.subscription.findMany({
+          where: {
+            startedAt: { lte: thirtyDaysAgo },
+            OR: [{ endedAt: null }, { endedAt: { gt: thirtyDaysAgo } }],
+          },
+          include: {
+            plan: true,
+          },
+        });
 
       let previousMRR = 0;
       for (const sub of previousActiveSubscriptions) {
@@ -82,10 +85,7 @@ export class SuperAdminOverviewService {
         by: ['userId'],
         where: {
           startedAt: { lte: thirtyDaysAgo },
-          OR: [
-            { endedAt: null },
-            { endedAt: { gt: thirtyDaysAgo } },
-          ],
+          OR: [{ endedAt: null }, { endedAt: { gt: thirtyDaysAgo } }],
           plan: {
             priceAmount: { gt: 0 },
           },
@@ -95,7 +95,10 @@ export class SuperAdminOverviewService {
 
       let paidUsersGrowth = 0;
       if (previousActivePaidUsers > 0) {
-        paidUsersGrowth = ((currentActivePaidUsers - previousActivePaidUsers) / previousActivePaidUsers) * 100;
+        paidUsersGrowth =
+          ((currentActivePaidUsers - previousActivePaidUsers) /
+            previousActivePaidUsers) *
+          100;
       } else if (currentActivePaidUsers > 0) {
         paidUsersGrowth = 100;
       }
@@ -115,7 +118,10 @@ export class SuperAdminOverviewService {
         },
       });
 
-      const currentConversionRate = totalUsersCount > 0 ? (currentActivePaidUsers / totalUsersCount) * 100 : 0;
+      const currentConversionRate =
+        totalUsersCount > 0
+          ? (currentActivePaidUsers / totalUsersCount) * 100
+          : 0;
 
       const previousTotalUsersCount = await this.prisma.user.count({
         where: {
@@ -128,18 +134,21 @@ export class SuperAdminOverviewService {
               },
             },
           },
-          OR: [
-            { deletedAt: null },
-            { deletedAt: { gt: thirtyDaysAgo } },
-          ],
+          OR: [{ deletedAt: null }, { deletedAt: { gt: thirtyDaysAgo } }],
         },
       });
 
-      const previousConversionRate = previousTotalUsersCount > 0 ? (previousActivePaidUsers / previousTotalUsersCount) * 100 : 0;
+      const previousConversionRate =
+        previousTotalUsersCount > 0
+          ? (previousActivePaidUsers / previousTotalUsersCount) * 100
+          : 0;
 
       let conversionRateGrowth = 0;
       if (previousConversionRate > 0) {
-        conversionRateGrowth = ((currentConversionRate - previousConversionRate) / previousConversionRate) * 100;
+        conversionRateGrowth =
+          ((currentConversionRate - previousConversionRate) /
+            previousConversionRate) *
+          100;
       } else if (currentConversionRate > 0) {
         conversionRateGrowth = 100;
       }
@@ -149,7 +158,12 @@ export class SuperAdminOverviewService {
         where: {
           inquiryType: InquiryType.SUPPORT,
           status: {
-            in: [InquiryStatus.NEW, InquiryStatus.REVIEWED, InquiryStatus.CONTACTED, InquiryStatus.QUALIFIED],
+            in: [
+              InquiryStatus.NEW,
+              InquiryStatus.REVIEWED,
+              InquiryStatus.CONTACTED,
+              InquiryStatus.QUALIFIED,
+            ],
           },
         },
       });
@@ -158,19 +172,23 @@ export class SuperAdminOverviewService {
         where: {
           inquiryType: InquiryType.SUPPORT,
           createdAt: { lte: thirtyDaysAgo },
-          OR: [
-            { closedAt: null },
-            { closedAt: { gt: thirtyDaysAgo } },
-          ],
+          OR: [{ closedAt: null }, { closedAt: { gt: thirtyDaysAgo } }],
           status: {
-            in: [InquiryStatus.NEW, InquiryStatus.REVIEWED, InquiryStatus.CONTACTED, InquiryStatus.QUALIFIED],
+            in: [
+              InquiryStatus.NEW,
+              InquiryStatus.REVIEWED,
+              InquiryStatus.CONTACTED,
+              InquiryStatus.QUALIFIED,
+            ],
           },
         },
       });
 
       let ticketsGrowth = 0;
       if (previousOpenTickets > 0) {
-        ticketsGrowth = ((currentOpenTickets - previousOpenTickets) / previousOpenTickets) * 100;
+        ticketsGrowth =
+          ((currentOpenTickets - previousOpenTickets) / previousOpenTickets) *
+          100;
       } else if (currentOpenTickets > 0) {
         ticketsGrowth = 100;
       }
@@ -194,7 +212,9 @@ export class SuperAdminOverviewService {
         },
       };
     } catch (error) {
-      this.logger.error(`Error calculating super admin dashboard metrics: ${error.message}`);
+      this.logger.error(
+        `Error calculating super admin dashboard metrics: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -206,10 +226,7 @@ export class SuperAdminOverviewService {
           status: 'PUBLISHED',
           deletedAt: null,
         },
-        orderBy: [
-          { downloadCount: 'desc' },
-          { viewCount: 'desc' },
-        ],
+        orderBy: [{ downloadCount: 'desc' }, { viewCount: 'desc' }],
         take: 5,
         include: {
           contentType: true,
@@ -240,7 +257,9 @@ export class SuperAdminOverviewService {
         };
       });
     } catch (error) {
-      this.logger.error(`Error fetching top content engagement: ${error.message}`);
+      this.logger.error(
+        `Error fetching top content engagement: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -252,8 +271,20 @@ export class SuperAdminOverviewService {
 
       // Look at the last 6 completed calendar months
       for (let i = 6; i >= 1; i--) {
-        const targetMonthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const targetMonthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+        const targetMonthStart = new Date(
+          now.getFullYear(),
+          now.getMonth() - i,
+          1,
+        );
+        const targetMonthEnd = new Date(
+          now.getFullYear(),
+          now.getMonth() - i + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        );
 
         // Find subscriptions that started in this target month
         const cohort = await this.prisma.subscription.findMany({
@@ -271,12 +302,17 @@ export class SuperAdminOverviewService {
         if (totalCohort > 0) {
           // Check how many of these are active or trialing
           retainedCount = cohort.filter(
-            (sub) => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIALING,
+            (sub) =>
+              sub.status === SubscriptionStatus.ACTIVE ||
+              sub.status === SubscriptionStatus.TRIALING,
           ).length;
         }
 
-        const retentionRate = totalCohort > 0 ? (retainedCount / totalCohort) * 100 : 0;
-        const monthName = targetMonthStart.toLocaleString('en-US', { month: 'short' });
+        const retentionRate =
+          totalCohort > 0 ? (retainedCount / totalCohort) * 100 : 0;
+        const monthName = targetMonthStart.toLocaleString('en-US', {
+          month: 'short',
+        });
 
         retentionData.push({
           month: monthName,
@@ -288,7 +324,9 @@ export class SuperAdminOverviewService {
 
       return retentionData;
     } catch (error) {
-      this.logger.error(`Error calculating subscription retention: ${error.message}`);
+      this.logger.error(
+        `Error calculating subscription retention: ${error.message}`,
+      );
       throw error;
     }
   }

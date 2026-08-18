@@ -33,7 +33,11 @@ export class TeamOnboardingController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
+  @Roles(
+    UserRoleCode.STUDENT,
+    UserRoleCode.ENTERPRISE,
+    UserRoleCode.SUPER_ADMIN,
+  )
   @Post('invitations/accept')
   @ApiOperation({ summary: 'Accept a B2B team invitation' })
   async acceptInvitation(
@@ -50,9 +54,9 @@ export class TeamOnboardingController {
 
   @ApiBearerAuth()
   @Roles(UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
-  @Post("bulk-approve")
-  @ApiOperation({summary:"Accept all pending members"})
-  async bulkApprove(@CurrentUser('id') userId:string){
+  @Post('bulk-approve')
+  @ApiOperation({ summary: 'Accept all pending members' })
+  async bulkApprove(@CurrentUser('id') userId: string) {
     const data = await this.teamService.bulkApprove(userId);
     return {
       statusCode: 200,
@@ -62,12 +66,17 @@ export class TeamOnboardingController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
+  @Roles(
+    UserRoleCode.STUDENT,
+    UserRoleCode.ENTERPRISE,
+    UserRoleCode.SUPER_ADMIN,
+  )
   @Get('discover')
-  @ApiOperation({ summary: 'Discover active B2B teams/CTOs matching the user\'s email domain suffix' })
-  async discoverTeams(
-    @CurrentUser('id') userId: string,
-  ) {
+  @ApiOperation({
+    summary:
+      "Discover active B2B teams/CTOs matching the user's email domain suffix",
+  })
+  async discoverTeams(@CurrentUser('id') userId: string) {
     const data = await this.teamService.discoverOrganizationTeams(userId);
     return {
       statusCode: 200,
@@ -77,17 +86,25 @@ export class TeamOnboardingController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
+  @Roles(
+    UserRoleCode.STUDENT,
+    UserRoleCode.ENTERPRISE,
+    UserRoleCode.SUPER_ADMIN,
+  )
   @Post('join')
   @ApiOperation({ summary: 'Request to join a specific organization B2B team' })
   async requestToJoinTeam(
     @CurrentUser('id') userId: string,
     @Body() dto: JoinTeamRequestDto,
   ) {
-    const data = await this.teamService.requestToJoinTeam(userId, dto.ctoUserId);
+    const data = await this.teamService.requestToJoinTeam(
+      userId,
+      dto.ctoUserId,
+    );
     return {
       statusCode: 200,
-      message: 'Join request submitted successfully. Waiting for admin approval.',
+      message:
+        'Join request submitted successfully. Waiting for admin approval.',
       data,
     };
   }

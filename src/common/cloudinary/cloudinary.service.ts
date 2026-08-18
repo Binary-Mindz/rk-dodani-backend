@@ -26,7 +26,7 @@ export class CloudinaryService {
     }
 
     const fileCategory = this.resolveFileCategory(mimetype);
-    
+
     // Cloudinary resource type set up (image, video, or raw for docs)
     const resourceType =
       fileCategory === 'image'
@@ -47,21 +47,23 @@ export class CloudinaryService {
 
     try {
       // Cloudinary expects a stream for buffers
-      const uploadResponse = await new Promise<UploadApiResponse>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: folder,
-            public_id: baseName,
-            resource_type: resourceType,
-          },
-          (error, result) => {
-            if (error) return reject(error);
-            resolve(result!);
-          },
-        );
+      const uploadResponse = await new Promise<UploadApiResponse>(
+        (resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: folder,
+              public_id: baseName,
+              resource_type: resourceType,
+            },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result!);
+            },
+          );
 
-        Readable.from(fileBuffer).pipe(uploadStream);
-      });
+          Readable.from(fileBuffer).pipe(uploadStream);
+        },
+      );
 
       // Prisma create file record
       const fileRecord = await this.prisma.fileInstance.create({
@@ -83,7 +85,9 @@ export class CloudinaryService {
 
       return fileRecord;
     } catch (error) {
-      throw new BadRequestException(`Failed to upload file to Cloudinary: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to upload file to Cloudinary: ${error.message}`,
+      );
     }
   }
 
@@ -111,7 +115,9 @@ export class CloudinaryService {
         throw new Error(result.result);
       }
     } catch (error) {
-      throw new BadRequestException(`Failed to delete file from Cloudinary: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to delete file from Cloudinary: ${error.message}`,
+      );
     }
 
     // Remove from Database

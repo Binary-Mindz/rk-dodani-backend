@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class UpdateMaintenanceDto {
   @ApiProperty({
@@ -11,7 +17,8 @@ export class UpdateMaintenanceDto {
 
   @ApiProperty({
     description: 'Message to display to users during maintenance',
-    example: 'We are currently performing scheduled maintenance. Please check back soon.',
+    example:
+      'We are currently performing scheduled maintenance. Please check back soon.',
   })
   @IsNotEmpty()
   @IsString()

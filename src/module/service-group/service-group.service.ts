@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -104,12 +108,16 @@ export class ServiceGroupService {
       this.prisma.serviceGroup.count({ where }),
     ]);
 
-    return { items: items.map((item) => this.formatGroup(item)), meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      items: items.map((item) => this.formatGroup(item)),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string) {
     const group = await this.prisma.serviceGroup.findUnique({ where: { id } });
-    if (!group) throw new NotFoundException(`Service group with ID "${id}" not found`);
+    if (!group)
+      throw new NotFoundException(`Service group with ID "${id}" not found`);
     return this.formatGroup(group);
   }
 
@@ -169,7 +177,9 @@ export class ServiceGroupService {
         where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.icon !== undefined && { icon: dto.icon }),
           order: orderToSet,
         },

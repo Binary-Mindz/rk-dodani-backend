@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class InquiryDto {
@@ -37,7 +43,9 @@ export class InquiryDto {
   })
   @IsNotEmpty({ message: 'Message cannot be empty' })
   @IsString()
-  @Length(10, 1000, { message: 'Message must be between 10 and 1000 characters' })
+  @Length(10, 1000, {
+    message: 'Message must be between 10 and 1000 characters',
+  })
   message: string;
 
   @ApiProperty({

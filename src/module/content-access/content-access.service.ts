@@ -302,7 +302,7 @@ export class ContentAccessService {
             id: {
               in: entitlements
                 .filter((item) => item.planId)
-                .map((item) => item.planId!)
+                .map((item) => item.planId!),
             },
           },
           select: { code: true },
@@ -424,7 +424,10 @@ export class ContentAccessService {
     };
   }
 
-  async checkDownloadAccess(userId: string, contentItemId: string): Promise<boolean> {
+  async checkDownloadAccess(
+    userId: string,
+    contentItemId: string,
+  ): Promise<boolean> {
     const now = new Date();
     const entitlement = await this.prisma.entitlement.findFirst({
       where: {
@@ -434,7 +437,10 @@ export class ContentAccessService {
           { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
           {
             OR: [
-              { entitlementType: EntitlementType.DOWNLOAD_ACCESS, contentItemId },
+              {
+                entitlementType: EntitlementType.DOWNLOAD_ACCESS,
+                contentItemId,
+              },
               { entitlementType: EntitlementType.PREMIUM_ACCESS },
             ],
           },

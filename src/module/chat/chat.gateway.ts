@@ -40,7 +40,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
       const payload = this.jwtService.verify(token, { secret });
-      client.data.user = { id: payload.sub, email: payload.email, roles: payload.roles ?? [] };
+      client.data.user = {
+        id: payload.sub,
+        email: payload.email,
+        roles: payload.roles ?? [],
+      };
       this.logger.log(`Client connected: ${client.id} (user: ${payload.sub})`);
     } catch {
       client.emit('error', 'Unauthorized');

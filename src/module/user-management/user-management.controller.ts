@@ -1,5 +1,23 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRoleCode } from '@prisma/client';
 import { Roles } from 'common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
@@ -18,26 +36,34 @@ import { UserManagementService } from './user-management.service';
 @Roles(UserRoleCode.SUPER_ADMIN)
 @Controller('admin/user-management')
 export class UserManagementController {
-  constructor(private readonly userManagementService: UserManagementService) { }
+  constructor(private readonly userManagementService: UserManagementService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Fetch all users with tabular mapping matching dashboard grid' })
+  @ApiOperation({
+    summary: 'Fetch all users with tabular mapping matching dashboard grid',
+  })
   async findAll(@Query() query: QueryUserManagementDto) {
     return this.userManagementService.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'View core comprehensive details of a target user profile (Mapped for detail grid side drawer)' })
+  @ApiOperation({
+    summary:
+      'View core comprehensive details of a target user profile (Mapped for detail grid side drawer)',
+  })
   async findOne(@Param('id') id: string) {
     return this.userManagementService.findOne(id);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Edit Assigned Plan, change Billing Cycles & update core profile properties' })
+  @ApiOperation({
+    summary:
+      'Edit Assigned Plan, change Billing Cycles & update core profile properties',
+  })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateUserManagementDto,
-    @CurrentUser('id') userId: string
+    @CurrentUser('id') userId: string,
   ) {
     const data = await this.userManagementService.update(id, dto, userId);
     return {
@@ -48,14 +74,24 @@ export class UserManagementController {
   }
 
   @Post(':id/toggle-suspend')
-  @ApiOperation({ summary: 'Toggle status between Suspended (BLOCKED) and ACTIVE with accountability logs' })
-  @ApiResponse({ status: 200, description: 'User account status toggled successfully.' })
+  @ApiOperation({
+    summary:
+      'Toggle status between Suspended (BLOCKED) and ACTIVE with accountability logs',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User account status toggled successfully.',
+  })
   async toggleSuspendUser(
     @Param('id') id: string,
     @Body() dto: ToggleSuspendDto,
     @CurrentUser('id') adminId: string,
   ) {
-    const data = await this.userManagementService.toggleSuspendUser(id, dto, adminId);
+    const data = await this.userManagementService.toggleSuspendUser(
+      id,
+      dto,
+      adminId,
+    );
     return {
       statusCode: 200,
       message: `User account status has been successfully changed to ${data.status}.`,
@@ -65,17 +101,24 @@ export class UserManagementController {
 
   @Patch('update-subscription/:id')
   @ApiOperation({ summary: 'Update user subscription plan and billing cycle' })
-  @ApiResponse({ status: 200, description: 'User subscription updated successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'User subscription updated successfully.',
+  })
   @ApiParam({
-    name: "id",
-    example: "6913b56c-1455-4e3f-821f-89234b051c59"
+    name: 'id',
+    example: '6913b56c-1455-4e3f-821f-89234b051c59',
   })
   async updateSubscription(
     @Param('id') id: string,
     @Body() dto: UpdateSubscriptionDto,
     @CurrentUser('id') adminId: string,
   ) {
-    const data = await this.userManagementService.updateUserSubscription(id, dto, adminId);
+    const data = await this.userManagementService.updateUserSubscription(
+      id,
+      dto,
+      adminId,
+    );
     return {
       statusCode: 200,
       message: 'User subscription updated successfully.',
@@ -104,14 +147,12 @@ export class UserManagementController {
   @ApiOperation({ summary: 'Export user data into a csv' })
   @ApiResponse({ status: 200, description: 'Export successfully.' })
   async fetch_and_export_user_data_as_csv(@Res() res: Response) {
-    const data = await this.userManagementService.fetch_and_export_user_data_as_csv_from_db();
+    const data =
+      await this.userManagementService.fetch_and_export_user_data_as_csv_from_db();
 
     // export as file
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=users.csv',
-    );
+    res.setHeader('Content-Disposition', 'attachment; filename=users.csv');
     return res.send(data);
   }
 }

@@ -30,7 +30,7 @@ export class TeamService {
     private readonly mailService: MailService,
     private readonly chatService: ChatService,
     private readonly auditService: AuditService,
-  ) { }
+  ) {}
 
   private audit(
     actorUserId: string | null,
@@ -48,7 +48,7 @@ export class TeamService {
         oldValues,
         newValues,
       })
-      .catch(() => { });
+      .catch(() => {});
   }
 
   async getUsers(query: GetTeamMembersDto) {
@@ -331,10 +331,7 @@ export class TeamService {
 
     // Filter to only team members of currentUserId, OR the user themselves
     userFilters.push({
-      OR: [
-        { id: currentUserId },
-        { parentUserId: currentUserId },
-      ],
+      OR: [{ id: currentUserId }, { parentUserId: currentUserId }],
     });
 
     if (query?.teamRole) {
@@ -396,7 +393,9 @@ export class TeamService {
     });
 
     const formatAgo = (date: Date): string => {
-      const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+      const seconds = Math.floor(
+        (new Date().getTime() - date.getTime()) / 1000,
+      );
       if (seconds < 60) return `${Math.max(1, seconds)} sec ago`;
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `${minutes} min ago`;
@@ -411,10 +410,7 @@ export class TeamService {
         r.user.fullName ||
         `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() ||
         r.user.email;
-      const role =
-        r.user.teamRole ||
-        r.user.roles?.[0]?.role?.name ||
-        'Member';
+      const role = r.user.teamRole || r.user.roles?.[0]?.role?.name || 'Member';
 
       return {
         id: r.id,
@@ -925,19 +921,19 @@ export class TeamService {
 
     const featuredContent = featuredContentRaw
       ? {
-        id: featuredContentRaw.id,
-        slug: featuredContentRaw.slug,
-        title: featuredContentRaw.title,
-        subtitle:
-          featuredContentRaw.subtitle ||
-          featuredContentRaw.excerpt ||
-          featuredContentRaw.summary ||
-          '',
-        coverImageUrl:
-          featuredContentRaw.coverImageUrl ||
-          featuredContentRaw.thumbnailUrl ||
-          null,
-      }
+          id: featuredContentRaw.id,
+          slug: featuredContentRaw.slug,
+          title: featuredContentRaw.title,
+          subtitle:
+            featuredContentRaw.subtitle ||
+            featuredContentRaw.excerpt ||
+            featuredContentRaw.summary ||
+            '',
+          coverImageUrl:
+            featuredContentRaw.coverImageUrl ||
+            featuredContentRaw.thumbnailUrl ||
+            null,
+        }
       : null;
 
     const activeCategories = await this.prisma.category.findMany({
@@ -1306,7 +1302,9 @@ export class TeamService {
         },
       });
 
-      await this.chatService.ensureTeamConversation(invitation.invitedById, [userId]);
+      await this.chatService.ensureTeamConversation(invitation.invitedById, [
+        userId,
+      ]);
 
       return updatedUser;
     });
@@ -1902,15 +1900,15 @@ export class TeamService {
 
     const recommendedContent = recommendedItem
       ? {
-        id: recommendedItem.id,
-        title: recommendedItem.title,
-        slug: recommendedItem.slug,
-        description:
-          recommendedItem.excerpt ||
-          recommendedItem.summary ||
-          `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
-        tag: 'NEXT BEST ACTION',
-      }
+          id: recommendedItem.id,
+          title: recommendedItem.title,
+          slug: recommendedItem.slug,
+          description:
+            recommendedItem.excerpt ||
+            recommendedItem.summary ||
+            `Based on your interest in '${topCategory}', explore how linear scaling disrupts transformers.`,
+          tag: 'NEXT BEST ACTION',
+        }
       : null;
 
     const valueVaultItems = await this.prisma.contentItem.findMany({
@@ -1933,10 +1931,10 @@ export class TeamService {
       const avgRating =
         ratingsCount > 0
           ? Math.round(
-            (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
-              ratingsCount) *
-            10,
-          ) / 10
+              (item.ratings.reduce((sum, r) => sum + r.rating, 0) /
+                ratingsCount) *
+                10,
+            ) / 10
           : 0.0;
 
       return {
@@ -2144,19 +2142,23 @@ export class TeamService {
       },
       select: {
         id: true,
-        fullName: true
+        fullName: true,
       },
     });
-    
+
     return ctos.map((cto) => {
       return {
         id: cto.id,
-        name: cto.fullName || 'Unknown User'
+        name: cto.fullName || 'Unknown User',
       };
     });
   }
 
-  async updateBlockStatus(currentUserId: string, ratingId: string, isBlocked: boolean) {
+  async updateBlockStatus(
+    currentUserId: string,
+    ratingId: string,
+    isBlocked: boolean,
+  ) {
     const rating = await this.prisma.contentRating.findUnique({
       where: { id: ratingId },
       include: { user: true },
@@ -2167,8 +2169,13 @@ export class TeamService {
     }
 
     // Verify if the owner is the parent of the member who posted the feedback, or if it is the owner's own feedback
-    if (rating.user.parentUserId !== currentUserId && rating.userId !== currentUserId) {
-      throw new BadRequestException('You can only manage feedback from your own team members');
+    if (
+      rating.user.parentUserId !== currentUserId &&
+      rating.userId !== currentUserId
+    ) {
+      throw new BadRequestException(
+        'You can only manage feedback from your own team members',
+      );
     }
 
     return this.prisma.contentRating.update({

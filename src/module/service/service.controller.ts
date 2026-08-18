@@ -116,10 +116,7 @@ export class ServiceController {
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Delete('admin/services/:id')
   @ApiOperation({ summary: 'Delete a service' })
-  async remove(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-  ) {
+  async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     const data = await this.service.remove(userId, id);
     return {
       statusCode: 200,
@@ -127,5 +124,4 @@ export class ServiceController {
       data,
     };
   }
-
 }

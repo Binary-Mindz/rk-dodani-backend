@@ -1,4 +1,13 @@
-import { Controller, Get, Param, UseGuards, Patch, Delete, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  Patch,
+  Delete,
+  Body,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
@@ -29,10 +38,11 @@ export class TeamDashboardController {
     };
   }
 
-
   @ApiBearerAuth()
   @Get('metrics')
-  @ApiOperation({ summary: 'Get B2B team metrics (seat utilization, active sessions)' })
+  @ApiOperation({
+    summary: 'Get B2B team metrics (seat utilization, active sessions)',
+  })
   async getMetrics(@CurrentUser('id') userId: string) {
     const data = await this.teamService.getTeamMetrics(userId);
     return {
@@ -59,7 +69,10 @@ export class TeamDashboardController {
 
   @ApiBearerAuth()
   @Get('activity-feedback')
-  @ApiOperation({ summary: 'Get last rated maximum 10 content items for enterprise team members (Team Member Activity & Feedback)' })
+  @ApiOperation({
+    summary:
+      'Get last rated maximum 10 content items for enterprise team members (Team Member Activity & Feedback)',
+  })
   async getTeamActivityFeedback(
     @CurrentUser('id') userId: string,
     @Query() query: GetTeamMembersDto,
@@ -74,13 +87,19 @@ export class TeamDashboardController {
 
   @ApiBearerAuth()
   @Patch('activity-feedback/:ratingId/block-status')
-  @ApiOperation({ summary: 'Update block status of a team member\'s activity feedback' })
+  @ApiOperation({
+    summary: "Update block status of a team member's activity feedback",
+  })
   async updateBlockStatus(
     @CurrentUser('id') userId: string,
     @Param('ratingId') ratingId: string,
     @Body() dto: UpdateBlockStatusDto,
   ) {
-    const data = await this.teamService.updateBlockStatus(userId, ratingId, dto.isBlocked);
+    const data = await this.teamService.updateBlockStatus(
+      userId,
+      ratingId,
+      dto.isBlocked,
+    );
     return {
       statusCode: 200,
       message: `Activity feedback ${dto.isBlocked ? 'blocked' : 'unblocked'} successfully`,
@@ -90,12 +109,18 @@ export class TeamDashboardController {
 
   @ApiBearerAuth()
   @Get('members/:userId/activity')
-  @ApiOperation({ summary: 'Get detailed interaction and activity logs for a specific team member' })
+  @ApiOperation({
+    summary:
+      'Get detailed interaction and activity logs for a specific team member',
+  })
   async getMemberActivity(
     @CurrentUser('id') userId: string,
     @Param('userId') targetUserId: string,
   ) {
-    const data = await this.teamService.getTeamMemberActivityData(userId, targetUserId);
+    const data = await this.teamService.getTeamMemberActivityData(
+      userId,
+      targetUserId,
+    );
     return {
       statusCode: 200,
       message: 'Team member activity details fetched successfully',
@@ -105,13 +130,17 @@ export class TeamDashboardController {
 
   @ApiBearerAuth()
   @Patch('members/:userId/role')
-  @ApiOperation({ summary: 'Update a team member\'s role' })
+  @ApiOperation({ summary: "Update a team member's role" })
   async updateMemberRole(
     @CurrentUser('id') userId: string,
     @Param('userId') targetUserId: string,
     @Body() dto: UpdateMemberRoleDto,
   ) {
-    const data = await this.teamService.updateTeamMemberRole(userId, targetUserId, dto.role);
+    const data = await this.teamService.updateTeamMemberRole(
+      userId,
+      targetUserId,
+      dto.role,
+    );
     return {
       statusCode: 200,
       message: 'Team member role updated successfully',

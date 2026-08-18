@@ -12,7 +12,9 @@ export class TeamTestController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('random-members')
-  @ApiOperation({ summary: 'Create random team members for a given parent user' })
+  @ApiOperation({
+    summary: 'Create random team members for a given parent user',
+  })
   async createRandomMembers(@Body() dto: CreateRandomMembersDto) {
     const { parentUserId, count = 5 } = dto;
 

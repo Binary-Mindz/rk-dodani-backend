@@ -1,7 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { BillingProvider, BillingInterval, PlanAudience } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsOptional, IsEnum, IsString, IsBoolean, IsInt, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsString,
+  IsBoolean,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class QueryPlanDto {
   @ApiPropertyOptional({
@@ -13,7 +20,8 @@ export class QueryPlanDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter plans by target audience (B2C for students, B2B for enterprises)',
+    description:
+      'Filter plans by target audience (B2C for students, B2B for enterprises)',
     enum: PlanAudience,
     example: PlanAudience.B2C,
   })
@@ -40,7 +48,8 @@ export class QueryPlanDto {
   billingInterval?: BillingInterval;
 
   @ApiPropertyOptional({
-    description: 'Filter by visibility status (true for public plans, false for hidden/custom tiers)',
+    description:
+      'Filter by visibility status (true for public plans, false for hidden/custom tiers)',
     type: Boolean,
     example: true,
   })

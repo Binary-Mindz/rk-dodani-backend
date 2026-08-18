@@ -1,5 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { Roles } from 'common/decorators/roles.decorator';
@@ -16,18 +21,25 @@ export class UsageEngagementController {
 
   @ApiBearerAuth()
   @Get('usage-engagement')
-  @ApiOperation({ summary: 'Get usage and engagement analytics data (self activity or team metrics)' })
+  @ApiOperation({
+    summary:
+      'Get usage and engagement analytics data (self activity or team metrics)',
+  })
   @ApiQuery({
     name: 'mode',
     required: false,
     enum: ['self', 'team'],
-    description: 'Filter analytics to either "self" (personal activity) or "team" (overall team interactions)',
+    description:
+      'Filter analytics to either "self" (personal activity) or "team" (overall team interactions)',
   })
   async getUsageEngagementData(
     @CurrentUser('id') userId: string,
     @Query('mode') mode?: 'self' | 'team',
   ) {
-    const data = await this.teamService.getUsageEngagementData(userId, mode || 'team');
+    const data = await this.teamService.getUsageEngagementData(
+      userId,
+      mode || 'team',
+    );
     return {
       statusCode: 200,
       message: 'Usage & engagement analytics data fetched successfully',

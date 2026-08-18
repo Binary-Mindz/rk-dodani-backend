@@ -16,7 +16,10 @@ export class AccountSettingsController {
 
   @ApiBearerAuth()
   @Get('account-settings')
-  @ApiOperation({ summary: 'Get aggregated data for Account Settings dashboard page (stats and pending domain registrations)' })
+  @ApiOperation({
+    summary:
+      'Get aggregated data for Account Settings dashboard page (stats and pending domain registrations)',
+  })
   async getAccountSettingsPageData(@CurrentUser('id') userId: string) {
     const data = await this.teamService.getAccountSettingsPageData(userId);
     return {
@@ -28,7 +31,9 @@ export class AccountSettingsController {
 
   @ApiBearerAuth()
   @Get('pending-registrations')
-  @ApiOperation({ summary: 'Get pending registrations matching the company domain suffix' })
+  @ApiOperation({
+    summary: 'Get pending registrations matching the company domain suffix',
+  })
   async getPendingRegistrations(@CurrentUser('id') userId: string) {
     const data = await this.teamService.getPendingRegistrations(userId);
     return {
@@ -40,7 +45,9 @@ export class AccountSettingsController {
 
   @ApiBearerAuth()
   @Post('registrations/:userId/approve')
-  @ApiOperation({ summary: 'Approve pending registration and add user to team' })
+  @ApiOperation({
+    summary: 'Approve pending registration and add user to team',
+  })
   async approveMember(
     @CurrentUser('id') userId: string,
     @Param('userId') targetUserId: string,
@@ -55,7 +62,9 @@ export class AccountSettingsController {
 
   @ApiBearerAuth()
   @Post('registrations/:userId/reject')
-  @ApiOperation({ summary: 'Reject pending registration or remove user from team' })
+  @ApiOperation({
+    summary: 'Reject pending registration or remove user from team',
+  })
   async rejectMember(
     @CurrentUser('id') userId: string,
     @Param('userId') targetUserId: string,

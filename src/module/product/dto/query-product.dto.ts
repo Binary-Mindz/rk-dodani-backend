@@ -3,15 +3,18 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class QueryProductDto {
-  @ApiPropertyOptional({ description: 'Search term for product fields' })
+  @ApiPropertyOptional({
+    description:
+      'Search term for product title, subtitle, module, or description',
+  })
   @IsString()
   @IsOptional()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by product group ID' })
+  @ApiPropertyOptional({ description: 'Filter by module name' })
   @IsString()
   @IsOptional()
-  productGroupId?: string;
+  module?: string;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Type(() => Number)

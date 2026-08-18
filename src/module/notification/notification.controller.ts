@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRoleCode } from '@prisma/client';
 import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
@@ -16,7 +24,9 @@ export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all unread notifications for the logged-in user' })
+  @ApiOperation({
+    summary: 'Get all unread notifications for the logged-in user',
+  })
   async getUnread(@CurrentUser('id') userId: string) {
     const data = await this.notificationService.getUnread(userId);
     return { statusCode: 200, data };
@@ -31,7 +41,10 @@ export class NotificationController {
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark a single notification as read' })
-  async markOneRead(@Param('id') id: string, @CurrentUser('id') userId: string) {
+  async markOneRead(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
     await this.notificationService.markOneRead(id, userId);
     return { statusCode: 200, message: 'Notification marked as read' };
   }
@@ -39,7 +52,10 @@ export class NotificationController {
   @Post('send')
   @UseGuards(RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Manually send a notification to a specific user (Super Admin only)' })
+  @ApiOperation({
+    summary:
+      'Manually send a notification to a specific user (Super Admin only)',
+  })
   async send(@Body() dto: SendManualNotificationDto) {
     const data = await this.notificationService.send(dto);
     return { statusCode: 201, message: 'Notification sent successfully', data };

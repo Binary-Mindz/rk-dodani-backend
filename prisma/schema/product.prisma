@@ -1,70 +1,22 @@
 model Product {
   id String @id @default(uuid())
 
-  title                      String
-  subTitle                   String
-  description                String
-  productImage               String?
-  migrationVector            String?
-  scaleValueImpact           String?
-  architectureBlueprint      String?
-  initiateAthenionDiscussion String?
-  productGroupId             String?
-  productGroup               ProductGroup? @relation(fields: [productGroupId], references: [id], onDelete: SetNull)
+  title                          String
+  subTitle                       String
+  module                         String
+  description                    String
+  scaleValueImpact               Json?
+  mitigationVector               Json?
+  platformCapabilitiesDescriptor Json?
+
+  retailBanking                  Json?
+  capitalMarkets                 Json?
+  wealthAndAsset                 Json?
 
   isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  targetClient TargetClient[]
-  sectors      ProductSector[]
-  submissions  ProductSubmission[]
-
-  @@index([productGroupId])
-}
-
-model ProductGroup {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  icon        String?
-  order       Int      @unique @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  products Product[]
-
-  @@index([name])
-}
-
-model ProductSector {
-  id          String            @id @default(uuid())
-  productId   String
-  sectorType  ProductSectorType
-  title       String
-  description String?
-  keyFeatures String[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, sectorType])
-  @@index([productId])
-}
-
-model TargetClient {
-  id String @id @default(uuid())
-
-  type        TargetType @default(RETAIL_BANKING)
-  title       String
-  description String?
-  image       String?
-  keyFeature  String[]
-
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId String
-
-  @@index([productId])
+  submissions ProductSubmission[]
 }

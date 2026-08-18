@@ -1,14 +1,27 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
 
 export class QueryPublicContentDto {
-  @ApiPropertyOptional({ description: 'Search by title or excerpt', example: 'AI Trends' })
+  @ApiPropertyOptional({
+    description: 'Search by title or excerpt',
+    example: 'AI Trends',
+  })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by category slug', example: 'technology' })
+  @ApiPropertyOptional({
+    description: 'Filter by category slug',
+    example: 'technology',
+  })
   @IsOptional()
   @IsString()
   categorySlug?: string;
@@ -29,7 +42,10 @@ export class QueryPublicContentDto {
   @IsUUID('all', { each: true })
   categoryIds?: string[];
 
-  @ApiPropertyOptional({ description: 'Filter by tag slug', example: 'nest-js' })
+  @ApiPropertyOptional({
+    description: 'Filter by tag slug',
+    example: 'nest-js',
+  })
   @IsOptional()
   @IsString()
   tagSlug?: string;

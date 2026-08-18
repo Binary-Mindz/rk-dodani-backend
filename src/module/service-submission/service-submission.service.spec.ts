@@ -44,8 +44,12 @@ describe('submission admin updates', () => {
       ],
     }).compile();
 
-    serviceSubmissionService = module.get<ServiceSubmissionService>(ServiceSubmissionService);
-    productSubmissionService = module.get<ProductSubmissionService>(ProductSubmissionService);
+    serviceSubmissionService = module.get<ServiceSubmissionService>(
+      ServiceSubmissionService,
+    );
+    productSubmissionService = module.get<ProductSubmissionService>(
+      ProductSubmissionService,
+    );
   });
 
   it('only updates status and adminNotes for service submissions', async () => {

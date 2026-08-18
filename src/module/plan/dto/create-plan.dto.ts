@@ -16,7 +16,8 @@ import { Type } from 'class-transformer';
 
 export class CreatePlanDto {
   @ApiProperty({
-    description: 'Unique identifier code for the plan. System prevents duplicate creation.',
+    description:
+      'Unique identifier code for the plan. System prevents duplicate creation.',
     example: 'SOLO_PROF_MONTHLY',
   })
   @IsNotEmpty()
@@ -53,7 +54,8 @@ export class CreatePlanDto {
 
   @ApiPropertyOptional({
     enum: PlanAudience,
-    description: 'Target segment: B2C (Student, Solo Prof) or B2B (SMB, Enterprise)',
+    description:
+      'Target segment: B2C (Student, Solo Prof) or B2B (SMB, Enterprise)',
     default: PlanAudience.B2C,
     example: PlanAudience.B2C,
   })
@@ -95,7 +97,8 @@ export class CreatePlanDto {
   priceAmount!: number;
 
   @ApiPropertyOptional({
-    description: 'Determines if the tier is priced flat-rate or dynamically scaled per workspace seat.',
+    description:
+      'Determines if the tier is priced flat-rate or dynamically scaled per workspace seat.',
     default: false,
     example: false,
   })
@@ -114,7 +117,8 @@ export class CreatePlanDto {
   trialDays?: number;
 
   @ApiPropertyOptional({
-    description: 'Whether the plan will auto-renew when the billing period ends.',
+    description:
+      'Whether the plan will auto-renew when the billing period ends.',
     default: true,
     example: true,
   })
@@ -137,7 +141,8 @@ export class CreatePlanDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Applies "Most Popular" or special highlighted CSS wrapper tags on UI client.',
+    description:
+      'Applies "Most Popular" or special highlighted CSS wrapper tags on UI client.',
     default: false,
     example: true,
   })
@@ -191,5 +196,4 @@ export class CreatePlanDto {
   @IsString()
   @MaxLength(500)
   subtitle?: string;
-
 }

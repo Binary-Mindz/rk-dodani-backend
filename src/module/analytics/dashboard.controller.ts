@@ -12,7 +12,7 @@ import { TeamService } from 'module/team/team.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DashboardController {
-  constructor(private readonly teamService: TeamService) { }
+  constructor(private readonly teamService: TeamService) {}
 
   @Get('dashboard')
   @Roles(UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
@@ -27,7 +27,11 @@ export class DashboardController {
   }
 
   @Get('member-dashboard')
-  @Roles(UserRoleCode.STUDENT, UserRoleCode.ENTERPRISE, UserRoleCode.SUPER_ADMIN)
+  @Roles(
+    UserRoleCode.STUDENT,
+    UserRoleCode.ENTERPRISE,
+    UserRoleCode.SUPER_ADMIN,
+  )
   @ApiOperation({ summary: 'Get aggregated dashboard data for a team member' })
   async getMemberDashboardPageData(@CurrentUser('id') userId: string) {
     const data = await this.teamService.getMemberDashboardPageData(userId);

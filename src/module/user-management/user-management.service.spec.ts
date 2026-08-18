@@ -41,8 +41,14 @@ describe('UserManagementService', () => {
   });
 
   it('soft deletes a user and logs the action', async () => {
-    prisma.user.findFirst.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
-    prisma.user.update.mockResolvedValue({ id: 'user-1', deletedAt: new Date() });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+    });
+    prisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: new Date(),
+    });
 
     const result = await service.deleteUser('user-1', 'admin-1');
 

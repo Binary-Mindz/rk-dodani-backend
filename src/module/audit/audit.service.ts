@@ -19,14 +19,12 @@ export class AuditService {
         oldValues:
           dto.oldValues !== undefined
             ? ((dto.oldValues ?? Prisma.JsonNull) as
-                | Prisma.InputJsonValue
-                | typeof Prisma.JsonNull)
+                Prisma.InputJsonValue | typeof Prisma.JsonNull)
             : undefined,
         newValues:
           dto.newValues !== undefined
             ? ((dto.newValues ?? Prisma.JsonNull) as
-                | Prisma.InputJsonValue
-                | typeof Prisma.JsonNull)
+                Prisma.InputJsonValue | typeof Prisma.JsonNull)
             : undefined,
         ipAddress: dto.ipAddress ?? null,
         userAgent: dto.userAgent ?? null,

@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class QueryServiceGroupDto {
-  @ApiPropertyOptional({ description: 'Search term for group name or description' })
+  @ApiPropertyOptional({
+    description: 'Search term for group name or description',
+  })
   @IsString()
   @IsOptional()
   search?: string;

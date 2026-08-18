@@ -7,7 +7,6 @@ import { RolesGuard } from 'common/guards/roles.guard';
 import { UserRoleCode } from '@prisma/client';
 import { Roles } from 'common/decorators/roles.decorator';
 
-
 @ApiTags('Webhook Logs')
 @Controller('admin/webhook-logs')
 export class WebhookLogController {

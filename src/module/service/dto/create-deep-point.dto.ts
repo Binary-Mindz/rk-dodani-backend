@@ -2,7 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateDeepPointDto {
-  @ApiProperty({ description: 'Title of the deep point', example: 'System Architecture' })
+  @ApiProperty({
+    description: 'Title of the deep point',
+    example: 'System Architecture',
+  })
   @IsString()
   @IsNotEmpty()
   title!: string;
@@ -22,7 +25,11 @@ export class CreateDeepPointDto {
   @IsOptional()
   paradigm?: string;
 
-  @ApiPropertyOptional({ description: 'Key features list', type: [String], example: ['Feature A', 'Feature B'] })
+  @ApiPropertyOptional({
+    description: 'Key features list',
+    type: [String],
+    example: ['Feature A', 'Feature B'],
+  })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

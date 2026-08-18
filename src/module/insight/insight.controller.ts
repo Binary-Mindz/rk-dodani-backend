@@ -22,17 +22,19 @@ import { UpdateInsightStatusDto } from './dto/update-insight-status.dto';
 import { InsightService } from './insight.service';
 
 @ApiTags('Insights')
-
 @Controller('admin/insights')
 export class InsightController {
-  constructor(private readonly service: InsightService) { }
+  constructor(private readonly service: InsightService) {}
 
   @Post()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create insight' })
-  async create(@CurrentUser('id') userId: string, @Body() dto: CreateInsightDto) {
+  async create(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateInsightDto,
+  ) {
     const data = await this.service.create(userId, dto);
     return { statusCode: 201, message: 'Insight created successfully', data };
   }
@@ -76,7 +78,11 @@ export class InsightController {
     @Body() dto: UpdateInsightStatusDto,
   ) {
     const data = await this.service.updateStatus(userId, id, dto);
-    return { statusCode: 200, message: 'Insight status updated successfully', data };
+    return {
+      statusCode: 200,
+      message: 'Insight status updated successfully',
+      data,
+    };
   }
 
   @Delete(':id')

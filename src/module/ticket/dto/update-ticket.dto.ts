@@ -13,12 +13,19 @@ export class UpdateTicketDto {
   @IsEnum(InquiryPriority)
   priority?: InquiryPriority;
 
-  @ApiPropertyOptional({ description: 'Admin reply or resolution message', example: 'We have resolved the gateway issue.' })
+  @ApiPropertyOptional({
+    description: 'Admin reply or resolution message',
+    example: 'We have resolved the gateway issue.',
+  })
   @IsOptional()
   @IsString()
   replyMessage?: string;
 
-  @ApiPropertyOptional({ description: 'Tags for categorization', example: ['Billing Issue', 'Tier 1'], type: [String] })
+  @ApiPropertyOptional({
+    description: 'Tags for categorization',
+    example: ['Billing Issue', 'Tier 1'],
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

@@ -16,9 +16,7 @@ import { MailController } from './mail.controller';
         const logger = new Logger('MailModule');
 
         const host = configService.getOrThrow<string>('MAIL_HOST');
-        const port = Number(
-          configService.getOrThrow<string>('MAIL_PORT'),
-        );
+        const port = Number(configService.getOrThrow<string>('MAIL_PORT'));
         const user = configService.getOrThrow<string>('MAIL_USER');
         const from = configService.getOrThrow<string>('MAIL_FROM');
 
@@ -27,9 +25,7 @@ import { MailController } from './mail.controller';
         logger.log(`MAIL_PORT: ${port}`);
         logger.log(`MAIL_USER: ${user}`);
         logger.log(`MAIL_FROM: ${from}`);
-        logger.log(
-          `MAIL_SECURE: ${port === 465 ? 'true' : 'false'}`,
-        );
+        logger.log(`MAIL_SECURE: ${port === 465 ? 'true' : 'false'}`);
 
         return {
           transport: {
@@ -57,4 +53,4 @@ import { MailController } from './mail.controller';
   providers: [MailService],
   exports: [MailService],
 })
-export class MailModule { }
+export class MailModule {}

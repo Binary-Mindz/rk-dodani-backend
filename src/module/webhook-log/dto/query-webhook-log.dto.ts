@@ -1,8 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  WebhookProcessingStatus,
-  WebhookProvider,
-} from '@prisma/client';
+import { WebhookProcessingStatus, WebhookProvider } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 

@@ -6,7 +6,7 @@ import { AuditModule } from '../audit/audit.module';
 import { ChatModule } from '../chat/chat.module';
 import { MailModule } from 'common/mail/mail.module';
 @Module({
-  imports: [ConfigModule, AuditModule, ChatModule,MailModule],
+  imports: [ConfigModule, AuditModule, ChatModule, MailModule],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],
   exports: [SubscriptionService],

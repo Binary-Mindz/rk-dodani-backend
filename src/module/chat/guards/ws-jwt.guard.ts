@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { WsException } from '@nestjs/websockets';
@@ -25,7 +30,7 @@ export class WsJwtGuard implements CanActivate {
 
       const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
       const payload: JwtPayload = this.jwtService.verify(token, { secret });
-      
+
       client.data.user = {
         id: payload.sub,
         email: payload.email,

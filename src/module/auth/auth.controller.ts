@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
@@ -17,7 +25,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   @Post('register')
   @ApiOperation({
@@ -42,7 +50,7 @@ export class AuthController {
   @Get('google')
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Start Google OAuth login' })
-  async googleLogin() { }
+  async googleLogin() {}
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
@@ -62,7 +70,6 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: 'Logout user' })
   async logout() {
-
     return { message: 'Logged out successfully' };
   }
 

@@ -32,7 +32,9 @@ export class ChatService {
         select: { id: true },
       });
       const existingUserIds = new Set(existingUsers.map((u) => u.id));
-      const missingIds = uniqueMemberIds.filter((id) => !existingUserIds.has(id));
+      const missingIds = uniqueMemberIds.filter(
+        (id) => !existingUserIds.has(id),
+      );
       if (missingIds.length > 0) {
         throw new BadRequestException(
           `User ID(s) not found in database: ${missingIds.join(', ')}`,
@@ -42,17 +44,30 @@ export class ChatService {
       // DIRECT conversation — existing check
       if (data.type === 'DIRECT') {
         if (uniqueMemberIds.length !== 2) {
-          throw new BadRequestException('Direct conversation must have exactly 2 participants');
+          throw new BadRequestException(
+            'Direct conversation must have exactly 2 participants',
+          );
         }
         const otherUserId = data.participantIds[0];
         const existing = await this.prisma.conversation.findFirst({
           where: {
             type: 'DIRECT',
-            members: { every: { userId: { in: uniqueMemberIds }, leftAt: null } },
+            members: {
+              every: { userId: { in: uniqueMemberIds }, leftAt: null },
+            },
           },
           include: {
             members: {
-              include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
             },
           },
         });
@@ -76,15 +91,31 @@ export class ChatService {
         include: {
           members: {
             include: {
-              user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                },
+              },
             },
           },
         },
       });
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) throw error;
-      this.logger.error(`Error creating conversation: ${error.message}`, error.stack);
-      throw new InternalServerErrorException(`Failed to create conversation: ${error.message}`);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      )
+        throw error;
+      this.logger.error(
+        `Error creating conversation: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        `Failed to create conversation: ${error.message}`,
+      );
     }
   }
 
@@ -127,10 +158,15 @@ export class ChatService {
       throw new BadRequestException('Only group conversations can be renamed');
     }
 
-    const member = conversation.members.find((m) => m.userId === userId && !m.leftAt);
-    if (!member) throw new NotFoundException('Conversation not found or access denied');
+    const member = conversation.members.find(
+      (m) => m.userId === userId && !m.leftAt,
+    );
+    if (!member)
+      throw new NotFoundException('Conversation not found or access denied');
     if (!['OWNER', 'ADMIN'].includes(member.role)) {
-      throw new ForbiddenException('Only the conversation owner or admin can rename this group');
+      throw new ForbiddenException(
+        'Only the conversation owner or admin can rename this group',
+      );
     }
 
     return this.prisma.conversation.update({
@@ -258,7 +294,15 @@ export class ChatService {
           blockReason: isMember.blockReason ?? null,
           conversationId,
           messages: [],
-          meta: { total: 0, page: 1, limit: take, skip, take, totalPages: 0, hasMore: false },
+          meta: {
+            total: 0,
+            page: 1,
+            limit: take,
+            skip,
+            take,
+            totalPages: 0,
+            hasMore: false,
+          },
         };
       }
 
@@ -890,7 +934,10 @@ export class ChatService {
     return requesterTeamOwnerId;
   }
 
-  async ensureTeamConversation(ownerId: string, newMemberIds: string[]): Promise<void> {
+  async ensureTeamConversation(
+    ownerId: string,
+    newMemberIds: string[],
+  ): Promise<void> {
     try {
       let conversation = await this.prisma.conversation.findFirst({
         where: {
@@ -910,7 +957,9 @@ export class ChatService {
         });
       }
 
-      const existingMemberIds = new Set(conversation.members.map((m) => m.userId));
+      const existingMemberIds = new Set(
+        conversation.members.map((m) => m.userId),
+      );
       const toAdd = newMemberIds.filter((id) => !existingMemberIds.has(id));
 
       if (toAdd.length > 0) {
@@ -924,7 +973,10 @@ export class ChatService {
         });
       }
     } catch (error) {
-      this.logger.error(`Error ensuring team conversation: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error ensuring team conversation: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

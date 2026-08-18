@@ -1,9 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUUID, IsOptional, IsInt, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class CreateCheckoutDto {
   @ApiProperty({
-    description: 'The unique database ID of the plan the user wants to subscribe to.',
+    description:
+      'The unique database ID of the plan the user wants to subscribe to.',
     example: 'a6b8c1d2-e3f4-5a6b-7c8d-9e0f1a2b3c4d',
     required: true,
   })

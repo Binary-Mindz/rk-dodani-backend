@@ -4,22 +4,21 @@ import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 // create alert
 export class CreateAlertDto {
-    @ApiProperty({ enum: AlertType, default: AlertType.INFO })
-    @IsEnum(AlertType)
-    @IsOptional()
-    alertType?: AlertType;
+  @ApiProperty({ enum: AlertType, default: AlertType.INFO })
+  @IsEnum(AlertType)
+  @IsOptional()
+  alertType?: AlertType;
 
-    @ApiProperty()
-    @IsString()
-    @IsNotEmpty()
-    message: string;
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  message: string;
 
-    @ApiProperty({ enum: AlertMethod, default: AlertMethod.PUSH })
-    @IsEnum(AlertMethod)
-    @IsOptional()
-    alertMethod?: AlertMethod;
+  @ApiProperty({ enum: AlertMethod, default: AlertMethod.PUSH })
+  @IsEnum(AlertMethod)
+  @IsOptional()
+  alertMethod?: AlertMethod;
 }
 
-
 // update alert
-export class UpdateAlertDto extends PartialType(CreateAlertDto) { }
+export class UpdateAlertDto extends PartialType(CreateAlertDto) {}

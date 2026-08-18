@@ -1,5 +1,20 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AuditAction, BillingProvider, EntitlementSourceType, EntitlementStatus, EntitlementType, PlanAudience, Prisma, SubscriptionStatus, UserRoleCode, UserStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AuditAction,
+  BillingProvider,
+  EntitlementSourceType,
+  EntitlementStatus,
+  EntitlementType,
+  PlanAudience,
+  Prisma,
+  SubscriptionStatus,
+  UserRoleCode,
+  UserStatus,
+} from '@prisma/client';
 import { Parser } from 'json2csv';
 import { PrismaService } from 'prisma/prisma.service';
 import { QueryUserManagementDto } from './dto/query-user-management.dto';
@@ -8,7 +23,7 @@ import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { UpdateUserManagementDto } from './dto/update-user-management.dto';
 @Injectable()
 export class UserManagementService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryUserManagementDto) {
     const page = query.page ?? 1;
@@ -57,7 +72,11 @@ export class UserManagementService {
           subscriptions: {
             where: {
               status: {
-                in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.PAST_DUE],
+                in: [
+                  SubscriptionStatus.ACTIVE,
+                  SubscriptionStatus.TRIALING,
+                  SubscriptionStatus.PAST_DUE,
+                ],
               },
             },
             orderBy: { createdAt: 'desc' },
@@ -91,7 +110,6 @@ export class UserManagementService {
     };
   }
 
-
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -123,7 +141,9 @@ export class UserManagementService {
       throw new NotFoundException('User profile records not located.');
     }
 
-    const activeSub = user.subscriptions.find(s => s.status === SubscriptionStatus.ACTIVE) || null;
+    const activeSub =
+      user.subscriptions.find((s) => s.status === SubscriptionStatus.ACTIVE) ||
+      null;
 
     return {
       userId: user.id,
@@ -135,22 +155,23 @@ export class UserManagementService {
       lastLogin: user.lastLoginAt,
       personaType: user.roles.map((r) => r.role.code).join(', ') || 'No Role',
       region: user.timezone || 'Global Tier',
-      subscription: activeSub ? {
-        planName: activeSub.plan.name,
-        billingInterval: activeSub.plan.billingInterval,
-        nextRenewal: activeSub.currentPeriodEnd,
-        features: activeSub.plan.features,
-      } : null,
-      recentActivity: user.auditLogs.map(log => ({
+      subscription: activeSub
+        ? {
+            planName: activeSub.plan.name,
+            billingInterval: activeSub.plan.billingInterval,
+            nextRenewal: activeSub.currentPeriodEnd,
+            features: activeSub.plan.features,
+          }
+        : null,
+      recentActivity: user.auditLogs.map((log) => ({
         id: log.id,
         action: log.action,
         entityType: log.entityType,
         timestamp: log.createdAt,
-        ipAddress: log.ipAddress
-      }))
+        ipAddress: log.ipAddress,
+      })),
     };
   }
-
 
   async update(id: string, dto: UpdateUserManagementDto, adminId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -161,14 +182,28 @@ export class UserManagementService {
     return await this.prisma.$transaction(async (tx) => {
       if (dto.planId) {
         const plan = await tx.plan.findUnique({ where: { id: dto.planId } });
-        if (!plan) throw new BadRequestException('Requested backend subscription plan not found.');
+        if (!plan)
+          throw new BadRequestException(
+            'Requested backend subscription plan not found.',
+          );
 
-        const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
-        const roleRecord = await tx.role.findUnique({ where: { code: targetRoleCode } });
-        if (!roleRecord) throw new NotFoundException(`Role ${targetRoleCode} config missing`);
+        const targetRoleCode =
+          plan.targetAudience === PlanAudience.B2C
+            ? UserRoleCode.STUDENT
+            : UserRoleCode.ENTERPRISE;
+        const roleRecord = await tx.role.findUnique({
+          where: { code: targetRoleCode },
+        });
+        if (!roleRecord)
+          throw new NotFoundException(`Role ${targetRoleCode} config missing`);
 
         await tx.subscription.updateMany({
-          where: { userId: id, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] } },
+          where: {
+            userId: id,
+            status: {
+              in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+            },
+          },
           data: { status: SubscriptionStatus.EXPIRED, endedAt: new Date() },
         });
 
@@ -179,7 +214,10 @@ export class UserManagementService {
         } else {
           periodEnd.setMonth(periodEnd.getMonth() + 1);
         }
-        const seats = plan.targetAudience === PlanAudience.B2B ? Math.max(1, plan.maxUsers ?? 1) : 1;
+        const seats =
+          plan.targetAudience === PlanAudience.B2B
+            ? Math.max(1, plan.maxUsers ?? 1)
+            : 1;
 
         await tx.subscription.create({
           data: {
@@ -191,7 +229,9 @@ export class UserManagementService {
             currentPeriodEnd: periodEnd,
             startedAt: new Date(),
             seats,
-            metadata: dto.changeReason ? { reason: dto.changeReason } : undefined,
+            metadata: dto.changeReason
+              ? { reason: dto.changeReason }
+              : undefined,
           },
         });
 
@@ -220,7 +260,12 @@ export class UserManagementService {
 
         await tx.userRole.upsert({
           where: { userId_roleId: { userId: id, roleId: roleRecord.id } },
-          create: { userId: id, roleId: roleRecord.id, isActive: true, expiresAt: periodEnd },
+          create: {
+            userId: id,
+            roleId: roleRecord.id,
+            isActive: true,
+            expiresAt: periodEnd,
+          },
           update: { isActive: true, expiresAt: periodEnd },
         });
 
@@ -230,7 +275,13 @@ export class UserManagementService {
             entityType: 'SUBSCRIPTION',
             entityId: id,
             action: AuditAction.UPDATE,
-            newValues: { planId: dto.planId, billingInterval: billingCycle, role: targetRoleCode, seats, reason: dto.changeReason },
+            newValues: {
+              planId: dto.planId,
+              billingInterval: billingCycle,
+              role: targetRoleCode,
+              seats,
+              reason: dto.changeReason,
+            },
           },
         });
       }
@@ -253,11 +304,15 @@ export class UserManagementService {
     });
 
     if (!user) {
-      throw new NotFoundException('Target user profile records not discovered.');
+      throw new NotFoundException(
+        'Target user profile records not discovered.',
+      );
     }
 
     const isCurrentlySuspended = user.status === UserStatus.BLOCKED;
-    const nextStatus = isCurrentlySuspended ? UserStatus.ACTIVE : UserStatus.BLOCKED;
+    const nextStatus = isCurrentlySuspended
+      ? UserStatus.ACTIVE
+      : UserStatus.BLOCKED;
 
     return await this.prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
@@ -280,11 +335,10 @@ export class UserManagementService {
             newValues: {
               status: UserStatus.BLOCKED,
               reason: dto.reason,
-              context: 'Account suspended by SuperAdmin'
+              context: 'Account suspended by SuperAdmin',
             },
           },
         });
-
 
         await tx.emailLog.create({
           data: {
@@ -295,7 +349,6 @@ export class UserManagementService {
             status: 'QUEUED',
           },
         });
-
       } else {
         await tx.auditLog.create({
           data: {
@@ -306,7 +359,7 @@ export class UserManagementService {
             newValues: {
               status: UserStatus.ACTIVE,
               reason: dto.reason,
-              context: 'Account unsuspended/restored by SuperAdmin'
+              context: 'Account unsuspended/restored by SuperAdmin',
             },
           },
         });
@@ -315,7 +368,9 @@ export class UserManagementService {
           where: { userId: id, status: SubscriptionStatus.ACTIVE },
         });
 
-        const isSuperAdmin = user.roles.some(r => r.roleId === UserRoleCode.SUPER_ADMIN);
+        const isSuperAdmin = user.roles.some(
+          (r) => r.roleId === UserRoleCode.SUPER_ADMIN,
+        );
 
         if (!hasActiveSub && !isSuperAdmin) {
           const freePlan = await tx.plan.findFirst({
@@ -343,7 +398,8 @@ export class UserManagementService {
             templateCode: 'ACCOUNT_RESTORED_NOTICE',
             recipientEmail: user.email,
             recipientUserId: user.id,
-            subject: '✅ Good News: Your account access has been fully restored',
+            subject:
+              '✅ Good News: Your account access has been fully restored',
             status: 'QUEUED',
           },
         });
@@ -408,7 +464,11 @@ export class UserManagementService {
     };
   }
 
-  async updateUserSubscription(userId: string, dto: UpdateSubscriptionDto, adminId: string) {
+  async updateUserSubscription(
+    userId: string,
+    dto: UpdateSubscriptionDto,
+    adminId: string,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -423,7 +483,10 @@ export class UserManagementService {
       throw new NotFoundException('Plan not found');
     }
 
-    const targetRoleCode = plan.targetAudience === PlanAudience.B2C ? UserRoleCode.STUDENT : UserRoleCode.ENTERPRISE;
+    const targetRoleCode =
+      plan.targetAudience === PlanAudience.B2C
+        ? UserRoleCode.STUDENT
+        : UserRoleCode.ENTERPRISE;
     const roleRecord = await this.prisma.role.findUnique({
       where: { code: targetRoleCode },
     });
@@ -437,7 +500,10 @@ export class UserManagementService {
     } else {
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
     }
-    const seats = plan.targetAudience === PlanAudience.B2B ? Math.max(1, plan.maxUsers ?? 1) : 1;
+    const seats =
+      plan.targetAudience === PlanAudience.B2B
+        ? Math.max(1, plan.maxUsers ?? 1)
+        : 1;
 
     const existingActiveSub = await this.prisma.subscription.findFirst({
       where: { userId: userId, status: SubscriptionStatus.ACTIVE },
@@ -514,7 +580,11 @@ export class UserManagementService {
           entityType: 'SUBSCRIPTION',
           entityId: newSubscription.id,
           action: existingActiveSub ? AuditAction.UPDATE : AuditAction.CREATE,
-          newValues: { planId: plan.id, billingInterval: dto.billingInterval, seats },
+          newValues: {
+            planId: plan.id,
+            billingInterval: dto.billingInterval,
+            seats,
+          },
         },
       });
 
@@ -523,7 +593,9 @@ export class UserManagementService {
 
     return {
       subscription: updatedSubscription,
-      message: existingActiveSub ? 'Subscription updated successfully' : 'Subscription created successfully',
+      message: existingActiveSub
+        ? 'Subscription updated successfully'
+        : 'Subscription created successfully',
     };
   }
 
@@ -565,11 +637,8 @@ export class UserManagementService {
       'updatedAt',
     ];
 
-
     const parser = new Parser({ fields });
     const csv = parser.parse(users);
     return csv;
   }
-
-
 }

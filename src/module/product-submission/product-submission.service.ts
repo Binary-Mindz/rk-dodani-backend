@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateProductSubmissionDto } from './dto/create-product-submission.dto';
@@ -73,7 +77,9 @@ export class ProductSubmissionService {
     }
 
     if (dto.productId) {
-      const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+      const product = await this.prisma.product.findUnique({
+        where: { id: dto.productId },
+      });
       if (!product) {
         throw new BadRequestException('Product not found');
       }
@@ -140,19 +146,31 @@ export class ProductSubmissionService {
       include: this.includeProduct(),
     });
     if (!submission) {
-      throw new NotFoundException(`Product submission with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Product submission with ID "${id}" not found`,
+      );
     }
     return this.formatSubmission(submission);
   }
 
-  async update(userId: string | null, id: string, dto: UpdateProductSubmissionDto) {
-    const existing = await this.prisma.productSubmission.findUnique({ where: { id } });
+  async update(
+    userId: string | null,
+    id: string,
+    dto: UpdateProductSubmissionDto,
+  ) {
+    const existing = await this.prisma.productSubmission.findUnique({
+      where: { id },
+    });
     if (!existing) {
-      throw new NotFoundException(`Product submission with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Product submission with ID "${id}" not found`,
+      );
     }
 
     if (dto.productId) {
-      const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+      const product = await this.prisma.product.findUnique({
+        where: { id: dto.productId },
+      });
       if (!product) {
         throw new BadRequestException('Product not found');
       }
@@ -172,9 +190,13 @@ export class ProductSubmissionService {
   }
 
   async remove(userId: string | null, id: string) {
-    const existing = await this.prisma.productSubmission.findUnique({ where: { id } });
+    const existing = await this.prisma.productSubmission.findUnique({
+      where: { id },
+    });
     if (!existing) {
-      throw new NotFoundException(`Product submission with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Product submission with ID "${id}" not found`,
+      );
     }
     await this.prisma.productSubmission.delete({ where: { id } });
     this.audit(userId, 'PRODUCT_SUBMISSION', id, 'DELETE', existing, null);

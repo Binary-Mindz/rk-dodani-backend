@@ -1,5 +1,19 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { UserRoleCode } from '@prisma/client';
 
 import { TicketsService } from './tickets.service';
@@ -17,51 +31,64 @@ import { GetTicketsDto } from './dto/get-tickets.dto';
 @Roles(UserRoleCode.SUPER_ADMIN)
 @Controller('superadmin/tickets')
 export class TicketsController {
-    constructor(private readonly ticketsService: TicketsService) { }
+  constructor(private readonly ticketsService: TicketsService) {}
 
-    @Post()
-    @ApiOperation({ summary: 'Create a new support ticket (Admin Only)' })
-    async createTicket(@Body() createTicketDto: CreateTicketDto, @CurrentUser('id') adminId: string) {
-        return {
-            message: 'Ticket created successfully',
-            data: await this.ticketsService.createTicket(createTicketDto, adminId),
-        };
-    }
+  @Post()
+  @ApiOperation({ summary: 'Create a new support ticket (Admin Only)' })
+  async createTicket(
+    @Body() createTicketDto: CreateTicketDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return {
+      message: 'Ticket created successfully',
+      data: await this.ticketsService.createTicket(createTicketDto, adminId),
+    };
+  }
 
-    @Get('dashboard-stats')
-    @ApiOperation({ summary: 'Get total, open, in-progress, and closed ticket counter stats' })
-    async getDashboardStats() {
-        return {
-            message: 'Dashboard stats retrieved successfully',
-            data: await this.ticketsService.getDashboardStats(),
-        };
-    }
+  @Get('dashboard-stats')
+  @ApiOperation({
+    summary: 'Get total, open, in-progress, and closed ticket counter stats',
+  })
+  async getDashboardStats() {
+    return {
+      message: 'Dashboard stats retrieved successfully',
+      data: await this.ticketsService.getDashboardStats(),
+    };
+  }
 
-    @Get()
-    @ApiOperation({ summary: 'Get all support tickets with pagination and filters' })
-    async getAllTickets(@Query() query: GetTicketsDto) { 
-        return this.ticketsService.getAllTickets(query);
-    }
+  @Get()
+  @ApiOperation({
+    summary: 'Get all support tickets with pagination and filters',
+  })
+  async getAllTickets(@Query() query: GetTicketsDto) {
+    return this.ticketsService.getAllTickets(query);
+  }
 
-    @Get(':id')
-    @ApiOperation({ summary: 'Get ticket details by ID' })
-    async getTicketDetail(@Param('id') id: string) {
-        return {
-            message: 'Ticket details retrieved successfully',
-            data: await this.ticketsService.getTicketById(id),
-        };
-    }
+  @Get(':id')
+  @ApiOperation({ summary: 'Get ticket details by ID' })
+  async getTicketDetail(@Param('id') id: string) {
+    return {
+      message: 'Ticket details retrieved successfully',
+      data: await this.ticketsService.getTicketById(id),
+    };
+  }
 
-    @Patch(':id')
-    @ApiOperation({ summary: 'Update ticket status, priority, tags, or add a reply' })
-    async updateTicket(
-        @Param('id') id: string,
-        @Body() updateTicketDto: UpdateTicketDto,
-        @CurrentUser('id') adminId: string,
-    ) {
-        return {
-            message: 'Ticket updated successfully',
-            data: await this.ticketsService.updateTicket(id, updateTicketDto, adminId),
-        };
-    }
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update ticket status, priority, tags, or add a reply',
+  })
+  async updateTicket(
+    @Param('id') id: string,
+    @Body() updateTicketDto: UpdateTicketDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return {
+      message: 'Ticket updated successfully',
+      data: await this.ticketsService.updateTicket(
+        id,
+        updateTicketDto,
+        adminId,
+      ),
+    };
+  }
 }

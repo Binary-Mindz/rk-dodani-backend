@@ -32,9 +32,8 @@ import { ProductModule } from './module/product/product.module';
 import { InsightModule } from './module/insight/insight.module';
 import { InsightCategoryModule } from './module/insight-category/insight-category.module';
 import { ServiceGroupModule } from './module/service-group/service-group.module';
-import { ProductGroupModule } from './module/product-group/product-group.module';
-import {CacheModule} from "@nestjs/cache-manager";
-import KeyvRedis from "@keyv/redis";
+import { CacheModule } from '@nestjs/cache-manager';
+import KeyvRedis from '@keyv/redis';
 import { NavLinkModule } from './module/nav-link/nav-link.module';
 
 @Module({
@@ -51,9 +50,9 @@ import { NavLinkModule } from './module/nav-link/nav-link.module';
         return {
           stores: [new KeyvRedis({ url: redisUrl })],
           url: redisUrl,
-          ttl: 60_000, 
+          ttl: 60_000,
         };
-      }
+      },
     }),
     PrismaModule,
     ScheduleModule.forRoot(),
@@ -85,8 +84,7 @@ import { NavLinkModule } from './module/nav-link/nav-link.module';
     InsightModule,
     InsightCategoryModule,
     ServiceGroupModule,
-    ProductGroupModule,
-    NavLinkModule
+    NavLinkModule,
   ],
   controllers: [AppController, AlertController],
   providers: [AlertService],

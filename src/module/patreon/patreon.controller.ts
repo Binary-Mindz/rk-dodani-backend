@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Query,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PatreonService } from './patreon.service';
 import { PatreonCallbackQueryDto } from './dto/patreon-callback-query.dto';

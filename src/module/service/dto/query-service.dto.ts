@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class QueryServiceDto {
-  @ApiPropertyOptional({ description: 'Search term for title, heading, or description' })
+  @ApiPropertyOptional({
+    description: 'Search term for title, heading, or description',
+  })
   @IsString()
   @IsOptional()
   search?: string;

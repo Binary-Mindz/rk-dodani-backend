@@ -19,7 +19,8 @@ export class AssignPlanDto {
   planId!: string;
 
   @ApiPropertyOptional({
-    description: 'Number of seats to assign (only applicable/required for B2B plans)',
+    description:
+      'Number of seats to assign (only applicable/required for B2B plans)',
     example: 10,
     default: 1,
   })

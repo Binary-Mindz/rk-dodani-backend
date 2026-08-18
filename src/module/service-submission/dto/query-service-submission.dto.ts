@@ -1,15 +1,27 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
 import { PrimaryFocusArea, ServiceSubmissionStatus } from '@prisma/client';
 
 export class QueryServiceSubmissionDto {
-  @ApiPropertyOptional({ description: 'Search terms for name, email, or message' })
+  @ApiPropertyOptional({
+    description: 'Search terms for name, email, or message',
+  })
   @IsString()
   @IsOptional()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by submission status', enum: ServiceSubmissionStatus })
+  @ApiPropertyOptional({
+    description: 'Filter by submission status',
+    enum: ServiceSubmissionStatus,
+  })
   @IsEnum(ServiceSubmissionStatus)
   @IsOptional()
   status?: ServiceSubmissionStatus;

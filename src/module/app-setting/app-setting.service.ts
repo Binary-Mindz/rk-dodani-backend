@@ -60,10 +60,7 @@ export class AppSettingService {
     return platform;
   }
 
-  async updatePlatformInfo(
-    userId: string | null,
-    dto: UpdatePlatformInfoDto,
-  ) {
+  async updatePlatformInfo(userId: string | null, dto: UpdatePlatformInfoDto) {
     let platform = await this.prisma.platformInfo.findFirst();
 
     const previousData = platform ? { ...platform } : null;
@@ -138,7 +135,7 @@ export class AppSettingService {
 
     const maintenanceData = {
       isUnderMaintenance: dto.isUnderMaintenance,
-      message: dto.message ,
+      message: dto.message,
       endTime: dto.endTime ? new Date(dto.endTime) : null,
     };
 
@@ -155,7 +152,7 @@ export class AppSettingService {
 
     const alertMessage = dto.isUnderMaintenance
       ? dto.message
-      : "Website has been back online";
+      : 'Website has been back online';
 
     await this.alertService
       .create_new_alert_into_db({
@@ -169,7 +166,7 @@ export class AppSettingService {
 
     const notificationTitle = dto.isUnderMaintenance
       ? dto.message
-      : "Website has been back online";
+      : 'Website has been back online';
 
     await this.notificationService
       .broadcastToAllUsers({
@@ -191,7 +188,7 @@ export class AppSettingService {
     this.sendMaintenanceEmailsToAll(dto.isUnderMaintenance).catch((err) => {
       this.logger.error('Failed to send maintenance emails to all users:', err);
     });
- 
+
     this.audit(
       userId,
       'MAINTENANCE',
@@ -213,7 +210,6 @@ export class AppSettingService {
     const users = await this.prisma.user.findMany({
       select: { email: true },
     });
-
 
     for (const u of users) {
       if (u.email) {
@@ -276,9 +272,7 @@ export class AppSettingService {
         alertType: 'MAINTENANCE' as any,
         alertMethod: 'PUSH' as any,
       })
-      .catch((err) =>
-        this.logger.error('[Cron] Failed to create alert:', err),
-      );
+      .catch((err) => this.logger.error('[Cron] Failed to create alert:', err));
 
     await this.notificationService
       .broadcastToAllUsers({
@@ -300,14 +294,11 @@ export class AppSettingService {
       this.logger.error('[Cron] Failed to send maintenance emails:', err),
     );
 
-    this.audit(
-      null,
-      'MAINTENANCE',
-      updated.id,
-      'UPDATE',
-      previous,
-      { isUnderMaintenance: false, message: null, endTime: null },
-    );
+    this.audit(null, 'MAINTENANCE', updated.id, 'UPDATE', previous, {
+      isUnderMaintenance: false,
+      message: null,
+      endTime: null,
+    });
   }
 
   async upsert(userId: string | null, dto: UpsertAppSettingDto) {

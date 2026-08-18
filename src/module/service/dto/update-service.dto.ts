@@ -27,7 +27,12 @@ export class UpdateServiceDto {
   @IsOptional()
   agentarumParadigm?: string;
 
-  @ApiPropertyOptional({ description: 'Hard tangible deliverables', example: ['Strategy playbook', 'Operating model', 'Implementation roadmap'], isArray: true, type: String })
+  @ApiPropertyOptional({
+    description: 'Hard tangible deliverables',
+    example: ['Strategy playbook', 'Operating model', 'Implementation roadmap'],
+    isArray: true,
+    type: String,
+  })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

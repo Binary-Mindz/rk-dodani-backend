@@ -17,17 +17,27 @@ export class AssignCustomSubscriptionDto {
   @IsUUID()
   userId!: string;
 
-  @ApiPropertyOptional({ description: 'Display title of the custom plan', example: 'Enterprise Starter' })
+  @ApiPropertyOptional({
+    description: 'Display title of the custom plan',
+    example: 'Enterprise Starter',
+  })
   @IsString()
   @IsOptional()
   planTitle?: string;
 
-  @ApiPropertyOptional({ enum: BillingInterval, default: BillingInterval.MONTHLY, description: 'Billing interval for the custom plan' })
+  @ApiPropertyOptional({
+    enum: BillingInterval,
+    default: BillingInterval.MONTHLY,
+    description: 'Billing interval for the custom plan',
+  })
   @IsEnum(BillingInterval)
   @IsOptional()
   billingInterval?: BillingInterval;
 
-  @ApiPropertyOptional({ description: 'Custom price (for record only)', example: 49.99 })
+  @ApiPropertyOptional({
+    description: 'Custom price (for record only)',
+    example: 49.99,
+  })
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -38,18 +48,29 @@ export class AssignCustomSubscriptionDto {
   @IsOptional()
   currency?: string;
 
-  @ApiPropertyOptional({ description: 'Trial period in days for the custom plan', example: 14, default: 0 })
+  @ApiPropertyOptional({
+    description: 'Trial period in days for the custom plan',
+    example: 14,
+    default: 0,
+  })
   @IsInt()
   @Min(0)
   @IsOptional()
   trialDays?: number;
 
-  @ApiPropertyOptional({ description: 'Whether the custom plan should auto-renew', example: true, default: true })
+  @ApiPropertyOptional({
+    description: 'Whether the custom plan should auto-renew',
+    example: true,
+    default: true,
+  })
   @IsBoolean()
   @IsOptional()
   autoRenew?: boolean;
 
-  @ApiPropertyOptional({ enum: EntitlementType, default: EntitlementType.PREMIUM_ACCESS })
+  @ApiPropertyOptional({
+    enum: EntitlementType,
+    default: EntitlementType.PREMIUM_ACCESS,
+  })
   @IsEnum(EntitlementType)
   @IsOptional()
   entitlementType?: EntitlementType;
@@ -63,12 +84,19 @@ export class AssignCustomSubscriptionDto {
   @IsOptional()
   targetAudience?: PlanAudience;
 
-  @ApiPropertyOptional({ description: 'Admin note for this custom assignment', example: 'Special client - 3 month deal' })
+  @ApiPropertyOptional({
+    description: 'Admin note for this custom assignment',
+    example: 'Special client - 3 month deal',
+  })
   @IsString()
   @IsOptional()
   note?: string;
 
-  @ApiPropertyOptional({ description: 'Number of seats', example: 1, default: 1 })
+  @ApiPropertyOptional({
+    description: 'Number of seats',
+    example: 1,
+    default: 1,
+  })
   @IsNumber()
   @Min(1)
   @Type(() => Number)

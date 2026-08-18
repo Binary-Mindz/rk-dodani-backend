@@ -61,11 +61,17 @@ export class InsightService {
     const slug = this.generateSlug(dto.title);
 
     const existing = await this.prisma.insight.findUnique({ where: { slug } });
-    if (existing) throw new BadRequestException('Insight with same title already exists');
+    if (existing)
+      throw new BadRequestException('Insight with same title already exists');
 
     if (dto.categoryIds?.length) {
-      const count = await this.prisma.insightCategory.count({ where: { id: { in: dto.categoryIds } } });
-      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more insight categories are invalid');
+      const count = await this.prisma.insightCategory.count({
+        where: { id: { in: dto.categoryIds } },
+      });
+      if (count !== dto.categoryIds.length)
+        throw new BadRequestException(
+          'One or more insight categories are invalid',
+        );
     }
 
     const tags = this.normalizeTags(dto.tags);
@@ -95,7 +101,10 @@ export class InsightService {
 
       if (dto.categoryIds?.length) {
         await tx.insightCategoryMap.createMany({
-          data: dto.categoryIds.map((categoryId) => ({ insightId: insight.id, categoryId })),
+          data: dto.categoryIds.map((categoryId) => ({
+            insightId: insight.id,
+            categoryId,
+          })),
           skipDuplicates: true,
         });
       }
@@ -103,7 +112,10 @@ export class InsightService {
       return insight;
     });
 
-    this.audit(userId, created.id, 'CREATE', undefined, { title: dto.title, status: dto.status });
+    this.audit(userId, created.id, 'CREATE', undefined, {
+      title: dto.title,
+      status: dto.status,
+    });
     return this.findOne(created.id);
   }
 
@@ -146,7 +158,10 @@ export class InsightService {
       this.prisma.insight.count({ where }),
     ]);
 
-    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      items,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string) {
@@ -160,19 +175,29 @@ export class InsightService {
   }
 
   async update(userId: string, id: string, dto: UpdateInsightDto) {
-    const existing = await this.prisma.insight.findFirst({ where: { id, deletedAt: null } });
+    const existing = await this.prisma.insight.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!existing) throw new NotFoundException('Insight not found');
 
     let slug = existing.slug;
     if (dto.title && dto.title !== existing.title) {
       slug = this.generateSlug(dto.title);
-      const slugExists = await this.prisma.insight.findUnique({ where: { slug } });
-      if (slugExists && slugExists.id !== id) throw new BadRequestException('Slug already exists');
+      const slugExists = await this.prisma.insight.findUnique({
+        where: { slug },
+      });
+      if (slugExists && slugExists.id !== id)
+        throw new BadRequestException('Slug already exists');
     }
 
     if (dto.categoryIds?.length) {
-      const count = await this.prisma.insightCategory.count({ where: { id: { in: dto.categoryIds } } });
-      if (count !== dto.categoryIds.length) throw new BadRequestException('One or more insight categories are invalid');
+      const count = await this.prisma.insightCategory.count({
+        where: { id: { in: dto.categoryIds } },
+      });
+      if (count !== dto.categoryIds.length)
+        throw new BadRequestException(
+          'One or more insight categories are invalid',
+        );
     }
 
     const tags = this.normalizeTags(dto.tags);
@@ -186,17 +211,33 @@ export class InsightService {
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
           ...(dto.excerpt !== undefined && { excerpt: dto.excerpt }),
           ...(dto.summary !== undefined && { summary: dto.summary }),
-          ...(dto.readingTimeMinutes !== undefined && { readingTimeMinutes: dto.readingTimeMinutes }),
-          ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
-          ...(dto.externalUrl !== undefined && { externalUrl: dto.externalUrl }),
+          ...(dto.readingTimeMinutes !== undefined && {
+            readingTimeMinutes: dto.readingTimeMinutes,
+          }),
+          ...(dto.coverImageUrl !== undefined && {
+            coverImageUrl: dto.coverImageUrl,
+          }),
+          ...(dto.externalUrl !== undefined && {
+            externalUrl: dto.externalUrl,
+          }),
           ...(dto.status !== undefined && { status: dto.status }),
           ...(dto.visibility !== undefined && { visibility: dto.visibility }),
-          ...(dto.scheduledAt !== undefined && { scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null }),
-          ...(dto.allowComments !== undefined && { allowComments: dto.allowComments }),
-          ...(dto.allowDownload !== undefined && { allowDownload: dto.allowDownload }),
-          ...(dto.contentType !== undefined && { contentType: dto.contentType }),
+          ...(dto.scheduledAt !== undefined && {
+            scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+          }),
+          ...(dto.allowComments !== undefined && {
+            allowComments: dto.allowComments,
+          }),
+          ...(dto.allowDownload !== undefined && {
+            allowDownload: dto.allowDownload,
+          }),
+          ...(dto.contentType !== undefined && {
+            contentType: dto.contentType,
+          }),
           ...(dto.fileType !== undefined && { fileType: dto.fileType }),
-          ...(dto.industryTargets !== undefined && { industryTargets: dto.industryTargets }),
+          ...(dto.industryTargets !== undefined && {
+            industryTargets: dto.industryTargets,
+          }),
           ...(dto.tags !== undefined && { tags }),
         },
       });
@@ -205,36 +246,64 @@ export class InsightService {
         await tx.insightCategoryMap.deleteMany({ where: { insightId: id } });
         if (dto.categoryIds.length) {
           await tx.insightCategoryMap.createMany({
-            data: dto.categoryIds.map((categoryId) => ({ insightId: id, categoryId })),
+            data: dto.categoryIds.map((categoryId) => ({
+              insightId: id,
+              categoryId,
+            })),
             skipDuplicates: true,
           });
         }
       }
     });
 
-    this.audit(userId, id, 'UPDATE', { title: existing.title, status: existing.status }, { title: dto.title, status: dto.status });
+    this.audit(
+      userId,
+      id,
+      'UPDATE',
+      { title: existing.title, status: existing.status },
+      { title: dto.title, status: dto.status },
+    );
     return this.findOne(id);
   }
 
   async updateStatus(userId: string, id: string, dto: UpdateInsightStatusDto) {
-    const existing = await this.prisma.insight.findFirst({ where: { id, deletedAt: null } });
+    const existing = await this.prisma.insight.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!existing) throw new NotFoundException('Insight not found');
 
-    await this.prisma.insight.update({ where: { id }, data: { status: dto.status } });
+    await this.prisma.insight.update({
+      where: { id },
+      data: { status: dto.status },
+    });
 
     const action =
-      dto.status === InsightStatus.PUBLISHED ? 'PUBLISH' :
-      dto.status === InsightStatus.ARCHIVED ? 'ARCHIVE' : 'UPDATE';
+      dto.status === InsightStatus.PUBLISHED
+        ? 'PUBLISH'
+        : dto.status === InsightStatus.ARCHIVED
+          ? 'ARCHIVE'
+          : 'UPDATE';
 
-    this.audit(userId, id, action as any, { status: existing.status }, { status: dto.status });
+    this.audit(
+      userId,
+      id,
+      action as any,
+      { status: existing.status },
+      { status: dto.status },
+    );
     return this.findOne(id);
   }
 
   async remove(userId: string, id: string) {
-    const existing = await this.prisma.insight.findFirst({ where: { id, deletedAt: null } });
+    const existing = await this.prisma.insight.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!existing) throw new NotFoundException('Insight not found');
 
-    await this.prisma.insight.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.insight.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     this.audit(userId, id, 'DELETE', { title: existing.title }, undefined);
     return { deleted: true };
   }

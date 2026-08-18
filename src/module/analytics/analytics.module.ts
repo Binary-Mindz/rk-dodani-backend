@@ -9,7 +9,11 @@ import { DashboardController } from './dashboard.controller';
 
 @Module({
   imports: [PrismaModule, TeamModule],
-  controllers: [AnalyticsController, SuperAdminOverviewController, DashboardController],
+  controllers: [
+    AnalyticsController,
+    SuperAdminOverviewController,
+    DashboardController,
+  ],
   providers: [AnalyticsService, SuperAdminOverviewService],
   exports: [AnalyticsService, SuperAdminOverviewService],
 })

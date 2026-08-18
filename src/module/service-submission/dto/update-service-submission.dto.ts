@@ -3,7 +3,10 @@ import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { ServiceSubmissionStatus } from '@prisma/client';
 
 export class UpdateServiceSubmissionDto {
-  @ApiPropertyOptional({ description: 'Submission status', enum: ServiceSubmissionStatus })
+  @ApiPropertyOptional({
+    description: 'Submission status',
+    enum: ServiceSubmissionStatus,
+  })
   @IsEnum(ServiceSubmissionStatus)
   @IsOptional()
   status?: ServiceSubmissionStatus;
@@ -12,5 +15,4 @@ export class UpdateServiceSubmissionDto {
   @IsString()
   @IsOptional()
   adminNotes?: string;
-
 }

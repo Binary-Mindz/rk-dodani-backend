@@ -16,7 +16,8 @@ export class MailService {
       html: this.buildOtpTemplate({
         title: 'Email Verification',
         heading: 'Verify Your AgentArum Account',
-        message: 'Use the verification code below to confirm your email address.',
+        message:
+          'Use the verification code below to confirm your email address.',
         otp,
         note: 'This verification code will expire in 5 minutes.',
         accentColor: '#2563eb',
@@ -86,14 +87,7 @@ export class MailService {
     note: string;
     accentColor: string;
   }): string {
-    const {
-      title,
-      heading,
-      message,
-      otp,
-      note,
-      accentColor,
-    } = params;
+    const { title, heading, message, otp, note, accentColor } = params;
 
     return `
       <div style="margin:0; padding:0; background-color:#f4f7fb; font-family:Arial, Helvetica, sans-serif;">
@@ -177,12 +171,12 @@ export class MailService {
     `;
   }
 
- async sendInquiryToAdmin(inquiryData: InquiryDto): Promise<void> {
+  async sendInquiryToAdmin(inquiryData: InquiryDto): Promise<void> {
     const adminEmail = process.env.MAIL_USER;
 
     await this.mailerService.sendMail({
       to: adminEmail,
-      replyTo: inquiryData.workEmail, 
+      replyTo: inquiryData.workEmail,
       subject: `New Inquiry: ${inquiryData.inquiryType.toUpperCase()} from ${inquiryData.fullName}`,
       html: this.buildInquiryTemplate(inquiryData),
     });
@@ -345,12 +339,18 @@ export class MailService {
     name: string,
     token: string,
     role: TeamRole,
-    message?: string
+    message?: string,
   ) {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Invitation to join team on AgentArum',
-      html: this.templateToSendTeamInvitation(email, name, token, role, message),
+      html: this.templateToSendTeamInvitation(
+        email,
+        name,
+        token,
+        role,
+        message,
+      ),
     });
   }
 
@@ -359,7 +359,7 @@ export class MailService {
     name: string,
     token: string,
     role: TeamRole,
-    message?: string
+    message?: string,
   ) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const invitationLink = `${frontendUrl}/accept-invitation?token=${token}`;
@@ -392,14 +392,18 @@ export class MailService {
                       You have been invited to join an organization team on AgentArum with the role of <strong>${role}</strong>.
                     </p>
 
-                    ${message ? `
+                    ${
+                      message
+                        ? `
                     <div style="margin:0 0 24px; padding:16px 18px; background:#f9fafb; border-left:4px solid #2563eb; border-radius:10px;">
                       <p style="margin:0 0 5px; font-size:13px; font-weight:bold; color:#4b5563; text-transform:uppercase;">Message from sender:</p>
                       <p style="margin:0; font-size:15px; line-height:1.6; color:#374151; font-style:italic;">
                         "${message}"
                       </p>
                     </div>
-                    ` : ''}
+                    `
+                        : ''
+                    }
 
                     <div style="text-align:center; margin:35px 0;">
                       <a href="${invitationLink}" style="display:inline-block; padding:14px 32px; background-color:#2563eb; color:#ffffff; font-size:16px; font-weight:700; text-decoration:none; border-radius:8px; box-shadow:0 4px 12px rgba(37, 99, 235, 0.3);">
@@ -497,9 +501,11 @@ export class MailService {
           </table>
         </div>
       `,
-      })
+      });
     } catch (error) {
-      this.logger.error(`Failed to send maintenance email to ${email}: ${error instanceof Error ? error.message : error}`);
+      this.logger.error(
+        `Failed to send maintenance email to ${email}: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 }

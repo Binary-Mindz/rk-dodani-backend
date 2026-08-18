@@ -23,7 +23,9 @@ import { QueryServiceSubmissionDto } from './dto/query-service-submission.dto';
 @ApiTags('Service Submissions')
 @Controller()
 export class ServiceSubmissionController {
-  constructor(private readonly serviceSubmissionService: ServiceSubmissionService) {}
+  constructor(
+    private readonly serviceSubmissionService: ServiceSubmissionService,
+  ) {}
 
   @Post('service-submissions')
   @ApiOperation({ summary: 'Submit a new service request' })
@@ -87,10 +89,7 @@ export class ServiceSubmissionController {
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Delete('admin/service-submissions/:id')
   @ApiOperation({ summary: 'Delete a service submission (Admin)' })
-  async remove(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  async remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
     const data = await this.serviceSubmissionService.remove(userId, id);
     return {
       statusCode: 200,

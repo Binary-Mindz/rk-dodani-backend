@@ -81,7 +81,11 @@ export class AppSettingController {
   @ApiOperation({ summary: 'Get admin app settings' })
   async findAdminAll(@Query() query: QueryAppSettingDto) {
     const data = await this.service.findAdminAll(query);
-    return { statusCode: 200, message: 'App settings fetched successfully', data };
+    return {
+      statusCode: 200,
+      message: 'App settings fetched successfully',
+      data,
+    };
   }
 
   @Get('admin/settings/:groupName/:key')
@@ -91,7 +95,11 @@ export class AppSettingController {
     @Param('key') key: string,
   ) {
     const data = await this.service.findOne(groupName, key);
-    return { statusCode: 200, message: 'App setting fetched successfully', data };
+    return {
+      statusCode: 200,
+      message: 'App setting fetched successfully',
+      data,
+    };
   }
 
   @Delete('admin/settings/:groupName/:key')
@@ -101,7 +109,11 @@ export class AppSettingController {
     @Param('key') key: string,
   ) {
     const data = await this.service.remove(groupName, key);
-    return { statusCode: 200, message: 'App setting deleted successfully', data };
+    return {
+      statusCode: 200,
+      message: 'App setting deleted successfully',
+      data,
+    };
   }
 }
 
@@ -142,6 +154,10 @@ export class AppSettingPublicController {
   @ApiOperation({ summary: 'Get public app settings' })
   async findPublicAll(@Query() query: QueryAppSettingDto) {
     const data = await this.service.findPublicAll(query);
-    return { statusCode: 200, message: 'Public app settings fetched successfully', data };
+    return {
+      statusCode: 200,
+      message: 'Public app settings fetched successfully',
+      data,
+    };
   }
 }

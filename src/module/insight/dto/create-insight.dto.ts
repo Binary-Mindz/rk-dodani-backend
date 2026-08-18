@@ -38,7 +38,9 @@ export class CreateInsightDto {
   @MaxLength(500)
   excerpt?: string;
 
-  @ApiPropertyOptional({ example: 'This insight explores how AI transforms leadership.' })
+  @ApiPropertyOptional({
+    example: 'This insight explores how AI transforms leadership.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -65,7 +67,10 @@ export class CreateInsightDto {
   @IsEnum(InsightStatus)
   status?: InsightStatus;
 
-  @ApiPropertyOptional({ enum: InsightVisibility, default: InsightVisibility.PUBLIC })
+  @ApiPropertyOptional({
+    enum: InsightVisibility,
+    default: InsightVisibility.PUBLIC,
+  })
   @IsOptional()
   @IsEnum(InsightVisibility)
   visibility?: InsightVisibility;
@@ -85,7 +90,10 @@ export class CreateInsightDto {
   @IsBoolean()
   allowDownload?: boolean;
 
-  @ApiPropertyOptional({ enum: InsightContentType, default: InsightContentType.ARTICLE })
+  @ApiPropertyOptional({
+    enum: InsightContentType,
+    default: InsightContentType.ARTICLE,
+  })
   @IsOptional()
   @IsEnum(InsightContentType)
   contentType?: InsightContentType;
@@ -95,7 +103,11 @@ export class CreateInsightDto {
   @IsEnum(InsightFileType)
   fileType?: InsightFileType;
 
-  @ApiPropertyOptional({ enum: IndustryTarget, isArray: true, example: [IndustryTarget.BANKING] })
+  @ApiPropertyOptional({
+    enum: IndustryTarget,
+    isArray: true,
+    example: [IndustryTarget.BANKING],
+  })
   @IsOptional()
   @IsArray()
   @IsEnum(IndustryTarget, { each: true })

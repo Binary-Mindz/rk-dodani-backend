@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { InquiryPriority } from '@prisma/client';
 
 export class CreateTicketDto {
@@ -18,22 +25,35 @@ export class CreateTicketDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ description: 'Issue Title or Subject', example: 'Payment failed while subscribing' })
+  @ApiProperty({
+    description: 'Issue Title or Subject',
+    example: 'Payment failed while subscribing',
+  })
   @IsNotEmpty()
   @IsString()
   subject!: string;
 
-  @ApiProperty({ description: 'Detailed Issue Description', example: 'Tried paying via Stripe but got a timeout error.' })
+  @ApiProperty({
+    description: 'Detailed Issue Description',
+    example: 'Tried paying via Stripe but got a timeout error.',
+  })
   @IsNotEmpty()
   @IsString()
   message!: string;
 
-  @ApiPropertyOptional({ enum: InquiryPriority, default: InquiryPriority.NORMAL, example: InquiryPriority.HIGH })
+  @ApiPropertyOptional({
+    enum: InquiryPriority,
+    default: InquiryPriority.NORMAL,
+    example: InquiryPriority.HIGH,
+  })
   @IsOptional()
   @IsEnum(InquiryPriority)
   priority?: InquiryPriority;
 
-  @ApiPropertyOptional({ description: 'Existing User ID if registered', example: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' })
+  @ApiPropertyOptional({
+    description: 'Existing User ID if registered',
+    example: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+  })
   @IsOptional()
   @IsUUID()
   relatedUserId?: string;

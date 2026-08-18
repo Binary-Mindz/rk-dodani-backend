@@ -24,86 +24,43 @@ export class ProductService {
       .catch(() => {});
   }
 
-  private includeRelations() {
-    return {
-      productGroup: true,
-      sectors: { orderBy: { sectorType: 'asc' as const } },
-      targetClient: true,
-    };
-  }
-
-  private formatProduct(product: any) {
-    if (!product) return product;
-    return {
-      id: product.id,
-      name: product.title,
-      description: product.description,
-      productImage: product.productImage,
-      productGroupId: product.productGroupId,
-      productGroup: product.productGroup ?? null,
-      architectureBlueprint: product.architectureBlueprint,
-      initiateAthenionDiscussion: product.initiateAthenionDiscussion,
-      sectors: product.sectors ?? [],
-      targetClient: product.targetClient ?? [],
-      isActive: product.isActive,
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
-    };
-  }
-
-  private async validateProductGroupId(productGroupId?: string | null) {
-    if (!productGroupId) return;
-    const group = await this.prisma.productGroup.findUnique({ where: { id: productGroupId } });
-    if (!group) throw new BadRequestException('Product group not found');
-  }
-
   async create(userId: string | null, dto: CreateProductDto) {
-    if (!dto.name?.trim()) throw new BadRequestException('Product name is required');
-    await this.validateProductGroupId(dto.productGroupId);
+    if (!dto.title?.trim()) throw new BadRequestException('Product title is required');
+    if (!dto.subTitle?.trim()) throw new BadRequestException('Product subtitle is required');
+    if (!dto.module?.trim()) throw new BadRequestException('Product module is required');
+    if (!dto.description?.trim()) throw new BadRequestException('Product description is required');
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      const product = await tx.product.create({
-        data: {
-          title: dto.name,
-          subTitle: dto.name,
-          description: dto.description,
-          productImage: dto.productImage ?? null,
-          architectureBlueprint: dto.architectureBlueprint ?? null,
-          initiateAthenionDiscussion: dto.initiateAthenionDiscussion ?? null,
-          productGroupId: dto.productGroupId ?? null,
-        },
-      });
-
-      if (dto.sectors?.length) {
-        await tx.productSector.createMany({
-          data: dto.sectors.map((s) => ({
-            productId: product.id,
-            sectorType: s.sectorType,
-            title: s.title,
-            description: s.description ?? null,
-            keyFeatures: s.keyFeatures ?? [],
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      return tx.product.findUnique({ where: { id: product.id }, include: this.includeRelations() });
+    const created = await this.prisma.product.create({
+      data: {
+        title: dto.title.trim(),
+        subTitle: dto.subTitle.trim(),
+        module: dto.module.trim(),
+        description: dto.description.trim(),
+        scaleValueImpact: (dto.scaleValueImpact as any) ?? null,
+        mitigationVector: (dto.mitigationVector as any) ?? null,
+        platformCapabilitiesDescriptor: (dto.platformCapabilitiesDescriptor as any) ?? null,
+        retailBanking: (dto.retailBanking as any) ?? null,
+        capitalMarkets: (dto.capitalMarkets as any) ?? null,
+        wealthAndAsset: (dto.wealthAndAsset as any) ?? null,
+      },
     });
 
-    this.audit(userId, created!.id, 'CREATE', null, created);
-    return this.formatProduct(created);
+    this.audit(userId, created.id, 'CREATE', null, created);
+    return created;
   }
 
   async findAll(query: QueryProductDto, publicOnly = false) {
-    const { search, productGroupId, page = 1, limit = 10 } = query;
+    const { search, module, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       ...(publicOnly && { isActive: true }),
-      ...(productGroupId && { productGroupId }),
+      ...(module && { module: { equals: module, mode: 'insensitive' } }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
+          { subTitle: { contains: search, mode: 'insensitive' } },
+          { module: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
         ],
       }),
@@ -114,14 +71,13 @@ export class ProductService {
         where,
         skip,
         take: limit,
-        include: this.includeRelations(),
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.product.count({ where }),
     ]);
 
     return {
-      items: items.map((item) => this.formatProduct(item)),
+      items,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -129,52 +85,35 @@ export class ProductService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: this.includeRelations(),
     });
     if (!product) throw new NotFoundException(`Product with ID "${id}" not found`);
-    return this.formatProduct(product);
+    return product;
   }
 
   async update(userId: string | null, id: string, dto: UpdateProductDto) {
     const existing = await this.prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Product with ID "${id}" not found`);
 
-    await this.validateProductGroupId(dto.productGroupId);
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.product.update({
-        where: { id },
-        data: {
-          ...(dto.name !== undefined && { title: dto.name, subTitle: dto.name }),
-          ...(dto.description !== undefined && { description: dto.description }),
-          ...(dto.productImage !== undefined && { productImage: dto.productImage }),
-          ...(dto.architectureBlueprint !== undefined && { architectureBlueprint: dto.architectureBlueprint }),
-          ...(dto.initiateAthenionDiscussion !== undefined && { initiateAthenionDiscussion: dto.initiateAthenionDiscussion }),
-          ...(dto.productGroupId !== undefined && { productGroupId: dto.productGroupId }),
-        },
-      });
-
-      if (dto.sectors !== undefined) {
-        await tx.productSector.deleteMany({ where: { productId: id } });
-        if (dto.sectors.length) {
-          await tx.productSector.createMany({
-            data: dto.sectors.map((s) => ({
-              productId: id,
-              sectorType: s.sectorType,
-              title: s.title,
-              description: s.description ?? null,
-              keyFeatures: s.keyFeatures ?? [],
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
-
-      return tx.product.findUnique({ where: { id }, include: this.includeRelations() });
+    const updated = await this.prisma.product.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title.trim() }),
+        ...(dto.subTitle !== undefined && { subTitle: dto.subTitle.trim() }),
+        ...(dto.module !== undefined && { module: dto.module.trim() }),
+        ...(dto.description !== undefined && { description: dto.description.trim() }),
+        ...(dto.scaleValueImpact !== undefined && { scaleValueImpact: (dto.scaleValueImpact as any) ?? null }),
+        ...(dto.mitigationVector !== undefined && { mitigationVector: (dto.mitigationVector as any) ?? null }),
+        ...(dto.platformCapabilitiesDescriptor !== undefined && {
+          platformCapabilitiesDescriptor: (dto.platformCapabilitiesDescriptor as any) ?? null,
+        }),
+        ...(dto.retailBanking !== undefined && { retailBanking: (dto.retailBanking as any) ?? null }),
+        ...(dto.capitalMarkets !== undefined && { capitalMarkets: (dto.capitalMarkets as any) ?? null }),
+        ...(dto.wealthAndAsset !== undefined && { wealthAndAsset: (dto.wealthAndAsset as any) ?? null }),
+      },
     });
 
     this.audit(userId, id, 'UPDATE', existing, updated);
-    return this.formatProduct(updated);
+    return updated;
   }
 
   async remove(userId: string | null, id: string) {

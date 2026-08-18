@@ -1,5 +1,20 @@
-import { Body, Controller, Post, Get, Query, UseGuards, HttpCode, HttpStatus, Delete } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  Delete,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { AssignPlanDto } from './dto/assign-plan.dto';
 import { AssignCustomSubscriptionDto } from './dto/assign-custom-subscription.dto';
@@ -25,8 +40,12 @@ export class SubscriptionController {
     @CurrentUser('id') userId: string,
     @Body() dto: CreateCheckoutDto,
   ) {
-    const result = await this.subscriptionService.createCheckoutSession(userId, dto.planId, dto.seats);
-    
+    const result = await this.subscriptionService.createCheckoutSession(
+      userId,
+      dto.planId,
+      dto.seats,
+    );
+
     if (result.isFreeActivation) {
       return {
         statusCode: 201,
@@ -52,7 +71,7 @@ export class SubscriptionController {
     return {
       statusCode: 200,
       message: 'Payment verified and security role updated.',
-      data: { verified: true }
+      data: { verified: true },
     };
   }
 
@@ -61,8 +80,11 @@ export class SubscriptionController {
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Get('custom-assignment-history')
   @ApiOperation({ summary: 'Get custom subscription assignment history' })
-  async getCustomAssignmentHistory(@Query() query: QueryCustomSubscriptionHistoryDto) {
-    const data = await this.subscriptionService.getCustomAssignmentHistory(query);
+  async getCustomAssignmentHistory(
+    @Query() query: QueryCustomSubscriptionHistoryDto,
+  ) {
+    const data =
+      await this.subscriptionService.getCustomAssignmentHistory(query);
     return {
       statusCode: 200,
       message: 'Custom subscription assignment history fetched successfully',
@@ -74,11 +96,16 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('assign')
-  @ApiOperation({ summary: 'Manually assign a subscription plan to a user (Super Admin only, bypassing Stripe)' })
-  async assignSubscription(
-    @Body() dto: AssignPlanDto,
-  ) {
-    const data = await this.subscriptionService.assignPlanManually(dto.userId, dto.planId, dto.seats || 1);
+  @ApiOperation({
+    summary:
+      'Manually assign a subscription plan to a user (Super Admin only, bypassing Stripe)',
+  })
+  async assignSubscription(@Body() dto: AssignPlanDto) {
+    const data = await this.subscriptionService.assignPlanManually(
+      dto.userId,
+      dto.planId,
+      dto.seats || 1,
+    );
     return {
       statusCode: 200,
       message: 'Subscription plan manually assigned successfully',
@@ -90,12 +117,18 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('custom-assign')
-  @ApiOperation({ summary: 'Create a custom payment-link based subscription request for a user' })
+  @ApiOperation({
+    summary:
+      'Create a custom payment-link based subscription request for a user',
+  })
   async assignCustomSubscription(
     @CurrentUser('id') adminUserId: string,
     @Body() dto: AssignCustomSubscriptionDto,
   ) {
-    const data = await this.subscriptionService.assignCustomSubscription(adminUserId, dto);
+    const data = await this.subscriptionService.assignCustomSubscription(
+      adminUserId,
+      dto,
+    );
     return {
       statusCode: 201,
       message: 'Custom subscription payment link created successfully',
@@ -106,12 +139,15 @@ export class SubscriptionController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Delete('cancel')
-  @ApiOperation({ summary: 'Cancel the current user\'s active subscription' })
+  @ApiOperation({ summary: "Cancel the current user's active subscription" })
   async cancelSubscription(
     @CurrentUser('id') userId: string,
     @Body() dto: CancelSubscriptionDto,
   ) {
-    const data = await this.subscriptionService.cancelSubscription(userId, dto.subscriptionId);
+    const data = await this.subscriptionService.cancelSubscription(
+      userId,
+      dto.subscriptionId,
+    );
     return {
       statusCode: 200,
       message: 'Subscription canceled successfully',

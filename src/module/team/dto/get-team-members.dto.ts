@@ -53,7 +53,8 @@ export class GetTeamMembersDto {
   status?: UserStatus;
 
   @ApiPropertyOptional({
-    description: 'Field to sort by (createdAt, firstName, lastName, lastLoginAt, status, teamRole)',
+    description:
+      'Field to sort by (createdAt, firstName, lastName, lastLoginAt, status, teamRole)',
     default: 'createdAt',
     example: 'createdAt',
   })

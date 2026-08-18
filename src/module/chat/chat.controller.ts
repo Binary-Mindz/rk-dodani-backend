@@ -189,7 +189,11 @@ export class ChatController {
     @Body('name') name: string,
   ) {
     const data = await this.chatService.updateGroupName(id, userId, name);
-    return { statusCode: 200, message: 'Group name updated successfully', data };
+    return {
+      statusCode: 200,
+      message: 'Group name updated successfully',
+      data,
+    };
   }
 
   @Post('conversations/:id/members/:memberUserId/block')
@@ -203,8 +207,17 @@ export class ChatController {
     @Param('memberUserId') memberUserId: string,
     @Body() data: BlockConversationMemberDto,
   ) {
-    const result = await this.chatService.blockConversationMember(id, userId, memberUserId, data?.reason);
-    return { statusCode: 200, message: 'Member blocked successfully', data: result };
+    const result = await this.chatService.blockConversationMember(
+      id,
+      userId,
+      memberUserId,
+      data?.reason,
+    );
+    return {
+      statusCode: 200,
+      message: 'Member blocked successfully',
+      data: result,
+    };
   }
 
   @Post('conversations/:id/members/:memberUserId/unblock')
@@ -216,8 +229,16 @@ export class ChatController {
     @Param('id') id: string,
     @Param('memberUserId') memberUserId: string,
   ) {
-    const result = await this.chatService.unblockConversationMember(id, userId, memberUserId);
-    return { statusCode: 200, message: 'Member unblocked successfully', data: result };
+    const result = await this.chatService.unblockConversationMember(
+      id,
+      userId,
+      memberUserId,
+    );
+    return {
+      statusCode: 200,
+      message: 'Member unblocked successfully',
+      data: result,
+    };
   }
 
   @Post('team/conversations/:id/members/:memberUserId/block')
@@ -232,8 +253,17 @@ export class ChatController {
     @Param('memberUserId') memberUserId: string,
     @Body() data: BlockConversationMemberDto,
   ) {
-    const result = await this.chatService.blockTeamConversationMember(id, userId, memberUserId, data?.reason);
-    return { statusCode: 200, message: 'Team member blocked successfully', data: result };
+    const result = await this.chatService.blockTeamConversationMember(
+      id,
+      userId,
+      memberUserId,
+      data?.reason,
+    );
+    return {
+      statusCode: 200,
+      message: 'Team member blocked successfully',
+      data: result,
+    };
   }
 
   @Post('team/conversations/:id/members/:memberUserId/unblock')
@@ -246,7 +276,15 @@ export class ChatController {
     @Param('id') id: string,
     @Param('memberUserId') memberUserId: string,
   ) {
-    const result = await this.chatService.unblockTeamConversationMember(id, userId, memberUserId);
-    return { statusCode: 200, message: 'Team member unblocked successfully', data: result };
+    const result = await this.chatService.unblockTeamConversationMember(
+      id,
+      userId,
+      memberUserId,
+    );
+    return {
+      statusCode: 200,
+      message: 'Team member unblocked successfully',
+      data: result,
+    };
   }
 }

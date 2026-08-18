@@ -8,7 +8,6 @@ import {
 } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 
-
 @Injectable()
 export class PatreonSyncService {
   constructor(private readonly prisma: PrismaService) {}
@@ -22,8 +21,7 @@ export class PatreonSyncService {
 
     const topTier = tiers.sort(
       (a: any, b: any) =>
-        (b?.attributes?.amount_cents ?? 0) -
-        (a?.attributes?.amount_cents ?? 0),
+        (b?.attributes?.amount_cents ?? 0) - (a?.attributes?.amount_cents ?? 0),
     )[0];
 
     return { member, topTier };
@@ -154,7 +152,7 @@ export class PatreonSyncService {
           ? EntitlementStatus.ACTIVE
           : EntitlementStatus.REVOKED,
         startsAt: connection.isActive
-          ? existing.startsAt ?? new Date()
+          ? (existing.startsAt ?? new Date())
           : existing.startsAt,
         revokedAt: connection.isActive ? null : new Date(),
         reason: connection.patreonTierTitle

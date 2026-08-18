@@ -26,7 +26,7 @@ export class ProductController {
   constructor(private readonly service: ProductService) {}
 
   @Get('products')
-  @ApiOperation({ summary: 'Get all products with target clients (Public)' })
+  @ApiOperation({ summary: 'Get all products (Public)' })
   async findAllPublic(@Query() query: QueryProductDto) {
     const data = await this.service.findAll(query, true);
     return {
@@ -51,7 +51,7 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('admin/products')
-  @ApiOperation({ summary: 'Create a new product with optional target clients' })
+  @ApiOperation({ summary: 'Create a new product' })
   async create(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateProductDto,
@@ -96,7 +96,7 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Patch('admin/products/:id')
-  @ApiOperation({ summary: 'Update product and its target clients' })
+  @ApiOperation({ summary: 'Update product' })
   async update(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
@@ -123,5 +123,4 @@ export class ProductController {
       data,
     };
   }
-
 }

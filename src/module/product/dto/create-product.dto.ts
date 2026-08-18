@@ -1,43 +1,94 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProductSectorDto } from './product-sector.dto';
+import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+
+export class TitleDescriptionDto {
+  @ApiProperty({ example: 'Operational Efficiency' })
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @ApiProperty({ example: 'Reduces operational overhead by 40% across departments' })
+  @IsString()
+  @IsNotEmpty()
+  description!: string;
+}
+
+export class SectorFeatureDto {
+  @ApiProperty({ example: 'Retail Banking' })
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @ApiProperty({ example: 'Retail banking specialized solutions and workflows' })
+  @IsString()
+  @IsNotEmpty()
+  description!: string;
+
+  @ApiPropertyOptional({
+    example: ['Automated Loan Processing', 'Real-time Fraud Detection', 'Customer 360 View'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keyFeatures?: string[];
+}
 
 export class CreateProductDto {
   @ApiProperty({ example: 'AI Leadership Platform' })
   @IsString()
   @IsNotEmpty()
-  name!: string;
+  title!: string;
 
-  @ApiProperty({ example: 'How modern leaders are adopting AI' })
+  @ApiProperty({ example: 'Accelerate Enterprise Decision-Making' })
+  @IsString()
+  @IsNotEmpty()
+  subTitle!: string;
+
+  @ApiProperty({ example: 'Core Architecture' })
+  @IsString()
+  @IsNotEmpty()
+  module!: string;
+
+  @ApiProperty({ example: 'Comprehensive AI transformation platform designed for large organizations.' })
   @IsString()
   @IsNotEmpty()
   description!: string;
 
-  @ApiPropertyOptional({ example: 'uuid-of-product-group' })
-  @IsString()
+  @ApiPropertyOptional({ type: TitleDescriptionDto })
   @IsOptional()
-  productGroupId?: string | null;
+  @ValidateNested()
+  @Type(() => TitleDescriptionDto)
+  scaleValueImpact?: TitleDescriptionDto;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/product.jpg' })
-  @IsString()
+  @ApiPropertyOptional({ type: TitleDescriptionDto })
   @IsOptional()
-  productImage?: string;
+  @ValidateNested()
+  @Type(() => TitleDescriptionDto)
+  mitigationVector?: TitleDescriptionDto;
 
-  @ApiPropertyOptional({ example: 'Athenion Solution Architecture Blueprint' })
-  @IsString()
+  @ApiPropertyOptional({ type: TitleDescriptionDto })
   @IsOptional()
-  architectureBlueprint?: string;
+  @ValidateNested()
+  @Type(() => TitleDescriptionDto)
+  platformCapabilitiesDescriptor?: TitleDescriptionDto;
 
-  @ApiPropertyOptional({ example: 'Initiate Athenion discussion copy' })
-  @IsString()
+  @ApiPropertyOptional({ type: SectorFeatureDto })
   @IsOptional()
-  initiateAthenionDiscussion?: string;
+  @ValidateNested()
+  @Type(() => SectorFeatureDto)
+  retailBanking?: SectorFeatureDto;
 
-  @ApiPropertyOptional({ type: [ProductSectorDto] })
+  @ApiPropertyOptional({ type: SectorFeatureDto })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ProductSectorDto)
-  sectors?: ProductSectorDto[];
+  @ValidateNested()
+  @Type(() => SectorFeatureDto)
+  capitalMarkets?: SectorFeatureDto;
+
+  @ApiPropertyOptional({ type: SectorFeatureDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SectorFeatureDto)
+  wealthAndAsset?: SectorFeatureDto;
 }

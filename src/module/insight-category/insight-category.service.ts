@@ -79,8 +79,12 @@ export class InsightCategoryService {
       ...(query.search
         ? {
             OR: [
-              { name: { contains: query.search, mode: 'insensitive' as const } },
-              { slug: { contains: query.search, mode: 'insensitive' as const } },
+              {
+                name: { contains: query.search, mode: 'insensitive' as const },
+              },
+              {
+                slug: { contains: query.search, mode: 'insensitive' as const },
+              },
               {
                 description: {
                   contains: query.search,
@@ -105,7 +109,10 @@ export class InsightCategoryService {
       this.prisma.insightCategory.count({ where }),
     ]);
 
-    return { items, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      items,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string) {

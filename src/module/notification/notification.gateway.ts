@@ -16,7 +16,9 @@ import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 
 @WebSocketGateway({ namespace: '/notifications', cors: true })
 @UseGuards(WsJwtGuard)
-export class NotificationGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class NotificationGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server!: Server;
 
@@ -36,25 +38,29 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
 
       const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
       const payload: JwtPayload = this.jwtService.verify(token, { secret });
-      
+
       const user: CurrentUserData = {
         id: payload.sub,
         email: payload.email,
         roles: payload.roles ?? [],
       };
-      
+
       client.data.user = user;
       client.join(`user:${user.id}`);
       this.logger.log(`User ${user.id} connected to notifications`);
     } catch (error) {
-      this.logger.error(`Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(
+        `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
     const user: CurrentUserData = client.data.user;
-    this.logger.log(`User ${user?.id ?? client.id} disconnected from notifications`);
+    this.logger.log(
+      `User ${user?.id ?? client.id} disconnected from notifications`,
+    );
   }
 
   sendToUser(userId: string, notification: unknown) {
@@ -62,9 +68,7 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
   }
 
   @SubscribeMessage('markRead')
-  handleMarkRead(
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleMarkRead(@ConnectedSocket() client: Socket) {
     const user: CurrentUserData = client.data.user;
     this.logger.log(`User ${user?.id} acknowledged markRead via socket`);
     return { status: 'ok' };
@@ -82,4 +86,3 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     return null;
   }
 }
-

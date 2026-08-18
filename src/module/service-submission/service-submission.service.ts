@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateServiceSubmissionDto } from './dto/create-service-submission.dto';
@@ -68,7 +72,9 @@ export class ServiceSubmissionService {
     }
 
     if (dto.serviceId) {
-      const service = await this.prisma.services.findUnique({ where: { id: dto.serviceId } });
+      const service = await this.prisma.services.findUnique({
+        where: { id: dto.serviceId },
+      });
       if (!service) {
         throw new BadRequestException('Service not found');
       }
@@ -90,7 +96,14 @@ export class ServiceSubmissionService {
   }
 
   async findAll(query: QueryServiceSubmissionDto) {
-    const { search, status, primaryFocusArea, serviceId, page = 1, limit = 10 } = query;
+    const {
+      search,
+      status,
+      primaryFocusArea,
+      serviceId,
+      page = 1,
+      limit = 10,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -135,20 +148,27 @@ export class ServiceSubmissionService {
     });
 
     if (!submission) {
-      throw new NotFoundException(`Service submission with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Service submission with ID "${id}" not found`,
+      );
     }
 
     return this.formatSubmission(submission);
   }
 
-  async update(userId: string | null, id: string, dto: UpdateServiceSubmissionDto) {
+  async update(
+    userId: string | null,
+    id: string,
+    dto: UpdateServiceSubmissionDto,
+  ) {
     const existing = await this.prisma.serviceSubmission.findUnique({
       where: { id },
     });
     if (!existing) {
-      throw new NotFoundException(`Service submission with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Service submission with ID "${id}" not found`,
+      );
     }
-
 
     const updated = await this.prisma.serviceSubmission.update({
       where: { id },
@@ -168,7 +188,9 @@ export class ServiceSubmissionService {
       where: { id },
     });
     if (!existing) {
-      throw new NotFoundException(`Service submission with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Service submission with ID "${id}" not found`,
+      );
     }
 
     await this.prisma.serviceSubmission.delete({ where: { id } });

@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { AppSettingController, AppSettingPublicController } from './app-setting.controller';
+import {
+  AppSettingController,
+  AppSettingPublicController,
+} from './app-setting.controller';
 import { AppSettingService } from './app-setting.service';
 import { AuditModule } from '../audit/audit.module';
 import { AlertModule } from '../alert/alert.module';

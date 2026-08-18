@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { TeamRole } from '@prisma/client';
 
 export class InviteMemberDto {
@@ -31,4 +37,3 @@ export class InviteMemberDto {
   @IsString()
   message?: string;
 }
-

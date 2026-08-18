@@ -178,4 +178,3 @@ export class QueryBookmarksDto {
   @Max(100)
   limit?: number = 10;
 }
-

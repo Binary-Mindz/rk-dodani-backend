@@ -455,12 +455,24 @@ export class SubscriptionService {
       ...(query.billingInterval && { billingInterval: query.billingInterval }),
       ...(query.search && {
         OR: [
-          { checkoutSessionId: { contains: query.search, mode: 'insensitive' } },
+          {
+            checkoutSessionId: { contains: query.search, mode: 'insensitive' },
+          },
           { note: { contains: query.search, mode: 'insensitive' } },
           { user: { email: { contains: query.search, mode: 'insensitive' } } },
-          { user: { fullName: { contains: query.search, mode: 'insensitive' } } },
-          { assignedByUser: { email: { contains: query.search, mode: 'insensitive' } } },
-          { assignedByUser: { fullName: { contains: query.search, mode: 'insensitive' } } },
+          {
+            user: { fullName: { contains: query.search, mode: 'insensitive' } },
+          },
+          {
+            assignedByUser: {
+              email: { contains: query.search, mode: 'insensitive' },
+            },
+          },
+          {
+            assignedByUser: {
+              fullName: { contains: query.search, mode: 'insensitive' },
+            },
+          },
           { plan: { name: { contains: query.search, mode: 'insensitive' } } },
           { plan: { code: { contains: query.search, mode: 'insensitive' } } },
         ],
@@ -474,9 +486,15 @@ export class SubscriptionService {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
-          assignedByUser: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
-          plan: { select: { id: true, code: true, name: true, planTitle: true } },
+          user: {
+            select: { id: true, email: true, fullName: true, avatarUrl: true },
+          },
+          assignedByUser: {
+            select: { id: true, email: true, fullName: true, avatarUrl: true },
+          },
+          plan: {
+            select: { id: true, code: true, name: true, planTitle: true },
+          },
         },
       }),
       this.prisma.customSubscriptionAssignment.count({ where }),
@@ -492,7 +510,9 @@ export class SubscriptionService {
     adminUserId: string,
     dto: AssignCustomSubscriptionDto,
   ) {
-    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
     if (!user) throw new NotFoundException('User not found');
 
     const frontendUrl =
@@ -537,7 +557,8 @@ export class SubscriptionService {
             },
             unit_amount: unitAmount,
             recurring: {
-              interval: billingInterval === BillingInterval.YEARLY ? 'year' : 'month',
+              interval:
+                billingInterval === BillingInterval.YEARLY ? 'year' : 'month',
             },
           },
           quantity: 1,
@@ -579,8 +600,12 @@ export class SubscriptionService {
         note: dto.note ?? null,
       },
       include: {
-        user: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
-        assignedByUser: { select: { id: true, email: true, fullName: true, avatarUrl: true } },
+        user: {
+          select: { id: true, email: true, fullName: true, avatarUrl: true },
+        },
+        assignedByUser: {
+          select: { id: true, email: true, fullName: true, avatarUrl: true },
+        },
         plan: { select: { id: true, code: true, name: true, planTitle: true } },
       },
     });
@@ -602,14 +627,17 @@ export class SubscriptionService {
         dto.currency ?? customPlan.currency,
       );
     } catch (mailError) {
-      this.logger.warn(`Could not send custom plan payment email to ${user.email}: ${mailError}`);
+      this.logger.warn(
+        `Could not send custom plan payment email to ${user.email}: ${mailError}`,
+      );
     }
 
     return {
       assignment: this.formatCustomAssignment(assignment),
       paymentUrl: session.url,
       paymentSessionId: session.id,
-      message: 'Payment link created. User can complete payment to activate the subscription.',
+      message:
+        'Payment link created. User can complete payment to activate the subscription.',
     };
   }
 
@@ -621,7 +649,13 @@ export class SubscriptionService {
       : await this.prisma.subscription.findFirst({
           where: {
             userId,
-            status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.PAST_DUE] },
+            status: {
+              in: [
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.TRIALING,
+                SubscriptionStatus.PAST_DUE,
+              ],
+            },
           },
           orderBy: { createdAt: 'desc' },
         });

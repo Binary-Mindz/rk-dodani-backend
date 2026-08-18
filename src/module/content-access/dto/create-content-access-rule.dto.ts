@@ -1,8 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  AccessRuleOperator,
-  AccessRuleType,
-} from '@prisma/client';
+import { AccessRuleOperator, AccessRuleType } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,

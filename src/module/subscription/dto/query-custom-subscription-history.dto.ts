@@ -1,10 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { BillingInterval, CustomSubscriptionAssignmentStatus } from '@prisma/client';
+import {
+  BillingInterval,
+  CustomSubscriptionAssignmentStatus,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class QueryCustomSubscriptionHistoryDto {
-  @ApiPropertyOptional({ description: 'Search by user email/name, plan name, checkout session, or note' })
+  @ApiPropertyOptional({
+    description:
+      'Search by user email/name, plan name, checkout session, or note',
+  })
   @IsString()
   @IsOptional()
   search?: string;
@@ -24,7 +30,9 @@ export class QueryCustomSubscriptionHistoryDto {
   @IsOptional()
   userId?: string;
 
-  @ApiPropertyOptional({ description: 'Admin user ID who assigned the custom subscription' })
+  @ApiPropertyOptional({
+    description: 'Admin user ID who assigned the custom subscription',
+  })
   @IsString()
   @IsOptional()
   assignedBy?: string;

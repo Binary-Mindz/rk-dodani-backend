@@ -12,8 +12,7 @@ export function setupSwagger(app: INestApplication): void {
     'AgentArum Backend API Documentation';
   const swaggerVersion =
     configService.get<string>('SWAGGER_VERSION') ?? '1.0.0';
-  const swaggerPath =
-    configService.get<string>('SWAGGER_PATH') ?? 'docs';
+  const swaggerPath = configService.get<string>('SWAGGER_PATH') ?? 'docs';
 
   const config = new DocumentBuilder()
     .setTitle(swaggerTitle)

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -63,7 +67,9 @@ export class ServiceService {
 
   private async validateServiceGroupId(serviceGroupId?: string | null) {
     if (!serviceGroupId) return;
-    const serviceGroup = await this.prisma.serviceGroup.findUnique({ where: { id: serviceGroupId } });
+    const serviceGroup = await this.prisma.serviceGroup.findUnique({
+      where: { id: serviceGroupId },
+    });
     if (!serviceGroup) {
       throw new BadRequestException('Service group not found');
     }
@@ -100,15 +106,15 @@ export class ServiceService {
     const where: any = {
       ...(serviceGroupId && { serviceGroupId }),
       ...(search && {
-          OR: [
-            { title: { contains: search, mode: 'insensitive' } },
-            { heading: { contains: search, mode: 'insensitive' } },
-            { description: { contains: search, mode: 'insensitive' } },
-            { criticalFriction: { contains: search, mode: 'insensitive' } },
-            { agentarumParadigm: { contains: search, mode: 'insensitive' } },
-            { hardTangibleDeliverables: { has: search } },
-          ],
-        }),
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { heading: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { criticalFriction: { contains: search, mode: 'insensitive' } },
+          { agentarumParadigm: { contains: search, mode: 'insensitive' } },
+          { hardTangibleDeliverables: { has: search } },
+        ],
+      }),
     };
 
     const [items, total] = await Promise.all([
@@ -184,5 +190,4 @@ export class ServiceService {
     this.audit(userId, 'SERVICES', id, 'DELETE', existing, null);
     return { success: true, id };
   }
-
 }
