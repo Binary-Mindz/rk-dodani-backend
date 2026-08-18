@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 
 export class TitleDescriptionDto {
   @ApiProperty({ example: 'Operational Efficiency' })
@@ -55,6 +55,13 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   description!: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Display order (1-based)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  order?: number;
 
   @ApiPropertyOptional({ type: TitleDescriptionDto })
   @IsOptional()

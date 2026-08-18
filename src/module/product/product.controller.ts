@@ -17,6 +17,7 @@ import { JwtAuthGuard } from 'common/guards/jwt-auth.guard';
 import { RolesGuard } from 'common/guards/roles.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
+import { ReorderProductsDto } from './dto/reorder-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductService } from './product.service';
 
@@ -26,7 +27,7 @@ export class ProductController {
   constructor(private readonly service: ProductService) {}
 
   @Get('products')
-  @ApiOperation({ summary: 'Get all products (Public)' })
+  @ApiOperation({ summary: 'Get all products ordered by display order (Public)' })
   async findAllPublic(@Query() query: QueryProductDto) {
     const data = await this.service.findAll(query, true);
     return {
@@ -51,7 +52,7 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Post('admin/products')
-  @ApiOperation({ summary: 'Create a new product' })
+  @ApiOperation({ summary: 'Create a new product with display order' })
   async create(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateProductDto,
@@ -68,12 +69,29 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Get('admin/products')
-  @ApiOperation({ summary: 'Get all products for admin' })
+  @ApiOperation({ summary: 'Get all products for admin ordered by display order' })
   async findAllAdmin(@Query() query: QueryProductDto) {
     const data = await this.service.findAll(query);
     return {
       statusCode: 200,
       message: 'Products fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Patch('admin/products/reorder')
+  @ApiOperation({ summary: 'Batch reorder products' })
+  async reorder(
+    @CurrentUser('id') userId: string,
+    @Body() dto: ReorderProductsDto,
+  ) {
+    const data = await this.service.reorder(userId, dto);
+    return {
+      statusCode: 200,
+      message: 'Products reordered successfully',
       data,
     };
   }
@@ -96,7 +114,7 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRoleCode.SUPER_ADMIN)
   @Patch('admin/products/:id')
-  @ApiOperation({ summary: 'Update product' })
+  @ApiOperation({ summary: 'Update product and optional display order' })
   async update(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
