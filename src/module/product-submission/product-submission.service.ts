@@ -1,16 +1,22 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { TargetDeployTimeline } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateProductSubmissionDto } from './dto/create-product-submission.dto';
-import { UpdateProductSubmissionDto } from './dto/update-product-submission.dto';
 import { QueryProductSubmissionDto } from './dto/query-product-submission.dto';
+import { UpdateProductSubmissionDto } from './dto/update-product-submission.dto';
 
 @Injectable()
 export class ProductSubmissionService {
+  private readonly logger = new Logger(ProductSubmissionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
@@ -33,7 +39,9 @@ export class ProductSubmissionService {
         oldValues,
         newValues,
       })
-      .catch(() => {});
+      .catch((err) => {
+        this.logger.warn(`Audit log failed: ${err?.message}`);
+      });
   }
 
   private includeProduct() {
@@ -76,29 +84,40 @@ export class ProductSubmissionService {
       throw new BadRequestException('Corporate email is required');
     }
 
-    if (dto.productId) {
+    const productId = dto.productId && dto.productId.trim().length > 0 ? dto.productId.trim() : null;
+
+    if (productId) {
       const product = await this.prisma.product.findUnique({
-        where: { id: dto.productId },
+        where: { id: productId },
       });
       if (!product) {
         throw new BadRequestException('Product not found');
       }
     }
 
-    const created = await this.prisma.productSubmission.create({
-      data: {
-        fullName: dto.fullName.trim(),
-        corporateEmail: dto.corporateEmail.trim(),
-        company: dto.company?.trim() ?? null,
-        targetDeployTimeline: dto.targetDeployTimeline,
-        useCase: dto.useCase?.trim() ?? null,
-        productId: dto.productId ?? null,
-      },
-      include: this.includeProduct(),
-    });
+    const timeline =
+      dto.targetDeployTimeline || TargetDeployTimeline.IMMEDIATE_PILOT_14_DAYS;
 
-    this.audit(null, 'PRODUCT_SUBMISSION', created.id, 'CREATE', null, created);
-    return this.formatSubmission(created);
+    try {
+      const created = await this.prisma.productSubmission.create({
+        data: {
+          fullName: dto.fullName.trim(),
+          corporateEmail: dto.corporateEmail.trim(),
+          company: dto.company?.trim() ? dto.company.trim() : null,
+          targetDeployTimeline: timeline,
+          useCase: dto.useCase?.trim() ? dto.useCase.trim() : null,
+          productId: productId,
+        },
+        include: this.includeProduct(),
+      });
+
+      this.audit(null, 'PRODUCT_SUBMISSION', created.id, 'CREATE', null, created);
+      return this.formatSubmission(created);
+    } catch (error: any) {
+      this.logger.error('Failed to create product submission', error?.stack || error);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(error?.message || 'Failed to submit form');
+    }
   }
 
   async findAll(query: QueryProductSubmissionDto) {
@@ -165,15 +184,6 @@ export class ProductSubmissionService {
       throw new NotFoundException(
         `Product submission with ID "${id}" not found`,
       );
-    }
-
-    if (dto.productId) {
-      const product = await this.prisma.product.findUnique({
-        where: { id: dto.productId },
-      });
-      if (!product) {
-        throw new BadRequestException('Product not found');
-      }
     }
 
     const updated = await this.prisma.productSubmission.update({
