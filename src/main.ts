@@ -6,11 +6,13 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger.config';
 import { PrismaService } from './prisma/prisma.service';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import 'dotenv/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.use(cookieParser());
 
   app.use(
