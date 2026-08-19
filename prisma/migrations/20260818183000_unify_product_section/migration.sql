@@ -21,9 +21,6 @@ ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "platformCapabilitiesDescriptor" 
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "retailBanking" JSONB;
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "capitalMarkets" JSONB;
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "wealthAndAsset" JSONB;
-ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "order" INTEGER NOT NULL DEFAULT 0;
-
-CREATE INDEX IF NOT EXISTS "Product_order_idx" ON "Product"("order");
 
 -- DropTable
 DROP TABLE IF EXISTS "ProductSector" CASCADE;
