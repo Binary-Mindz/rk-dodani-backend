@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PublishStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 
 export class TitleDescriptionDto {
   @ApiProperty({ example: 'Operational Efficiency' })
@@ -62,6 +63,16 @@ export class CreateProductDto {
   @IsInt()
   @Min(1)
   order?: number;
+
+  @ApiPropertyOptional({
+    enum: PublishStatus,
+    default: PublishStatus.DRAFT,
+    description: 'Publish status of the product (DRAFT or PUBLISHED)',
+    example: PublishStatus.DRAFT,
+  })
+  @IsEnum(PublishStatus)
+  @IsOptional()
+  status?: PublishStatus;
 
   @ApiPropertyOptional({ type: TitleDescriptionDto })
   @IsOptional()

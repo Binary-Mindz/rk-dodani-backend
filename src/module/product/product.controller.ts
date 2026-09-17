@@ -19,6 +19,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { ReorderProductsDto } from './dto/reorder-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductService } from './product.service';
 
 @ApiTags('Products')
@@ -40,7 +41,7 @@ export class ProductController {
   @Get('products/:id')
   @ApiOperation({ summary: 'Get product details by ID (Public)' })
   async findOnePublic(@Param('id') id: string) {
-    const data = await this.service.findOne(id);
+    const data = await this.service.findOne(id, true);
     return {
       statusCode: 200,
       message: 'Product fetched successfully',
@@ -102,7 +103,7 @@ export class ProductController {
   @Get('admin/products/:id')
   @ApiOperation({ summary: 'Get product details for admin' })
   async findOneAdmin(@Param('id') id: string) {
-    const data = await this.service.findOne(id);
+    const data = await this.service.findOne(id, false);
     return {
       statusCode: 200,
       message: 'Product fetched successfully',
@@ -124,6 +125,24 @@ export class ProductController {
     return {
       statusCode: 200,
       message: 'Product updated successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Patch('admin/products/:id/status')
+  @ApiOperation({ summary: 'Update product publish status (DRAFT / PUBLISHED)' })
+  async updateStatus(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateProductStatusDto,
+  ) {
+    const data = await this.service.updateStatus(userId, id, dto.status);
+    return {
+      statusCode: 200,
+      message: `Product status updated to ${dto.status} successfully`,
       data,
     };
   }
