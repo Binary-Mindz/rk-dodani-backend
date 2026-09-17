@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PublishStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class QueryProductDto {
   @ApiPropertyOptional({
@@ -15,6 +16,14 @@ export class QueryProductDto {
   @IsString()
   @IsOptional()
   module?: string;
+
+  @ApiPropertyOptional({
+    enum: PublishStatus,
+    description: 'Filter by publish status (Super Admin only: DRAFT or PUBLISHED)',
+  })
+  @IsEnum(PublishStatus)
+  @IsOptional()
+  status?: PublishStatus;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Type(() => Number)

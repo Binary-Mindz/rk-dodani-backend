@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PublishStatus } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -62,6 +63,7 @@ export class ProductService {
           module: dto.module.trim(),
           description: dto.description.trim(),
           order: orderToSet,
+          status: dto.status ?? PublishStatus.DRAFT,
           scaleValueImpact: (dto.scaleValueImpact as any) ?? null,
           mitigationVector: (dto.mitigationVector as any) ?? null,
           platformCapabilitiesDescriptor: (dto.platformCapabilitiesDescriptor as any) ?? null,
@@ -77,11 +79,15 @@ export class ProductService {
   }
 
   async findAll(query: QueryProductDto, publicOnly = false) {
-    const { search, module, page = 1, limit = 10 } = query;
+    const { search, module, status, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
-      ...(publicOnly && { isActive: true }),
+      ...(publicOnly
+        ? { isActive: true, status: PublishStatus.PUBLISHED }
+        : {
+            ...(status && { status }),
+          }),
       ...(module && { module: { equals: module, mode: 'insensitive' } }),
       ...(search && {
         OR: [
@@ -109,11 +115,16 @@ export class ProductService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, publicOnly = false) {
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
     if (!product) throw new NotFoundException(`Product with ID "${id}" not found`);
+
+    if (publicOnly && (product.status !== PublishStatus.PUBLISHED || !product.isActive)) {
+      throw new NotFoundException(`Product with ID "${id}" not found`);
+    }
+
     return product;
   }
 
@@ -185,8 +196,24 @@ export class ProductService {
           ...(dto.retailBanking !== undefined && { retailBanking: (dto.retailBanking as any) ?? null }),
           ...(dto.capitalMarkets !== undefined && { capitalMarkets: (dto.capitalMarkets as any) ?? null }),
           ...(dto.wealthAndAsset !== undefined && { wealthAndAsset: (dto.wealthAndAsset as any) ?? null }),
+          ...(dto.status !== undefined && { status: dto.status }),
         },
       });
+    });
+
+    this.audit(userId, id, 'UPDATE', existing, updated);
+    return updated;
+  }
+
+  async updateStatus(userId: string | null, id: string, status: PublishStatus) {
+    const existing = await this.prisma.product.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Product with ID "${id}" not found`);
+    }
+
+    const updated = await this.prisma.product.update({
+      where: { id },
+      data: { status },
     });
 
     this.audit(userId, id, 'UPDATE', existing, updated);
