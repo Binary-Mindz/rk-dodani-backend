@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ServiceService } from './service.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
 import { QueryServiceDto } from './dto/query-service.dto';
 import { QueryServiceUserDto } from './dto/query-service-user.dto';
 import { CurrentUser } from 'common/decorators/current-user.decorator';
@@ -27,9 +28,11 @@ export class ServiceController {
   constructor(private readonly service: ServiceService) {}
 
   @Get('services')
-  @ApiOperation({ summary: 'Get all services with deep points (Public)' })
+  @ApiOperation({
+    summary: 'Get all published services with deep points (Public)',
+  })
   async findAllPublic(@Query() query: QueryServiceUserDto) {
-    const data = await this.service.findAll(query);
+    const data = await this.service.findAll(query, true);
     return {
       statusCode: 200,
       message: 'Services fetched successfully',
@@ -38,9 +41,9 @@ export class ServiceController {
   }
 
   @Get('services/:id')
-  @ApiOperation({ summary: 'Get service details by ID (Public)' })
+  @ApiOperation({ summary: 'Get published service details by ID (Public)' })
   async findOnePublic(@Param('id') id: string) {
-    const data = await this.service.findOne(id);
+    const data = await this.service.findOne(id, true);
     return {
       statusCode: 200,
       message: 'Service fetched successfully',
@@ -71,7 +74,7 @@ export class ServiceController {
   @Get('admin/services')
   @ApiOperation({ summary: 'Get all services for admin' })
   async findAllAdmin(@Query() query: QueryServiceDto) {
-    const data = await this.service.findAll(query);
+    const data = await this.service.findAll(query, false);
     return {
       statusCode: 200,
       message: 'Services fetched successfully',
@@ -85,7 +88,7 @@ export class ServiceController {
   @Get('admin/services/:id')
   @ApiOperation({ summary: 'Get service details for admin' })
   async findOneAdmin(@Param('id') id: string) {
-    const data = await this.service.findOne(id);
+    const data = await this.service.findOne(id, false);
     return {
       statusCode: 200,
       message: 'Service fetched successfully',
@@ -107,6 +110,24 @@ export class ServiceController {
     return {
       statusCode: 200,
       message: 'Service updated successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleCode.SUPER_ADMIN)
+  @Patch('admin/services/:id/status')
+  @ApiOperation({ summary: 'Update service status (DRAFT, PUBLISHED, etc.)' })
+  async updateStatus(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateServiceStatusDto,
+  ) {
+    const data = await this.service.updateStatus(userId, id, dto.status);
+    return {
+      statusCode: 200,
+      message: 'Service status updated successfully',
       data,
     };
   }

@@ -58,6 +58,8 @@ model Subscription {
   currency               String?
   failureReason          String?
   seats                  Int                @default(1)
+  poNumber               String?
+  paymentMethod          String?            @default("STRIPE")
   metadata               Json?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
@@ -70,6 +72,7 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@index([currentPeriodEnd])
+  @@index([poNumber])
 }
 
 model SubscriptionEvent {
@@ -99,8 +102,10 @@ model CustomSubscriptionAssignment {
   userId            String
   assignedBy        String?
   planId            String
-  checkoutSessionId String                             @unique
-  checkoutUrl       String
+  isPo              Boolean                            @default(false)
+  poNumber          String?
+  checkoutSessionId String?                            @unique
+  checkoutUrl       String?
   amount            Decimal                            @db.Decimal(12, 2)
   currency          String
   billingInterval   BillingInterval
@@ -121,6 +126,7 @@ model CustomSubscriptionAssignment {
   @@index([planId])
   @@index([status])
   @@index([createdAt])
+  @@index([poNumber])
 }
 
 model PatreonConnection {

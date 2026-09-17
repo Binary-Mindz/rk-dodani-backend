@@ -3,19 +3,88 @@ import { BillingInterval, EntitlementType, PlanAudience } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEmail,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Min,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 
+export class NewEnterpriseUserDto {
+  @ApiProperty({
+    description: 'Email for the new enterprise user account',
+    example: 'sarah.admin@enterprise.com',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiPropertyOptional({ example: 'Sarah' })
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: 'Connor' })
+  @IsString()
+  @IsOptional()
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: 'Cyberdyne Systems' })
+  @IsString()
+  @IsOptional()
+  companyName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional initial password. Auto-generated if omitted.',
+    example: 'SecretPass123!',
+  })
+  @IsString()
+  @IsOptional()
+  password?: string;
+}
+
 export class AssignCustomSubscriptionDto {
-  @ApiProperty({ example: 'user-uuid' })
+  @ApiPropertyOptional({
+    description: 'Existing User ID to assign plan to. Required if newUser is omitted.',
+    example: 'user-uuid',
+  })
+  @ValidateIf((o) => !o.newUser)
   @IsUUID()
-  userId!: string;
+  @IsNotEmpty({ message: 'Either userId or newUser must be provided' })
+  userId?: string;
+
+  @ApiPropertyOptional({
+    description: 'New enterprise user details if account does not exist on platform yet',
+    type: NewEnterpriseUserDto,
+  })
+  @ValidateIf((o) => !o.userId)
+  @ValidateNested()
+  @Type(() => NewEnterpriseUserDto)
+  newUser?: NewEnterpriseUserDto;
+
+  @ApiPropertyOptional({
+    description: 'Whether this enterprise assignment uses a Purchase Order (offline payment)',
+    default: false,
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isPo?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Purchase Order number (required when isPo is true)',
+    example: 'PO-2026-ARUM-001',
+  })
+  @ValidateIf((o) => o.isPo === true)
+  @IsNotEmpty({ message: 'Purchase Order (PO) number is required when isPo is true' })
+  @IsString()
+  poNumber?: string;
 
   @ApiPropertyOptional({
     description: 'Display title of the custom plan',
@@ -94,7 +163,7 @@ export class AssignCustomSubscriptionDto {
 
   @ApiPropertyOptional({
     description: 'Number of seats',
-    example: 1,
+    example: 200,
     default: 1,
   })
   @IsNumber()

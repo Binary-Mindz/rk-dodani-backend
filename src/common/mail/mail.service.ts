@@ -508,4 +508,165 @@ export class MailService {
       );
     }
   }
+
+  async sendEnterpriseAccountCredentials(
+    email: string,
+    name: string,
+    temporaryPassword?: string,
+    planTitle?: string,
+    poNumber?: string,
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const loginUrl = `${frontendUrl}/login`;
+
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Welcome to AgentArum Enterprise - Account Activated',
+        html: `
+        <div style="margin:0; padding:0; background-color:#f4f7fb; font-family:Arial, Helvetica, sans-serif;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f7fb; margin:0; padding:30px 0;">
+            <tr>
+              <td align="center">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px; background:#ffffff; border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:#1e3a8a; padding:28px 32px; text-align:center;">
+                      <h1 style="margin:0; color:#ffffff; font-size:26px; font-weight:700;">
+                        AgentArum Enterprise
+                      </h1>
+                      <p style="margin:8px 0 0; color:#dbeafe; font-size:14px;">
+                        Enterprise Account Successfully Activated
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:40px 32px 24px;">
+                      <h2 style="margin:0 0 14px; font-size:20px; color:#111827; font-weight:700;">
+                        Hello ${name || 'Enterprise Admin'},
+                      </h2>
+                      <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#4b5563;">
+                        Your Enterprise account has been created and upgraded on AgentArum under the plan: <strong>${planTitle || 'Enterprise Plan'}</strong>.
+                      </p>
+                      ${
+                        poNumber
+                          ? `<p style="margin:0 0 16px; font-size:15px; color:#374151;">
+                              <strong>Purchase Order (PO):</strong> ${poNumber}
+                            </p>`
+                          : ''
+                      }
+                      <div style="margin:20px 0; padding:18px; background:#f8fafc; border-left:4px solid #1e3a8a; border-radius:8px;">
+                        <p style="margin:0 0 8px; font-size:14px; font-weight:bold; color:#1e293b;">Your Login Credentials:</p>
+                        <p style="margin:0 0 6px; font-size:14px; color:#334155;"><strong>Email:</strong> ${email}</p>
+                        ${
+                          temporaryPassword
+                            ? `<p style="margin:0; font-size:14px; color:#334155;"><strong>Temporary Password:</strong> <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">${temporaryPassword}</code></p>`
+                            : `<p style="margin:0; font-size:14px; color:#64748b;">(Use your registered password to sign in)</p>`
+                        }
+                      </div>
+                      <div style="text-align:center; margin:30px 0;">
+                        <a href="${loginUrl}" style="background:#1e3a8a; color:#ffffff; text-decoration:none; padding:14px 30px; border-radius:10px; font-weight:600; font-size:16px; display:inline-block;">
+                          Sign In to Enterprise Workspace
+                        </a>
+                      </div>
+                      <p style="margin:0; font-size:14px; color:#6b7280; line-height:1.5;">
+                        We recommend updating your password upon your first sign in via Account Settings.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:20px 32px; background:#f9fafb; text-align:center; border-top:1px solid #e5e7eb;">
+                      <p style="margin:0; font-size:13px; color:#9ca3af;">
+                        © ${new Date().getFullYear()} AgentArum. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send enterprise credentials email to ${email}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
+  async sendTeamMemberDirectProvisioned(
+    email: string,
+    name: string,
+    temporaryPassword?: string,
+    enterpriseName?: string,
+    role: string = 'MEMBER',
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const loginUrl = `${frontendUrl}/login`;
+
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `Welcome to ${enterpriseName || 'Enterprise'} on AgentArum`,
+        html: `
+        <div style="margin:0; padding:0; background-color:#f4f7fb; font-family:Arial, Helvetica, sans-serif;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f7fb; margin:0; padding:30px 0;">
+            <tr>
+              <td align="center">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px; background:#ffffff; border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:#2563eb; padding:28px 32px; text-align:center;">
+                      <h1 style="margin:0; color:#ffffff; font-size:26px; font-weight:700;">
+                        AgentArum
+                      </h1>
+                      <p style="margin:8px 0 0; color:#dbeafe; font-size:14px;">
+                        You have been added to ${enterpriseName || 'an Enterprise Team'}
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:40px 32px 24px;">
+                      <h2 style="margin:0 0 14px; font-size:20px; color:#111827; font-weight:700;">
+                        Hello ${name || email.split('@')[0]},
+                      </h2>
+                      <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#4b5563;">
+                        You have been directly added as a <strong>${role}</strong> to the Enterprise team workspace on AgentArum.
+                      </p>
+                      <div style="margin:20px 0; padding:18px; background:#f8fafc; border-left:4px solid #2563eb; border-radius:8px;">
+                        <p style="margin:0 0 8px; font-size:14px; font-weight:bold; color:#1e293b;">Your Login Credentials:</p>
+                        <p style="margin:0 0 6px; font-size:14px; color:#334155;"><strong>Email:</strong> ${email}</p>
+                        ${
+                          temporaryPassword
+                            ? `<p style="margin:0; font-size:14px; color:#334155;"><strong>Temporary Password:</strong> <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">${temporaryPassword}</code></p>`
+                            : `<p style="margin:0; font-size:14px; color:#64748b;">(Use your registered password to sign in)</p>`
+                        }
+                      </div>
+                      <div style="text-align:center; margin:30px 0;">
+                        <a href="${loginUrl}" style="background:#2563eb; color:#ffffff; text-decoration:none; padding:14px 30px; border-radius:10px; font-weight:600; font-size:16px; display:inline-block;">
+                          Sign In to Team Workspace
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:20px 32px; background:#f9fafb; text-align:center; border-top:1px solid #e5e7eb;">
+                      <p style="margin:0; font-size:13px; color:#9ca3af;">
+                        © ${new Date().getFullYear()} AgentArum. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send team member credentials email to ${email}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
 }
+

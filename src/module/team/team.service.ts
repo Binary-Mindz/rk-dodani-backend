@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
@@ -13,10 +14,14 @@ import {
   RequestStatus,
   Prisma,
   UserStatus,
+  AuthProviderType,
+  PlanAudience,
 } from '@prisma/client';
 import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { CreateTeamMemberDto } from './dto/create-team-member.dto';
 import { MailService } from '../../common/mail/mail.service';
 import { ChatService } from '../chat/chat.service';
 import { AuditService } from '../audit/audit.service';
@@ -123,14 +128,35 @@ export class TeamService {
     };
   }
 
-  async inviteMember(invitedById: string, dto: InviteMemberDto) {
-    this.logger.log(
-      `Inviting team member: ${dto.email} by parentUserId: ${invitedById}`,
+  async resolveEnterpriseWorkspace(actingUserId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actingUserId },
+      include: {
+        parentUser: true,
+        roles: { where: { isActive: true }, include: { role: true } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Acting user identity not located.');
+    }
+
+    const isSuperAdmin = user.roles.some(
+      (r) => r.role.code === UserRoleCode.SUPER_ADMIN,
     );
+    const rootOwnerId = user.parentUserId || user.id;
+    const isOwner = !user.parentUserId;
+    const isAdmin = user.teamRole === TeamRole.ADMIN || isSuperAdmin;
+
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException(
+        'Access denied. Only Team Owners or Team Admins can perform this action.',
+      );
+    }
 
     const subscriptions = await this.prisma.subscription.findMany({
       where: {
-        userId: invitedById,
+        userId: rootOwnerId,
         status: {
           in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
         },
@@ -141,22 +167,186 @@ export class TeamService {
 
     const subscription = subscriptions[0] ?? null;
 
-    if (!subscription) {
+    if (
+      !subscription ||
+      subscription.plan?.targetAudience !== PlanAudience.B2B
+    ) {
       throw new BadRequestException(
-        'You must have an active subscription to invite team members. Please upgrade to an Enterprise plan.',
+        'An active B2B Enterprise subscription is required for this team workspace.',
       );
     }
 
-    const isB2BPlan = subscription.plan?.targetAudience === 'B2B';
+    return { user, rootOwnerId, isOwner, isAdmin, subscription };
+  }
 
-    if (!isB2BPlan) {
-      throw new BadRequestException(
-        'Team invitations require an active B2B (Enterprise) plan. Your current plan does not support team members.',
-      );
-    }
+  async directCreateMember(actingUserId: string, dto: CreateTeamMemberDto) {
+    const { rootOwnerId, subscription } =
+      await this.resolveEnterpriseWorkspace(actingUserId);
 
     const activeSeatsCount = await this.prisma.user.count({
-      where: { parentUserId: invitedById },
+      where: { parentUserId: rootOwnerId },
+    });
+
+    const allowedSeats = subscription.seats;
+    if (activeSeatsCount >= allowedSeats) {
+      throw new BadRequestException(
+        `Seat capacity limit reached. You have utilized all ${allowedSeats} allowed seats.`,
+      );
+    }
+
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    const rawPassword = dto.password || crypto.randomBytes(8).toString('hex');
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const fullName =
+      [dto.firstName, dto.lastName].filter(Boolean).join(' ') ||
+      normalizedEmail.split('@')[0];
+
+    let memberUser: any;
+
+    if (existingUser) {
+      if (
+        existingUser.parentUserId &&
+        existingUser.parentUserId !== rootOwnerId
+      ) {
+        throw new BadRequestException(
+          'User is already associated with another enterprise team.',
+        );
+      }
+      if (existingUser.id === rootOwnerId) {
+        throw new BadRequestException(
+          'The Enterprise Account Owner cannot be added as a member.',
+        );
+      }
+
+      memberUser = await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          parentUserId: rootOwnerId,
+          teamRole: dto.role ?? TeamRole.MEMBER,
+        },
+      });
+    } else {
+      memberUser = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName ?? null,
+          fullName,
+          status: UserStatus.ACTIVE,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          signupSource: AuthProviderType.LOCAL,
+          parentUserId: rootOwnerId,
+          teamRole: dto.role ?? TeamRole.MEMBER,
+        },
+      });
+    }
+
+    const enterpriseRole = await this.prisma.role.findUnique({
+      where: { code: UserRoleCode.ENTERPRISE },
+    });
+    if (enterpriseRole) {
+      await this.prisma.userRole.upsert({
+        where: {
+          userId_roleId: {
+            userId: memberUser.id,
+            roleId: enterpriseRole.id,
+          },
+        },
+        update: { isActive: true },
+        create: {
+          userId: memberUser.id,
+          roleId: enterpriseRole.id,
+          isActive: true,
+        },
+      });
+    }
+
+    await this.chatService.ensureTeamConversation(rootOwnerId, [memberUser.id]);
+
+    this.audit(
+      actingUserId,
+      memberUser.id,
+      'CREATE',
+      undefined,
+      {
+        parentUserId: rootOwnerId,
+        teamRole: memberUser.teamRole,
+        email: memberUser.email,
+      },
+    );
+
+    await this.mailService.sendTeamMemberDirectProvisioned(
+      memberUser.email,
+      memberUser.fullName || memberUser.email,
+      rawPassword,
+      subscription.plan.name,
+      dto.role ?? TeamRole.MEMBER,
+    );
+
+    return {
+      userId: memberUser.id,
+      email: memberUser.email,
+      fullName: memberUser.fullName,
+      teamRole: memberUser.teamRole,
+      enterpriseOwnerId: rootOwnerId,
+    };
+  }
+
+  async bulkDirectCreateMembers(
+    actingUserId: string,
+    dtos: CreateTeamMemberDto[],
+  ) {
+    const { rootOwnerId, subscription } =
+      await this.resolveEnterpriseWorkspace(actingUserId);
+
+    const activeSeatsCount = await this.prisma.user.count({
+      where: { parentUserId: rootOwnerId },
+    });
+
+    const allowedSeats = subscription.seats;
+    const availableSeats = allowedSeats - activeSeatsCount;
+
+    if (dtos.length > availableSeats) {
+      throw new BadRequestException(
+        `Cannot provision ${dtos.length} members. Only ${availableSeats} seat(s) remaining in your enterprise plan.`,
+      );
+    }
+
+    const results: any[] = [];
+    for (const dto of dtos) {
+      try {
+        const created = await this.directCreateMember(actingUserId, dto);
+        results.push(created);
+      } catch (err) {
+        this.logger.error(
+          `Failed to direct-provision member ${dto.email}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    return {
+      totalRequested: dtos.length,
+      createdCount: results.length,
+      members: results,
+    };
+  }
+
+  async inviteMember(invitedById: string, dto: InviteMemberDto) {
+    this.logger.log(
+      `Inviting team member: ${dto.email} by acting user: ${invitedById}`,
+    );
+
+    const { rootOwnerId, subscription } =
+      await this.resolveEnterpriseWorkspace(invitedById);
+
+    const activeSeatsCount = await this.prisma.user.count({
+      where: { parentUserId: rootOwnerId },
     });
 
     const allowedSeats = subscription.seats;
@@ -170,7 +360,7 @@ export class TeamService {
     const existingMember = await this.prisma.user.findFirst({
       where: { email: dto.email },
     });
-    if (existingMember && existingMember.parentUserId === invitedById) {
+    if (existingMember && existingMember.parentUserId === rootOwnerId) {
       throw new BadRequestException('User is already a member of your team.');
     }
 
@@ -185,7 +375,7 @@ export class TeamService {
         token,
         message: dto.message,
         status: InvitationStatus.PENDING,
-        invitedById,
+        invitedById: rootOwnerId,
         expiresAt,
       },
     });
@@ -205,9 +395,14 @@ export class TeamService {
   }
 
   async getTeamMembers(parentUserId: string, query?: GetTeamMembersDto) {
+    const callingUser = await this.prisma.user.findUnique({
+      where: { id: parentUserId },
+    });
+    const rootOwnerId = callingUser?.parentUserId || parentUserId;
+
     if (!query) {
       const members = await this.prisma.user.findMany({
-        where: { parentUserId },
+        where: { parentUserId: rootOwnerId },
         select: {
           id: true,
           email: true,
@@ -437,16 +632,22 @@ export class TeamService {
   }
 
   async getTeamMetrics(parentUserId: string) {
+    const callingUser = await this.prisma.user.findUnique({
+      where: { id: parentUserId },
+    });
+    const rootOwnerId = callingUser?.parentUserId || parentUserId;
+
     const subscription = await this.prisma.subscription.findFirst({
       where: {
-        userId: parentUserId,
-        status: SubscriptionStatus.ACTIVE,
+        userId: rootOwnerId,
+        status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     const maxSeats = subscription?.seats || 1;
     const activeMembersCount = await this.prisma.user.count({
-      where: { parentUserId },
+      where: { parentUserId: rootOwnerId },
     });
 
     return {
@@ -467,8 +668,13 @@ export class TeamService {
   }
 
   async getPendingRegistrations(parentUserId: string) {
-    const parentUser = await this.prisma.user.findUnique({
+    const callingUser = await this.prisma.user.findUnique({
       where: { id: parentUserId },
+    });
+    const rootOwnerId = callingUser?.parentUserId || parentUserId;
+
+    const parentUser = await this.prisma.user.findUnique({
+      where: { id: rootOwnerId },
       select: { email: true },
     });
 
@@ -479,7 +685,7 @@ export class TeamService {
 
     const pendingRequests = await this.prisma.teamJoinRequest.findMany({
       where: {
-        parentUserId,
+        parentUserId: rootOwnerId,
         status: RequestStatus.PENDING,
       },
       include: {
@@ -498,6 +704,11 @@ export class TeamService {
   }
 
   async approveTeamMember(parentUserId: string, userId: string) {
+    const callingUser = await this.prisma.user.findUnique({
+      where: { id: parentUserId },
+    });
+    const rootOwnerId = callingUser?.parentUserId || parentUserId;
+
     const userToApprove = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { email: true },
@@ -508,9 +719,10 @@ export class TeamService {
 
     const subscription = await this.prisma.subscription.findFirst({
       where: {
-        userId: parentUserId,
-        status: SubscriptionStatus.ACTIVE,
+        userId: rootOwnerId,
+        status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!subscription) {
@@ -520,7 +732,7 @@ export class TeamService {
     }
 
     const activeSeatsCount = await this.prisma.user.count({
-      where: { parentUserId },
+      where: { parentUserId: rootOwnerId },
     });
 
     if (activeSeatsCount >= subscription.seats) {
@@ -549,7 +761,7 @@ export class TeamService {
       await tx.teamJoinRequest.updateMany({
         where: {
           userId,
-          parentUserId,
+          parentUserId: rootOwnerId,
           status: RequestStatus.PENDING,
         },
         data: {
@@ -560,7 +772,7 @@ export class TeamService {
       const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
-          parentUserId,
+          parentUserId: rootOwnerId,
           teamRole: assignedRole,
         },
       });
@@ -1195,9 +1407,29 @@ export class TeamService {
   }
 
   async removeTeamMember(parentUserId: string, userId: string) {
+    const callingUser = await this.prisma.user.findUnique({
+      where: { id: parentUserId },
+    });
+    const rootOwnerId = callingUser?.parentUserId || parentUserId;
+
+    if (userId === rootOwnerId) {
+      throw new BadRequestException(
+        'Cannot remove the Enterprise Account Owner.',
+      );
+    }
+
     const member = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!member || member.parentUserId !== parentUserId) {
+    if (!member || member.parentUserId !== rootOwnerId) {
       throw new BadRequestException('User is not a member of your team.');
+    }
+
+    if (
+      callingUser?.teamRole === TeamRole.ADMIN &&
+      member.teamRole === TeamRole.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Team Admins cannot remove other Team Admins.',
+      );
     }
 
     const result = await this.prisma.user.update({
@@ -1222,9 +1454,26 @@ export class TeamService {
     userId: string,
     role: TeamRole,
   ) {
+    const callingUser = await this.prisma.user.findUnique({
+      where: { id: parentUserId },
+    });
+    const rootOwnerId = callingUser?.parentUserId || parentUserId;
+
+    if (userId === rootOwnerId) {
+      throw new BadRequestException(
+        'Cannot modify the role of the Enterprise Account Owner.',
+      );
+    }
+
     const member = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!member || member.parentUserId !== parentUserId) {
+    if (!member || member.parentUserId !== rootOwnerId) {
       throw new BadRequestException('User is not a member of your team.');
+    }
+
+    if (callingUser?.teamRole === TeamRole.ADMIN) {
+      throw new ForbiddenException(
+        'Only the Enterprise Account Owner can promote or modify Admin roles.',
+      );
     }
 
     const result = await this.prisma.user.update({
@@ -1268,7 +1517,9 @@ export class TeamService {
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         userId: invitation.invitedById,
-        status: SubscriptionStatus.ACTIVE,
+        status: {
+          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+        },
       },
     });
 
@@ -1301,6 +1552,26 @@ export class TeamService {
           teamRole: invitation.role,
         },
       });
+
+      const enterpriseRole = await tx.role.findUnique({
+        where: { code: UserRoleCode.ENTERPRISE },
+      });
+      if (enterpriseRole) {
+        await tx.userRole.upsert({
+          where: {
+            userId_roleId: {
+              userId: updatedUser.id,
+              roleId: enterpriseRole.id,
+            },
+          },
+          update: { isActive: true },
+          create: {
+            userId: updatedUser.id,
+            roleId: enterpriseRole.id,
+            isActive: true,
+          },
+        });
+      }
 
       await this.chatService.ensureTeamConversation(invitation.invitedById, [
         userId,
@@ -2032,11 +2303,14 @@ export class TeamService {
       throw new NotFoundException('User not found');
     }
 
+    const rootOwnerId = parentUser.parentUserId || parentUser.id;
+
     const subscription = await this.prisma.subscription.findFirst({
       where: {
-        userId,
-        status: SubscriptionStatus.ACTIVE,
+        userId: rootOwnerId,
+        status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!subscription) {
@@ -2047,7 +2321,7 @@ export class TeamService {
 
     const pendingRequests = await this.prisma.teamJoinRequest.findMany({
       where: {
-        parentUserId: userId,
+        parentUserId: rootOwnerId,
         status: RequestStatus.PENDING,
       },
       include: {
@@ -2063,7 +2337,7 @@ export class TeamService {
     }
 
     const activeSeatsCount = await this.prisma.user.count({
-      where: { parentUserId: userId },
+      where: { parentUserId: rootOwnerId },
     });
 
     const availableSeats = subscription.seats - activeSeatsCount;
@@ -2090,7 +2364,7 @@ export class TeamService {
       await tx.teamJoinRequest.updateMany({
         where: {
           userId: { in: userIdsToApprove },
-          parentUserId: userId,
+          parentUserId: rootOwnerId,
           status: RequestStatus.PENDING,
         },
         data: { status: RequestStatus.APPROVED },
@@ -2099,13 +2373,13 @@ export class TeamService {
       await tx.user.updateMany({
         where: { id: { in: userIdsToApprove } },
         data: {
-          parentUserId: userId,
+          parentUserId: rootOwnerId,
           teamRole: TeamRole.MEMBER,
         },
       });
     });
 
-    await this.chatService.ensureTeamConversation(userId, userIdsToApprove);
+    await this.chatService.ensureTeamConversation(rootOwnerId, userIdsToApprove);
 
     const approvedUsers = await this.prisma.user.findMany({
       where: { id: { in: userIdsToApprove } },

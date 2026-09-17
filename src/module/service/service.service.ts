@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PublishStatus } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -48,6 +49,7 @@ export class ServiceService {
       id: service.id,
       name: service.title,
       description: service.description,
+      status: service.status,
       serviceGroupId: service.serviceGroupId,
       serviceGroup: service.serviceGroup
         ? {
@@ -55,6 +57,7 @@ export class ServiceService {
             name: service.serviceGroup.name,
             description: service.serviceGroup.description,
             icon: service.serviceGroup.icon,
+            status: service.serviceGroup.status,
           }
         : null,
       criticalFriction: service.criticalFriction,
@@ -91,6 +94,7 @@ export class ServiceService {
         agentarumParadigm: dto.agentarumParadigm ?? null,
         hardTangibleDeliverables: dto.hardTangibleDeliverables ?? [],
         serviceGroupId: dto.serviceGroupId ?? null,
+        status: dto.status ?? PublishStatus.DRAFT,
       },
       include: this.includeRelations(),
     });
@@ -99,20 +103,35 @@ export class ServiceService {
     return this.formatService(created);
   }
 
-  async findAll(query: QueryServiceDto) {
-    const { search, serviceGroupId, page = 1, limit = 10 } = query;
+  async findAll(query: QueryServiceDto, publicOnly = false) {
+    const { search, serviceGroupId, status, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {
       ...(serviceGroupId && { serviceGroupId }),
+      ...(publicOnly
+        ? {
+            status: PublishStatus.PUBLISHED,
+            OR: [
+              { serviceGroupId: null },
+              { serviceGroup: { status: PublishStatus.PUBLISHED } },
+            ],
+          }
+        : status
+          ? { status }
+          : {}),
       ...(search && {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { heading: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-          { criticalFriction: { contains: search, mode: 'insensitive' } },
-          { agentarumParadigm: { contains: search, mode: 'insensitive' } },
-          { hardTangibleDeliverables: { has: search } },
+        AND: [
+          {
+            OR: [
+              { title: { contains: search, mode: 'insensitive' } },
+              { heading: { contains: search, mode: 'insensitive' } },
+              { description: { contains: search, mode: 'insensitive' } },
+              { criticalFriction: { contains: search, mode: 'insensitive' } },
+              { agentarumParadigm: { contains: search, mode: 'insensitive' } },
+              { hardTangibleDeliverables: { has: search } },
+            ],
+          },
         ],
       }),
     };
@@ -139,9 +158,20 @@ export class ServiceService {
     };
   }
 
-  async findOne(id: string) {
-    const service = await this.prisma.services.findUnique({
-      where: { id },
+  async findOne(id: string, publicOnly = false) {
+    const where: any = {
+      id,
+      ...(publicOnly && {
+        status: PublishStatus.PUBLISHED,
+        OR: [
+          { serviceGroupId: null },
+          { serviceGroup: { status: PublishStatus.PUBLISHED } },
+        ],
+      }),
+    };
+
+    const service = await this.prisma.services.findFirst({
+      where,
       include: this.includeRelations(),
     });
 
@@ -153,13 +183,14 @@ export class ServiceService {
   }
 
   async update(userId: string | null, id: string, dto: UpdateServiceDto) {
-    const existing = await this.findOne(id);
+    const existing = await this.findOne(id, false);
     await this.validateServiceGroupId(dto.serviceGroupId);
 
-    const { name, ...serviceData } = dto;
+    const { name, status, ...serviceData } = dto;
     const mappedServiceData = {
       ...serviceData,
       ...(name !== undefined && { title: name, heading: name }),
+      ...(status !== undefined && { status }),
     };
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -180,8 +211,21 @@ export class ServiceService {
     return this.formatService(updated);
   }
 
+  async updateStatus(userId: string | null, id: string, status: PublishStatus) {
+    const existing = await this.findOne(id, false);
+
+    const updated = await this.prisma.services.update({
+      where: { id },
+      data: { status },
+      include: this.includeRelations(),
+    });
+
+    this.audit(userId, 'SERVICES', id, 'UPDATE', existing, updated);
+    return this.formatService(updated);
+  }
+
   async remove(userId: string | null, id: string) {
-    const existing = await this.findOne(id);
+    const existing = await this.findOne(id, false);
 
     await this.prisma.services.delete({
       where: { id },

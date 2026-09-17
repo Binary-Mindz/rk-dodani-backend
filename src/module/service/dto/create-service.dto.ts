@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { PublishStatus } from '@prisma/client';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateServiceDto {
   @ApiProperty({
@@ -43,4 +50,14 @@ export class CreateServiceDto {
   @IsString({ each: true })
   @IsOptional()
   hardTangibleDeliverables?: string[];
+
+  @ApiPropertyOptional({
+    enum: PublishStatus,
+    default: PublishStatus.DRAFT,
+    description: 'Status of the service (DRAFT or PUBLISHED)',
+    example: PublishStatus.DRAFT,
+  })
+  @IsEnum(PublishStatus)
+  @IsOptional()
+  status?: PublishStatus;
 }

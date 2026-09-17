@@ -5,6 +5,7 @@ import { CurrentUserData } from 'common/interfaces/current-user.interface';
 import { JwtPayload } from 'common/interfaces/jwt-payload.interface';
 import { PrismaService } from 'prisma/prisma.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PlanAudience, SubscriptionStatus, UserRoleCode } from '@prisma/client';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -29,6 +30,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
+        id: true,
+        parentUserId: true,
+        teamRole: true,
         roles: {
           where: { isActive: true },
           select: { role: { select: { code: true } } },
@@ -40,10 +44,40 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found');
     }
 
+    const roles: UserRoleCode[] = user.roles.map((item) => item.role.code);
+
+    // If user is a member/admin on an enterprise team, verify if enterprise owner has active B2B plan
+    if (user.parentUserId) {
+      const activeParentSubscription = await this.prisma.subscription.findFirst(
+        {
+          where: {
+            userId: user.parentUserId,
+            status: {
+              in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+            },
+            plan: {
+              targetAudience: PlanAudience.B2B,
+            },
+          },
+          select: { id: true },
+        },
+      );
+
+      if (
+        activeParentSubscription &&
+        !roles.includes(UserRoleCode.ENTERPRISE)
+      ) {
+        roles.push(UserRoleCode.ENTERPRISE);
+      }
+    }
+
     return {
       id: payload.sub,
       email: payload.email,
-      roles: user.roles.map((item) => item.role.code),
+      roles,
+      parentUserId: user.parentUserId,
+      teamRole: user.teamRole,
+      rootEnterpriseId: user.parentUserId || user.id,
     };
   }
 }

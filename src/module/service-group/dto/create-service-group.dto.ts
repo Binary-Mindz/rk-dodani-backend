@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { PublishStatus } from '@prisma/client';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateServiceGroupDto {
@@ -30,4 +38,14 @@ export class CreateServiceGroupDto {
   @Type(() => Number)
   @IsOptional()
   order?: number;
+
+  @ApiPropertyOptional({
+    enum: PublishStatus,
+    default: PublishStatus.DRAFT,
+    description: 'Status of the service group (DRAFT or PUBLISHED)',
+    example: PublishStatus.DRAFT,
+  })
+  @IsEnum(PublishStatus)
+  @IsOptional()
+  status?: PublishStatus;
 }

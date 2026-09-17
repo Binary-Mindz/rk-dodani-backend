@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PublishStatus } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateServiceGroupDto } from './dto/create-service-group.dto';
@@ -44,6 +44,9 @@ export class ServiceGroupService {
       description: group.description,
       icon: group.icon,
       order: group.order,
+      status: group.status,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
     };
   }
 
@@ -78,6 +81,7 @@ export class ServiceGroupService {
           description: dto.description ?? null,
           icon: dto.icon ?? null,
           order: orderToSet,
+          status: dto.status ?? PublishStatus.DRAFT,
         },
       });
     });
@@ -86,10 +90,15 @@ export class ServiceGroupService {
     return this.formatGroup(created);
   }
 
-  async findAll(query: QueryServiceGroupDto) {
-    const { search, page = 1, limit = 10 } = query;
+  async findAll(query: QueryServiceGroupDto, publicOnly = false) {
+    const { search, status, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
     const where: Prisma.ServiceGroupWhereInput = {
+      ...(publicOnly
+        ? { status: PublishStatus.PUBLISHED }
+        : status
+          ? { status }
+          : {}),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -114,15 +123,19 @@ export class ServiceGroupService {
     };
   }
 
-  async findOne(id: string) {
-    const group = await this.prisma.serviceGroup.findUnique({ where: { id } });
+  async findOne(id: string, publicOnly = false) {
+    const where: Prisma.ServiceGroupWhereInput = {
+      id,
+      ...(publicOnly && { status: PublishStatus.PUBLISHED }),
+    };
+    const group = await this.prisma.serviceGroup.findFirst({ where });
     if (!group)
       throw new NotFoundException(`Service group with ID "${id}" not found`);
     return this.formatGroup(group);
   }
 
   async update(userId: string | null, id: string, dto: UpdateServiceGroupDto) {
-    const existing = await this.findOne(id);
+    const existing = await this.findOne(id, false);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       let orderToSet = existing.order;
@@ -181,9 +194,22 @@ export class ServiceGroupService {
             description: dto.description,
           }),
           ...(dto.icon !== undefined && { icon: dto.icon }),
+          ...(dto.status !== undefined && { status: dto.status }),
           order: orderToSet,
         },
       });
+    });
+
+    this.audit(userId, id, 'UPDATE', existing, updated);
+    return this.formatGroup(updated);
+  }
+
+  async updateStatus(userId: string | null, id: string, status: PublishStatus) {
+    const existing = await this.findOne(id, false);
+
+    const updated = await this.prisma.serviceGroup.update({
+      where: { id },
+      data: { status },
     });
 
     this.audit(userId, id, 'UPDATE', existing, updated);

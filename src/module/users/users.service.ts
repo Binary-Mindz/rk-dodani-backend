@@ -4,7 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { SubscriptionStatus } from '@prisma/client';
+import {
+  PlanAudience,
+  SubscriptionStatus,
+  TeamRole,
+  UserRoleCode,
+} from '@prisma/client';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -37,7 +42,6 @@ export class UsersService {
   }
 
   async getProfile(userId: string) {
-    // ⚡ ১. একই কুয়েরিতে রোল, সাবস্ক্রিপশন এবং প্ল্যানের ডেটা ইনক্লুড করা হয়েছে
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -47,7 +51,6 @@ export class UsersService {
             role: true,
           },
         },
-        // ইউজারটির লেটেস্ট অ্যাক্টিভ অথবা ট্রায়াল সাবস্ক্রিপশনটি বের করার জন্য
         subscriptions: {
           where: {
             status: {
@@ -59,11 +62,33 @@ export class UsersService {
             },
           },
           orderBy: {
-            createdAt: 'desc', // কোনো কারণে একাধিক থাকলে লেটেস্টটি আগে আসবে
+            createdAt: 'desc',
           },
           take: 1,
           include: {
-            plan: true, // প্ল্যানের নাম, কোড, প্রোভাইডার, ইন্টারভাল জানার জন্য
+            plan: true,
+          },
+        },
+        parentUser: {
+          include: {
+            subscriptions: {
+              where: {
+                status: {
+                  in: [
+                    SubscriptionStatus.ACTIVE,
+                    SubscriptionStatus.TRIALING,
+                    SubscriptionStatus.PAST_DUE,
+                  ],
+                },
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 1,
+              include: {
+                plan: true,
+              },
+            },
           },
         },
       },
@@ -73,48 +98,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // ⚡ ২. অ্যাক্টিভ সাবস্ক্রিপশন এবং প্ল্যান অবজেক্ট এক্সট্র্যাক্ট করা
-    const activeSubscription = user.subscriptions[0] || null;
-    const activePlan = activeSubscription?.plan || null;
-
-    return {
-      id: user.id,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: user.fullName,
-      avatarUrl: user.avatarUrl,
-      phone: user.phone,
-      status: user.status,
-      roles: user.roles.map((item) => item.role.code),
-      onATeam: !!user.parentUserId,
-
-      purchaseInfo: activeSubscription
-        ? {
-            subscriptionId: activeSubscription.id,
-            status: activeSubscription.status,
-            currentPeriodStart: activeSubscription.currentPeriodStart,
-            currentPeriodEnd: activeSubscription.currentPeriodEnd,
-            cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
-            provider: activeSubscription.provider,
-            plan: {
-              id: activePlan?.id || null,
-              code: activePlan?.code || null,
-              name: activePlan?.name || null,
-              targetAudience: activePlan?.targetAudience || null,
-              billingInterval: activePlan?.billingInterval || null,
-              currency: activePlan?.currency || null,
-              priceAmount: activePlan?.priceAmount
-                ? Number(activePlan.priceAmount)
-                : 0,
-            },
-          }
-        : null,
-
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+    return this.formatUserResponse(user);
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -161,6 +145,24 @@ export class UsersService {
           take: 1,
           include: { plan: true },
         },
+        parentUser: {
+          include: {
+            subscriptions: {
+              where: {
+                status: {
+                  in: [
+                    SubscriptionStatus.ACTIVE,
+                    SubscriptionStatus.TRIALING,
+                    SubscriptionStatus.PAST_DUE,
+                  ],
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              include: { plan: true },
+            },
+          },
+        },
       },
     });
 
@@ -183,8 +185,74 @@ export class UsersService {
   }
 
   private formatUserResponse(user: any) {
-    const activeSubscription = user.subscriptions[0] || null;
-    const activePlan = activeSubscription?.plan || null;
+    const directSubscription = user.subscriptions?.[0] || null;
+    const parentSubscription = user.parentUser?.subscriptions?.[0] || null;
+
+    const isEnterpriseOwner =
+      !user.parentUserId &&
+      (user.roles?.some(
+        (r: any) =>
+          (r.role?.code || r.code || r) === UserRoleCode.ENTERPRISE,
+      ) ||
+        directSubscription?.plan?.targetAudience === PlanAudience.B2B);
+
+    const isTeamMember = !!user.parentUserId;
+
+    // For team members, if parent has active B2B subscription, inherit enterprise purchase coverage
+    const effectiveSubscription = directSubscription || parentSubscription;
+    const effectivePlan = effectiveSubscription?.plan || null;
+
+    const roles: UserRoleCode[] = (user.roles || []).map(
+      (item: any) => item.role?.code || item.code || item,
+    );
+
+    if (
+      isTeamMember &&
+      parentSubscription?.plan?.targetAudience === PlanAudience.B2B &&
+      !roles.includes(UserRoleCode.ENTERPRISE)
+    ) {
+      roles.push(UserRoleCode.ENTERPRISE);
+    }
+
+    const teamRole = isTeamMember
+      ? user.teamRole || TeamRole.MEMBER
+      : isEnterpriseOwner
+        ? TeamRole.OWNER
+        : null;
+
+    const enterpriseAccount = user.parentUser
+      ? {
+          ownerId: user.parentUser.id,
+          ownerName:
+            user.parentUser.fullName ||
+            [user.parentUser.firstName, user.parentUser.lastName]
+              .filter(Boolean)
+              .join(' ') ||
+            user.parentUser.email,
+          ownerEmail: user.parentUser.email,
+          planName: parentSubscription?.plan?.name || null,
+          planTitle: parentSubscription?.plan?.title || null,
+          subscriptionStatus: parentSubscription?.status || null,
+          seatsAllocated: parentSubscription?.seats || 0,
+        }
+      : isEnterpriseOwner && directSubscription
+        ? {
+            ownerId: user.id,
+            ownerName: user.fullName || user.email,
+            ownerEmail: user.email,
+            planName: directSubscription.plan?.name || null,
+            planTitle: directSubscription.plan?.title || null,
+            subscriptionStatus: directSubscription.status,
+            seatsAllocated: directSubscription.seats,
+          }
+        : null;
+
+    const teamContext = {
+      isTeamMember,
+      isTeamOwner: isEnterpriseOwner,
+      teamRole,
+      enterpriseAccount,
+    };
 
     return {
       id: user.id,
@@ -196,25 +264,28 @@ export class UsersService {
       avatarUrl: user.avatarUrl,
       phone: user.phone,
       status: user.status,
-      roles: user.roles.map((item) => item.role.code),
-      onATeam: !!user.parentUserId,
-      purchaseInfo: activeSubscription
+      roles,
+      onATeam: isTeamMember,
+      teamRole,
+      teamContext,
+      purchaseInfo: effectiveSubscription
         ? {
-            subscriptionId: activeSubscription.id,
-            status: activeSubscription.status,
-            currentPeriodStart: activeSubscription.currentPeriodStart,
-            currentPeriodEnd: activeSubscription.currentPeriodEnd,
-            cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
-            provider: activeSubscription.provider,
+            subscriptionId: effectiveSubscription.id,
+            status: effectiveSubscription.status,
+            currentPeriodStart: effectiveSubscription.currentPeriodStart,
+            currentPeriodEnd: effectiveSubscription.currentPeriodEnd,
+            cancelAtPeriodEnd: effectiveSubscription.cancelAtPeriodEnd,
+            provider: effectiveSubscription.provider,
+            isEnterpriseCovered: !directSubscription && !!parentSubscription,
             plan: {
-              id: activePlan?.id || null,
-              code: activePlan?.code || null,
-              name: activePlan?.name || null,
-              targetAudience: activePlan?.targetAudience || null,
-              billingInterval: activePlan?.billingInterval || null,
-              currency: activePlan?.currency || null,
-              priceAmount: activePlan?.priceAmount
-                ? Number(activePlan.priceAmount)
+              id: effectivePlan?.id || null,
+              code: effectivePlan?.code || null,
+              name: effectivePlan?.name || null,
+              targetAudience: effectivePlan?.targetAudience || null,
+              billingInterval: effectivePlan?.billingInterval || null,
+              currency: effectivePlan?.currency || null,
+              priceAmount: effectivePlan?.priceAmount
+                ? Number(effectivePlan.priceAmount)
                 : 0,
             },
           }

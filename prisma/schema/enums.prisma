@@ -323,6 +323,7 @@ enum InvitationStatus {
 }
 
 enum TeamRole {
+  OWNER
   ADMIN
   MEMBER
 }

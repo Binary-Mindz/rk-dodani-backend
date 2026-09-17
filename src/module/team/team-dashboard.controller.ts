@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
   UseGuards,
   Patch,
@@ -18,6 +19,10 @@ import { TeamService } from './team.service';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { GetTeamMembersDto } from './dto/get-team-members.dto';
 import { UpdateBlockStatusDto } from './dto/update-block-status.dto';
+import {
+  CreateTeamMemberDto,
+  BulkCreateTeamMembersDto,
+} from './dto/create-team-member.dto';
 
 @ApiTags('Team Management - Dashboard')
 @Controller('team')
@@ -63,6 +68,45 @@ export class TeamDashboardController {
     return {
       statusCode: 200,
       message: 'Team members fetched successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @Post('members/direct-create')
+  @ApiOperation({
+    summary:
+      'Directly create and provision a team member into enterprise workspace',
+  })
+  async directCreateMember(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateTeamMemberDto,
+  ) {
+    const data = await this.teamService.directCreateMember(userId, dto);
+    return {
+      statusCode: 201,
+      message: 'Team member created and provisioned successfully',
+      data,
+    };
+  }
+
+  @ApiBearerAuth()
+  @Post('members/bulk-direct-create')
+  @ApiOperation({
+    summary:
+      'Bulk directly create and provision multiple team members into enterprise workspace',
+  })
+  async bulkDirectCreateMembers(
+    @CurrentUser('id') userId: string,
+    @Body() dto: BulkCreateTeamMembersDto,
+  ) {
+    const data = await this.teamService.bulkDirectCreateMembers(
+      userId,
+      dto.members,
+    );
+    return {
+      statusCode: 201,
+      message: 'Team members bulk provisioned successfully',
       data,
     };
   }

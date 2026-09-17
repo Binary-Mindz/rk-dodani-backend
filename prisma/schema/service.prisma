@@ -12,24 +12,29 @@ model Services {
   deepPoints  DeepPoint[]
   submissions ServiceSubmission[]
 
+  status                   PublishStatus @default(DRAFT)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([serviceGroupId])
+  @@index([status])
 }
 
 model ServiceGroup {
-  id          String   @id @default(uuid())
+  id          String        @id @default(uuid())
   name        String
   description String?
   icon        String?
-  order       Int      @unique @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  order       Int           @unique @default(0)
+  status      PublishStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   services Services[]
 
   @@index([name])
+  @@index([status])
 }
 
 model DeepPoint {
