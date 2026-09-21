@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, BillingProvider, PlanAudience } from '@prisma/client';
@@ -15,6 +16,7 @@ import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class PlanService {
+  private readonly logger = new Logger(PlanService.name);
   private stripe!: StripeType;
 
   constructor(
@@ -79,6 +81,17 @@ export class PlanService {
       name,
       description: description || undefined,
     });
+  }
+
+  private async archiveStripeProduct(productId: string): Promise<void> {
+    if (!this.stripe) return;
+    try {
+      await this.stripe.products.update(productId, { active: false });
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to archive Stripe product ${productId}: ${err?.message}`,
+      );
+    }
   }
 
   private async createStripePrice(
@@ -177,6 +190,7 @@ export class PlanService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.PlanWhereInput = {
+      ...(query.includeDeleted ? {} : { deletedAt: null }),
       ...(query.search && {
         OR: [
           { name: { contains: query.search, mode: 'insensitive' } },
@@ -210,9 +224,9 @@ export class PlanService {
   async getPlanStats() {
     const [totalPlans, activePlans, inactivePlans] =
       await this.prisma.$transaction([
-        this.prisma.plan.count(),
-        this.prisma.plan.count({ where: { isActive: true } }),
-        this.prisma.plan.count({ where: { isActive: false } }),
+        this.prisma.plan.count({ where: { deletedAt: null } }),
+        this.prisma.plan.count({ where: { isActive: true, deletedAt: null } }),
+        this.prisma.plan.count({ where: { isActive: false, deletedAt: null } }),
       ]);
 
     return {
@@ -299,6 +313,8 @@ export class PlanService {
       metadata: plan.metadata,
       createdAt: plan.createdAt,
       updatedAt: plan.updatedAt,
+      deletedAt: plan.deletedAt,
+      isDeleted: !!plan.deletedAt,
       stats: {
         totalSubscribers: activeSubscribersCount,
         activeSubscribers: activeSubscribersCount,
@@ -484,27 +500,71 @@ export class PlanService {
           select: {
             subscriptions: true,
             entitlements: true,
+            customSubscriptionAssignments: true,
           },
         },
       },
     });
 
-    if (!existing) {
+    if (!existing || existing.deletedAt !== null) {
       throw new NotFoundException('Plan not found');
     }
 
-    if (existing._count.subscriptions > 0 || existing._count.entitlements > 0) {
-      throw new BadRequestException(
-        'Cannot delete plan that is already linked to active consumer subscriptions or entitlements',
-      );
+    const hasSubscriptions = existing._count.subscriptions > 0;
+    const hasAssignments = existing._count.customSubscriptionAssignments > 0;
+
+    // Archive Stripe product if connected
+    if (existing.stripeProductId) {
+      await this.archiveStripeProduct(existing.stripeProductId);
     }
 
-    this.audit(null, 'PLAN', id, 'DELETE', { name: existing.name }, undefined);
-    await this.prisma.plan.delete({
-      where: { id },
+    if (hasSubscriptions || hasAssignments) {
+      // Soft-delete to preserve historical subscription records
+      const updated = await this.prisma.plan.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
+          isPublic: false,
+        },
+      });
+
+      this.audit(
+        null,
+        'PLAN',
+        id,
+        'DELETE',
+        { name: existing.name },
+        { softDeleted: true, deletedAt: updated.deletedAt },
+      );
+
+      return {
+        deleted: true,
+        softDeleted: true,
+        message:
+          'Plan has active/historical subscriptions or enterprise assignments. It has been deactivated and safely archived.',
+      };
+    }
+
+    // Otherwise, clean up linked entitlements and hard delete safely
+    await this.prisma.$transaction(async (tx) => {
+      if (existing._count.entitlements > 0) {
+        await tx.entitlement.deleteMany({
+          where: { planId: id },
+        });
+      }
+      await tx.plan.delete({
+        where: { id },
+      });
     });
 
-    return { deleted: true };
+    this.audit(null, 'PLAN', id, 'DELETE', { name: existing.name }, undefined);
+
+    return {
+      deleted: true,
+      softDeleted: false,
+      message: 'Plan deleted successfully.',
+    };
   }
 
   async findPublicAll(query: QueryPlanDto) {
@@ -515,6 +575,7 @@ export class PlanService {
     const where: Prisma.PlanWhereInput = {
       isPublic: true,
       isActive: true,
+      deletedAt: null,
       ...(query.search && {
         OR: [
           { name: { contains: query.search, mode: 'insensitive' } },
@@ -571,6 +632,7 @@ export class PlanService {
         id,
         isPublic: true,
         isActive: true,
+        deletedAt: null,
       },
       select: {
         id: true,

@@ -56,12 +56,12 @@ model ContentItem {
 }
 
 model ContentType {
-  id          String          @id @default(uuid())
-  code        ContentTypeCode @unique
+  id          String   @id @default(uuid())
+  code        String   @unique
   name        String
   description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   contentItems ContentItem[]
 }

@@ -91,4 +91,15 @@ export class QueryPlanDto {
   @IsInt()
   @Min(1)
   limit?: number = 10;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether to include soft-deleted plans in admin results (false by default)',
+    type: Boolean,
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeDeleted?: boolean;
 }

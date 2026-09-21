@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ContentAccessModel,
   ContentFileFormat,
-  ContentTypeCode,
 } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -108,13 +107,12 @@ export class QueryBookmarksDto {
   contentTypeIds?: string[];
 
   @ApiPropertyOptional({
-    enum: ContentTypeCode,
-    description: 'Filter by content type code',
-    example: ContentTypeCode.ARTICLE,
+    description: 'Filter by content type code (e.g. ARTICLE, PODCAST, or custom dynamic code)',
+    example: 'ARTICLE',
   })
   @IsOptional()
-  @IsEnum(ContentTypeCode)
-  contentTypeCode?: ContentTypeCode;
+  @IsString()
+  contentTypeCode?: string;
 
   @ApiPropertyOptional({
     enum: ContentFileFormat,

@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpsertAppSettingDto } from './dto/upsert-app-setting.dto';
@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { AlertService } from '../alert/alert.service';
 import { NotificationService } from '../notification/notification.service';
 import { MailService } from 'common/mail/mail.service';
+import { invalidateMaintenanceCache } from '../../common/guards/maintenance.guard';
 
 @Injectable()
 export class AppSettingService {
@@ -184,8 +185,14 @@ export class AppSettingService {
         this.logger.error('Failed to broadcast notifications:', err);
       });
 
+    invalidateMaintenanceCache();
+
     // 3. Send email to all registered users
-    this.sendMaintenanceEmailsToAll(dto.isUnderMaintenance).catch((err) => {
+    this.sendMaintenanceEmailsToAll(
+      dto.isUnderMaintenance,
+      dto.message,
+      dto.endTime ? new Date(dto.endTime) : maintenance.endTime,
+    ).catch((err) => {
       this.logger.error('Failed to send maintenance emails to all users:', err);
     });
 
@@ -206,8 +213,15 @@ export class AppSettingService {
     };
   }
 
-  private async sendMaintenanceEmailsToAll(isUnderMaintenance: boolean) {
+  private async sendMaintenanceEmailsToAll(
+    isUnderMaintenance: boolean,
+    customMessage?: string,
+    endTime?: Date | null,
+  ) {
     const users = await this.prisma.user.findMany({
+      where: {
+        status: { in: [UserStatus.ACTIVE, UserStatus.PENDING_VERIFICATION] },
+      },
       select: { email: true },
     });
 
@@ -217,6 +231,8 @@ export class AppSettingService {
           await this.mailService.sendMaintenanceNotification(
             u.email,
             isUnderMaintenance,
+            customMessage,
+            endTime,
           );
         } catch (error) {
           this.logger.error(
@@ -290,7 +306,12 @@ export class AppSettingService {
         this.logger.error('[Cron] Failed to broadcast notifications:', err),
       );
 
-    this.sendMaintenanceEmailsToAll(false).catch((err) =>
+    invalidateMaintenanceCache();
+
+    this.sendMaintenanceEmailsToAll(
+      false,
+      'The scheduled maintenance window has completed successfully. All services, APIs, and workspaces are back online.',
+    ).catch((err) =>
       this.logger.error('[Cron] Failed to send maintenance emails:', err),
     );
 

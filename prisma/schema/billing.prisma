@@ -24,6 +24,7 @@ model Plan {
   metadata        Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
 
   subscriptions                 Subscription[]
   entitlements                  Entitlement[]
@@ -33,6 +34,7 @@ model Plan {
   @@index([isActive])
   @@index([targetAudience])
   @@index([sortOrder])
+  @@index([deletedAt])
 }
 
 model Subscription {

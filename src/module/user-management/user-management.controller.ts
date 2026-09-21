@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -127,16 +128,34 @@ export class UserManagementController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a user account from the admin panel' })
+  @ApiOperation({
+    summary:
+      'Delete a user account from the admin panel (soft delete by default, ?hard=true for permanent purge)',
+  })
   @ApiResponse({ status: 200, description: 'User deleted successfully.' })
+  @ApiQuery({
+    name: 'hard',
+    required: false,
+    type: Boolean,
+    description:
+      'Set to true to permanently purge the user record and relations from the database',
+  })
   async deleteUser(
     @Param('id') id: string,
     @CurrentUser('id') adminId: string,
+    @Query('hard') hard?: string,
   ) {
-    const data = await this.userManagementService.deleteUser(id, adminId);
+    const isHard = hard === 'true';
+    const data = await this.userManagementService.deleteUser(
+      id,
+      adminId,
+      isHard,
+    );
     return {
       statusCode: 200,
-      message: 'User deleted successfully.',
+      message: isHard
+        ? 'User account permanently purged from the database.'
+        : 'User account deleted and revoked successfully.',
       data,
     };
   }

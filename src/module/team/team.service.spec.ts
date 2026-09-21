@@ -123,14 +123,6 @@ describe('TeamService', () => {
       teamRole: 'MEMBER',
     });
 
-    prisma.role.findUnique = jest.fn().mockResolvedValue({
-      id: 'role-ent-id',
-      code: UserRoleCode.ENTERPRISE,
-    });
-    prisma.userRole = {
-      upsert: jest.fn().mockResolvedValue({ id: 'ur-1' }),
-    };
-
     const result = await service.directCreateMember('owner-1', {
       email: 'maxwell@company.com',
       firstName: 'Maxwell',
@@ -142,7 +134,6 @@ describe('TeamService', () => {
     expect(result.userId).toBe('member-new-1');
     expect(result.enterpriseOwnerId).toBe('owner-1');
     expect(prisma.user.create).toHaveBeenCalled();
-    expect(prisma.userRole.upsert).toHaveBeenCalled();
   });
 
   it('allows a delegated TeamRole.ADMIN (e.g. co-admin) to direct-create a member under root owner', async () => {
@@ -174,13 +165,6 @@ describe('TeamService', () => {
       teamRole: 'MEMBER',
     });
 
-    prisma.role.findUnique = jest.fn().mockResolvedValue({
-      id: 'role-ent-id',
-      code: UserRoleCode.ENTERPRISE,
-    });
-    prisma.userRole = {
-      upsert: jest.fn().mockResolvedValue({ id: 'ur-2' }),
-    };
 
     const result = await service.directCreateMember('admin-maxwell', {
       email: 'employee@company.com',

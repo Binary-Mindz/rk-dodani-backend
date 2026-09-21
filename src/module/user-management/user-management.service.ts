@@ -39,6 +39,7 @@ export class UserManagementService {
           },
         },
       },
+      deletedAt: query.status === UserStatus.DELETED ? { not: null } : null,
       ...(query.status && { status: query.status }),
       ...(query.search && {
         OR: [
@@ -65,6 +66,27 @@ export class UserManagementService {
           email: true,
           status: true,
           createdAt: true,
+          parentUserId: true,
+          teamRole: true,
+          parentUser: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              subscriptions: {
+                where: {
+                  status: {
+                    in: [
+                      SubscriptionStatus.ACTIVE,
+                      SubscriptionStatus.TRIALING,
+                    ],
+                  },
+                },
+                take: 1,
+                include: { plan: true },
+              },
+            },
+          },
           roles: {
             where: { isActive: true },
             include: { role: true },
@@ -93,14 +115,38 @@ export class UserManagementService {
 
     const items = users.map((user) => {
       const activeSub = user.subscriptions[0] || null;
+      const isTeamMember = Boolean(user.parentUserId);
+      const parentEnterpriseUser = user.parentUser
+        ? {
+            id: user.parentUser.id,
+            name: user.parentUser.fullName || user.parentUser.email,
+            email: user.parentUser.email,
+          }
+        : null;
+
+      const personaType = isTeamMember
+        ? `Team Member (${user.teamRole || 'MEMBER'})`
+        : user.roles.map((r) => r.role.code).join(', ') || 'No Role';
+
+      const subscriptionPlan =
+        activeSub?.plan?.name ||
+        (isTeamMember && user.parentUser?.subscriptions[0]?.plan?.name
+          ? `${user.parentUser.subscriptions[0].plan.name} (Team Member)`
+          : isTeamMember
+            ? 'Enterprise Covered'
+            : 'Free Tier');
+
       return {
         userId: user.id,
         name: user.fullName || 'Unknown User',
         email: user.email,
-        personaType: user.roles.map((r) => r.role.code).join(', ') || 'No Role',
-        subscriptionPlan: activeSub?.plan?.name || 'Free Tier',
+        personaType,
+        subscriptionPlan,
         status: user.status,
         createdAt: user.createdAt,
+        isTeamMember,
+        teamRole: user.teamRole,
+        parentEnterpriseUser,
       };
     });
 
@@ -122,6 +168,27 @@ export class UserManagementService {
         createdAt: true,
         lastLoginAt: true,
         timezone: true,
+        parentUserId: true,
+        teamRole: true,
+        parentUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            subscriptions: {
+              where: {
+                status: {
+                  in: [
+                    SubscriptionStatus.ACTIVE,
+                    SubscriptionStatus.TRIALING,
+                  ],
+                },
+              },
+              take: 1,
+              include: { plan: true },
+            },
+          },
+        },
         roles: {
           where: { isActive: true },
           include: { role: true },
@@ -145,6 +212,27 @@ export class UserManagementService {
       user.subscriptions.find((s) => s.status === SubscriptionStatus.ACTIVE) ||
       null;
 
+    const isTeamMember = Boolean(user.parentUserId);
+    const parentEnterpriseUser = user.parentUser
+      ? {
+          id: user.parentUser.id,
+          name: user.parentUser.fullName || user.parentUser.email,
+          email: user.parentUser.email,
+        }
+      : null;
+
+    const personaType = isTeamMember
+      ? `Team Member (${user.teamRole || 'MEMBER'})`
+      : user.roles.map((r) => r.role.code).join(', ') || 'No Role';
+
+    const subscriptionPlan =
+      activeSub?.plan?.name ||
+      (isTeamMember && user.parentUser?.subscriptions[0]?.plan?.name
+        ? `${user.parentUser.subscriptions[0].plan.name} (Team Member)`
+        : isTeamMember
+          ? 'Enterprise Covered'
+          : 'Free Tier');
+
     return {
       userId: user.id,
       name: user.fullName || 'Unknown User',
@@ -153,8 +241,12 @@ export class UserManagementService {
       status: user.status,
       joinedDate: user.createdAt,
       lastLogin: user.lastLoginAt,
-      personaType: user.roles.map((r) => r.role.code).join(', ') || 'No Role',
+      personaType,
       region: user.timezone || 'Global Tier',
+      isTeamMember,
+      teamRole: user.teamRole,
+      parentEnterpriseUser,
+      subscriptionPlan,
       subscription: activeSub
         ? {
             planName: activeSub.plan.name,
@@ -409,23 +501,69 @@ export class UserManagementService {
     });
   }
 
-  async deleteUser(id: string, adminId: string) {
+  async deleteUser(id: string, adminId: string, hardDelete = false) {
     const existingUser = await this.prisma.user.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
     });
 
     if (!existingUser) {
       throw new NotFoundException('User not found');
     }
 
+    if (hardDelete) {
+      await this.prisma.$transaction(async (tx) => {
+        // Detach team members if enterprise owner
+        await tx.user.updateMany({
+          where: { parentUserId: id },
+          data: { parentUserId: null, teamRole: null },
+        });
+
+        await tx.userSession.deleteMany({ where: { userId: id } });
+        await tx.userRole.deleteMany({ where: { userId: id } });
+        await tx.entitlement.deleteMany({ where: { userId: id } });
+        await tx.subscription.deleteMany({ where: { userId: id } });
+        await tx.customSubscriptionAssignment.deleteMany({
+          where: { userId: id },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId: adminId,
+            entityType: 'USER_ACCOUNT',
+            entityId: id,
+            action: AuditAction.DELETE,
+            newValues: { hardDeleted: true, email: existingUser.email },
+          },
+        });
+
+        await tx.user.delete({ where: { id } });
+      });
+
+      return {
+        success: true,
+        id,
+        hardDeleted: true,
+      };
+    }
+
     const deletedUser = await this.prisma.$transaction(async (tx) => {
+      // Detach team members if enterprise owner
+      await tx.user.updateMany({
+        where: { parentUserId: id },
+        data: { parentUserId: null, teamRole: null },
+      });
+
       const updatedUser = await tx.user.update({
         where: { id },
         data: {
           deletedAt: new Date(),
-          status: UserStatus.BLOCKED,
+          status: UserStatus.DELETED,
+          parentUserId: null,
+          teamRole: null,
         },
       });
+
+      await tx.userSession.deleteMany({ where: { userId: id } });
 
       await tx.userRole.updateMany({
         where: { userId: id },
@@ -433,7 +571,12 @@ export class UserManagementService {
       });
 
       await tx.subscription.updateMany({
-        where: { userId: id, status: SubscriptionStatus.ACTIVE },
+        where: {
+          userId: id,
+          status: {
+            in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+          },
+        },
         data: { status: SubscriptionStatus.CANCELED },
       });
 
@@ -450,6 +593,7 @@ export class UserManagementService {
           action: AuditAction.DELETE,
           newValues: {
             deleted: true,
+            status: UserStatus.DELETED,
             deletedAt: new Date().toISOString(),
           },
         },
@@ -461,6 +605,7 @@ export class UserManagementService {
     return {
       success: true,
       id: deletedUser.id,
+      status: UserStatus.DELETED,
     };
   }
 

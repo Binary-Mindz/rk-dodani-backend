@@ -247,26 +247,6 @@ export class TeamService {
       });
     }
 
-    const enterpriseRole = await this.prisma.role.findUnique({
-      where: { code: UserRoleCode.ENTERPRISE },
-    });
-    if (enterpriseRole) {
-      await this.prisma.userRole.upsert({
-        where: {
-          userId_roleId: {
-            userId: memberUser.id,
-            roleId: enterpriseRole.id,
-          },
-        },
-        update: { isActive: true },
-        create: {
-          userId: memberUser.id,
-          roleId: enterpriseRole.id,
-          isActive: true,
-        },
-      });
-    }
-
     await this.chatService.ensureTeamConversation(rootOwnerId, [memberUser.id]);
 
     this.audit(
@@ -1552,26 +1532,6 @@ export class TeamService {
           teamRole: invitation.role,
         },
       });
-
-      const enterpriseRole = await tx.role.findUnique({
-        where: { code: UserRoleCode.ENTERPRISE },
-      });
-      if (enterpriseRole) {
-        await tx.userRole.upsert({
-          where: {
-            userId_roleId: {
-              userId: updatedUser.id,
-              roleId: enterpriseRole.id,
-            },
-          },
-          update: { isActive: true },
-          create: {
-            userId: updatedUser.id,
-            roleId: enterpriseRole.id,
-            isActive: true,
-          },
-        });
-      }
 
       await this.chatService.ensureTeamConversation(invitation.invitedById, [
         userId,

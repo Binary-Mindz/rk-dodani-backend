@@ -439,20 +439,33 @@ export class MailService {
   async sendMaintenanceNotification(
     email: string,
     isUnderMaintenance: boolean,
+    customMessage?: string,
+    endTime?: Date | string | null,
   ): Promise<void> {
     const subject = isUnderMaintenance
-      ? 'Notice: AgentArum Website Under Maintenance'
-      : 'Update: AgentArum Website Removed From Maintenance';
+      ? '⚠️ Notice: AgentArum Platform Under Scheduled Maintenance'
+      : '✅ Update: AgentArum Maintenance Completed - All Systems Operational';
 
     const heading = isUnderMaintenance
-      ? 'Website Under Maintenance'
-      : 'Website Maintenance Completed';
+      ? 'Platform Under Scheduled Maintenance'
+      : 'Maintenance Completed - Systems Restored';
 
-    const message = isUnderMaintenance
-      ? 'Our website is currently undergoing maintenance. Some services and APIs may be temporarily unavailable.'
-      : 'Our website maintenance has been successfully completed. All services are fully operational.';
+    const defaultMsg = isUnderMaintenance
+      ? 'Our platform is currently undergoing scheduled maintenance. All active services and API endpoints are temporarily paused to perform system updates and ensure data integrity.'
+      : 'Our scheduled maintenance has concluded successfully. All services, APIs, and team workspaces are fully operational.';
 
-    const accentColor = isUnderMaintenance ? '#eab308' : '#2563eb';
+    const message = customMessage?.trim() || defaultMsg;
+    const accentColor = isUnderMaintenance ? '#d97706' : '#16a34a';
+
+    let formattedEndTime: string | null = null;
+    if (endTime) {
+      try {
+        const d = new Date(endTime);
+        formattedEndTime = d.toUTCString();
+      } catch {
+        formattedEndTime = String(endTime);
+      }
+    }
 
     try {
       await this.mailerService.sendMail({
@@ -469,8 +482,8 @@ export class MailService {
                       <h1 style="margin:0; color:#ffffff; font-size:26px; font-weight:700;">
                         AgentArum
                       </h1>
-                      <p style="margin:8px 0 0; color:#ffffff; opacity:0.9; font-size:14px;">
-                        System Status Announcement
+                      <p style="margin:8px 0 0; color:#ffffff; opacity:0.95; font-size:14px; font-weight:600;">
+                        ${isUnderMaintenance ? 'SYSTEM MAINTENANCE IN PROGRESS' : 'ALL SYSTEMS OPERATIONAL'}
                       </p>
                     </td>
                   </tr>
@@ -479,8 +492,30 @@ export class MailService {
                       <h2 style="margin:0 0 14px; font-size:22px; color:#111827; font-weight:700;">
                         ${heading}
                       </h2>
-                      <p style="margin:0 0 20px; font-size:16px; line-height:1.7; color:#4b5563;">
-                        ${message}
+                      <div style="margin:20px 0; padding:18px; background:${isUnderMaintenance ? '#fefce8' : '#f0fdf4'}; border-left:4px solid ${accentColor}; border-radius:8px;">
+                        <p style="margin:0 0 6px; font-weight:bold; color:${isUnderMaintenance ? '#854d0e' : '#166534'}; font-size:14px;">
+                          ${isUnderMaintenance ? 'Maintenance Notice:' : 'Status Update:'}
+                        </p>
+                        <p style="margin:0; font-size:15px; color:${isUnderMaintenance ? '#713f12' : '#14532d'}; line-height:1.6;">
+                          ${message}
+                        </p>
+                      </div>
+                      ${
+                        formattedEndTime && isUnderMaintenance
+                          ? `
+                      <div style="margin:16px 0; padding:14px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                        <p style="margin:0; font-size:14px; color:#334155;">
+                          <strong>Estimated Completion:</strong> ${formattedEndTime}
+                        </p>
+                      </div>`
+                          : ''
+                      }
+                      <p style="margin:20px 0 0; font-size:15px; line-height:1.6; color:#4b5563;">
+                        ${
+                          isUnderMaintenance
+                            ? 'User operations and non-admin requests are temporarily paused. We will send you an immediate follow-up notification once systems are restored.'
+                            : 'You may now resume all operations. If you experience any unexpected behavior, please contact support.'
+                        }
                       </p>
                       <hr style="border:none; border-top:1px solid #e5e7eb; margin:28px 0;" />
                       <p style="margin:0; font-size:14px; color:#6b7280;">

@@ -36,6 +36,9 @@ import { CacheModule } from '@nestjs/cache-manager';
 import KeyvRedis from '@keyv/redis';
 import { NavLinkModule } from './module/nav-link/nav-link.module';
 
+import { APP_GUARD } from '@nestjs/core';
+import { MaintenanceGuard } from './common/guards/maintenance.guard';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -87,6 +90,12 @@ import { NavLinkModule } from './module/nav-link/nav-link.module';
     NavLinkModule,
   ],
   controllers: [AppController, AlertController],
-  providers: [AlertService],
+  providers: [
+    AlertService,
+    {
+      provide: APP_GUARD,
+      useClass: MaintenanceGuard,
+    },
+  ],
 })
 export class AppModule {}
