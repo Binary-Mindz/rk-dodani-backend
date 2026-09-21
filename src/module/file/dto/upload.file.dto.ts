@@ -1,15 +1,20 @@
-// dto/upload.file.dto.ts
-import { ApiProperty } from '@nestjs/swagger';
-import { IsArray } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UploadFilesDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: 'array',
     items: {
       type: 'string',
       format: 'binary',
     },
+    description: 'Files to upload (supports array under field name "files")',
   })
-  @IsArray()
-  files: Express.Multer.File[];
+  files?: Express.Multer.File[];
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    description: 'Single file to upload (supports field name "file")',
+  })
+  file?: Express.Multer.File;
 }
