@@ -75,22 +75,14 @@ export class FileController {
         .catch(() => {});
     });
 
-    const firstFile = uploaded[0];
-    const primaryUrl = firstFile?.url || '';
-    const allUrls = uploaded.map((f) => f.url);
+    const isSingle = uploaded.length === 1;
 
     return {
       statusCode: 200,
-      message: 'File(s) uploaded successfully',
-      url: primaryUrl,
-      urls: allUrls,
-      data: {
-        url: primaryUrl,
-        urls: allUrls,
-        file: firstFile,
-        files: uploaded,
-      },
-      files: uploaded,
+      message: isSingle
+        ? 'File uploaded successfully'
+        : 'Files uploaded successfully',
+      data: isSingle ? uploaded[0] : uploaded,
     };
   }
 
