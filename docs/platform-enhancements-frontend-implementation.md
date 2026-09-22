@@ -23,10 +23,11 @@ This guide details the frontend integration patterns, API contracts, TypeScript 
 ## 1. Maintenance Mode & System Interception
 
 ### 1.1 Overview & Behavior
-- When maintenance mode is active, the backend globally blocks non-exempt HTTP requests for all regular users with **`HTTP 503 Service Unavailable`**.
-- System Administrators holding the `SUPER_ADMIN` role with a valid JWT bypass the maintenance guard so they can manage settings, test features, and turn maintenance mode OFF.
-- Public whitelisted routes include: `/health`, `/`, `/docs`, `/v1/auth/login`, and `/v1/admin/settings/maintenance`.
-- When maintenance mode is toggled **ON**, the system automatically dispatches a branded HTML email notification to all registered users containing the custom message and estimated completion time.
+- When maintenance mode is active, the backend globally blocks all regular users, enterprise users, and enterprise team admins with **`HTTP 503 Service Unavailable`**.
+- **No Login / No Registration**: Regular users and enterprise users **cannot** register or log in while maintenance mode is active. Calls to `/v1/auth/login`, `/v1/auth/register`, etc. return `503 Service Unavailable`.
+- **System Admin Access Only**: Only System Administrators (`SUPER_ADMIN`) are permitted to log in (via `/v1/auth/login`) and make API calls during maintenance mode. Enterprise Admins (`teamRole: ADMIN` / `ENTERPRISE`) are **not** system admins and remain blocked.
+- Public whitelisted routes include: `/health`, `/`, `/docs`, and maintenance toggle endpoints `/v1/admin/settings/maintenance`.
+- When maintenance mode is toggled **ON**, the system automatically dispatches a branded HTML email notification to all active registered users containing the custom message and estimated completion time.
 
 ### 1.2 Admin APIs: Toggle Maintenance Mode
 

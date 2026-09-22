@@ -1,8 +1,9 @@
 import {
   BadRequestException,
   Injectable,
-  UnauthorizedException,
   InternalServerErrorException,
+  ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -440,6 +441,30 @@ export class AuthService {
 
     if (!passwordMatched) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Check maintenance mode: during maintenance, ONLY SUPER_ADMIN (system admin) is allowed to log in.
+    const maintenance = await this.prisma.systemMaintenance.findFirst();
+    if (maintenance?.isUnderMaintenance) {
+      if (!maintenance.endTime || new Date() < new Date(maintenance.endTime)) {
+        const isSuperAdmin = user.roles.some(
+          (r) => r.role?.code === UserRoleCode.SUPER_ADMIN && r.isActive,
+        );
+        if (!isSuperAdmin) {
+          throw new ServiceUnavailableException({
+            statusCode: 503,
+            error: 'Service Unavailable',
+            message:
+              maintenance.message ||
+              'The platform is currently undergoing scheduled maintenance. Only system administrators can log in at this time.',
+            data: {
+              isUnderMaintenance: true,
+              message: maintenance.message,
+              endTime: maintenance.endTime,
+            },
+          });
+        }
+      }
     }
 
     // 🛡️ ফিক্স: যদি ইউজারটির কোনো সক্রিয় রোল অ্যাসাইন করা না থাকে, তবেই সে সাধারণ ইউজার এবং ফ্রি প্ল্যান নিশ্চিত করা হবে।

@@ -2,7 +2,10 @@ import { ExecutionContext, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRoleCode } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
-import { MaintenanceGuard, invalidateMaintenanceCache } from './maintenance.guard';
+import {
+  MaintenanceGuard,
+  invalidateMaintenanceCache,
+} from './maintenance.guard';
 
 describe('MaintenanceGuard', () => {
   let guard: MaintenanceGuard;
@@ -17,11 +20,15 @@ describe('MaintenanceGuard', () => {
       systemMaintenance: {
         findFirst: jest.fn(),
       },
+      userRole: {
+        findFirst: jest.fn(),
+      },
     };
 
     configService = {
       get: jest.fn((key: string) => {
         if (key === 'JWT_ACCESS_SECRET') return JWT_SECRET;
+        if (key === 'SUPER_ADMIN_EMAIL') return 'admin@system.com';
         return null;
       }),
     };
@@ -29,7 +36,12 @@ describe('MaintenanceGuard', () => {
     guard = new MaintenanceGuard(prisma, configService);
   });
 
-  const mockContext = (url: string, method = 'GET', authHeader?: string): ExecutionContext =>
+  const mockContext = (
+    url: string,
+    method = 'GET',
+    authHeader?: string,
+    body?: any,
+  ): ExecutionContext =>
     ({
       switchToHttp: () => ({
         getRequest: () => ({
@@ -37,6 +49,7 @@ describe('MaintenanceGuard', () => {
           originalUrl: url,
           method,
           headers: authHeader ? { authorization: authHeader } : {},
+          body: body || {},
         }),
       }),
     }) as any;
@@ -79,6 +92,80 @@ describe('MaintenanceGuard', () => {
     );
   });
 
+  it('blocks registration requests during maintenance mode', async () => {
+    prisma.systemMaintenance.findFirst.mockResolvedValue({
+      isUnderMaintenance: true,
+      message: 'Maintenance in progress',
+      endTime: null,
+    });
+
+    const context = mockContext('/v1/auth/register', 'POST', undefined, {
+      email: 'newuser@example.com',
+      password: 'Password123!',
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('blocks regular user login attempts during maintenance mode', async () => {
+    prisma.systemMaintenance.findFirst.mockResolvedValue({
+      isUnderMaintenance: true,
+      message: 'Maintenance in progress',
+      endTime: null,
+    });
+    prisma.userRole.findFirst.mockResolvedValue(null); // Not a SUPER_ADMIN
+
+    const context = mockContext('/v1/auth/login', 'POST', undefined, {
+      email: 'regular.student@gmail.com',
+      password: 'Password123!',
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('blocks enterprise admin/user login attempts during maintenance mode', async () => {
+    prisma.systemMaintenance.findFirst.mockResolvedValue({
+      isUnderMaintenance: true,
+      message: 'Maintenance in progress',
+      endTime: null,
+    });
+    // Enterprise admin does NOT have SUPER_ADMIN role
+    prisma.userRole.findFirst.mockResolvedValue(null);
+
+    const context = mockContext('/v1/auth/login', 'POST', undefined, {
+      email: 'enterprise.admin@company.com',
+      password: 'Password123!',
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('allows system admin (SUPER_ADMIN) login attempt during maintenance mode', async () => {
+    prisma.systemMaintenance.findFirst.mockResolvedValue({
+      isUnderMaintenance: true,
+      message: 'Maintenance in progress',
+      endTime: null,
+    });
+    prisma.userRole.findFirst.mockResolvedValue({
+      id: 'ur-superadmin',
+      role: { code: UserRoleCode.SUPER_ADMIN },
+    });
+
+    const context = mockContext('/v1/auth/login', 'POST', undefined, {
+      email: 'system.superadmin@platform.com',
+      password: 'AdminPassword123!',
+    });
+
+    const result = await guard.canActivate(context);
+    expect(result).toBe(true);
+  });
+
   it('allows super admin users through during maintenance if valid SUPER_ADMIN JWT is provided', async () => {
     prisma.systemMaintenance.findFirst.mockResolvedValue({
       isUnderMaintenance: true,
@@ -99,5 +186,24 @@ describe('MaintenanceGuard', () => {
 
     const result = await guard.canActivate(context);
     expect(result).toBe(true);
+  });
+
+  it('blocks logged-in enterprise users during maintenance if their JWT does not have SUPER_ADMIN', async () => {
+    prisma.systemMaintenance.findFirst.mockResolvedValue({
+      isUnderMaintenance: true,
+      message: 'Emergency maintenance',
+      endTime: null,
+    });
+
+    const token = jwt.sign(
+      { sub: 'enterprise-user-1', roles: [UserRoleCode.ENTERPRISE] },
+      JWT_SECRET,
+    );
+
+    const context = mockContext('/v1/services', 'GET', `Bearer ${token}`);
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 });

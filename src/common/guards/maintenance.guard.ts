@@ -32,14 +32,14 @@ export class MaintenanceGuard implements CanActivate {
     const url: string = request.originalUrl || request.url || '';
     const method: string = request.method;
 
-    // 1. Whitelist essential operational routes
+    // 1. Whitelist essential operational routes (health checks, API documentation, maintenance settings)
+    // Note: Registration and regular logins are NOT whitelisted during maintenance.
     if (
       url.includes('/health') ||
       url === '/' ||
       url.includes('/docs') ||
       url.includes('/settings/maintenance') ||
-      url.includes('/admin/settings/maintenance') ||
-      (url.includes('/auth/login') && method === 'POST')
+      url.includes('/admin/settings/maintenance')
     ) {
       return true;
     }
@@ -67,12 +67,61 @@ export class MaintenanceGuard implements CanActivate {
     }
 
     // Check if auto-disable time has passed
-    if (maintenanceCache.endTime && new Date() >= new Date(maintenanceCache.endTime)) {
+    if (
+      maintenanceCache.endTime &&
+      new Date() >= new Date(maintenanceCache.endTime)
+    ) {
       maintenanceCache = null;
       return true;
     }
 
-    // 3. Maintenance is active. Check if caller is authenticated as SUPER_ADMIN
+    // 3. During maintenance, allow ONLY System Administrators (SUPER_ADMIN) to attempt login.
+    // Regular users, enterprise owners, and enterprise team admins are strictly blocked.
+    if (url.includes('/auth/login') && method === 'POST') {
+      const email = request.body?.email
+        ? String(request.body.email).trim().toLowerCase()
+        : null;
+
+      if (email) {
+        const superAdminEmail = (
+          this.configService.get<string>('SUPER_ADMIN_EMAIL') || ''
+        )
+          .trim()
+          .toLowerCase();
+
+        const isSuperAdminByEmail =
+          superAdminEmail && email === superAdminEmail;
+
+        const isSuperAdminInDb = await this.prisma.userRole.findFirst({
+          where: {
+            user: { email },
+            role: { code: UserRoleCode.SUPER_ADMIN },
+            isActive: true,
+          },
+        });
+
+        if (isSuperAdminByEmail || isSuperAdminInDb) {
+          return true;
+        }
+      }
+
+      // Any non-super-admin attempting to log in during maintenance is blocked
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message:
+          maintenanceCache.message ||
+          'The platform is currently undergoing scheduled maintenance. Only system administrators can log in at this time.',
+        data: {
+          isUnderMaintenance: true,
+          message: maintenanceCache.message,
+          endTime: maintenanceCache.endTime,
+        },
+      });
+    }
+
+    // 4. Maintenance is active. Check if caller has an active JWT belonging to SYSTEM ADMIN (SUPER_ADMIN).
+    // Enterprise admins (teamRole: ADMIN) and Enterprise users (role: ENTERPRISE) are NOT system admins and must be blocked.
     const authHeader = request.headers['authorization'];
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
@@ -93,7 +142,7 @@ export class MaintenanceGuard implements CanActivate {
       }
     }
 
-    // 4. Deny access for non-admin users with 503 Service Unavailable
+    // 5. Deny access for all other incoming requests with 503 Service Unavailable
     throw new ServiceUnavailableException({
       statusCode: 503,
       error: 'Service Unavailable',
