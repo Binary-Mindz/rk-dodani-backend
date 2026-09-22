@@ -92,7 +92,7 @@ export class InsightService {
           scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
           allowComments: dto.allowComments ?? false,
           allowDownload: dto.allowDownload ?? false,
-          contentType: dto.contentType ?? 'ARTICLE',
+          contentType: dto.contentType ? dto.contentType.trim().toUpperCase() : 'ARTICLE',
           fileType: dto.fileType ?? null,
           industryTargets: dto.industryTargets ?? [],
           tags,
@@ -135,7 +135,9 @@ export class InsightService {
       }),
       ...(query.status && { status: query.status }),
       ...(query.visibility && { visibility: query.visibility }),
-      ...(query.contentType && { contentType: query.contentType }),
+      ...(query.contentType && {
+        contentType: query.contentType.trim().toUpperCase(),
+      }),
       ...(query.industry && {
         industryTargets: { has: query.industry },
       }),
@@ -232,7 +234,7 @@ export class InsightService {
             allowDownload: dto.allowDownload,
           }),
           ...(dto.contentType !== undefined && {
-            contentType: dto.contentType,
+            contentType: dto.contentType.trim().toUpperCase(),
           }),
           ...(dto.fileType !== undefined && { fileType: dto.fileType }),
           ...(dto.industryTargets !== undefined && {
