@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IndustryTarget,
-  InsightContentType,
   InsightFileType,
   InsightStatus,
   InsightVisibility,
 } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -91,12 +91,15 @@ export class CreateInsightDto {
   allowDownload?: boolean;
 
   @ApiPropertyOptional({
-    enum: InsightContentType,
-    default: InsightContentType.ARTICLE,
+    example: 'ARTICLE',
+    description: 'Dynamic content type code (e.g. ARTICLE, PODCAST, WEBINAR, INFOGRAPHIC)',
+    default: 'ARTICLE',
   })
   @IsOptional()
-  @IsEnum(InsightContentType)
-  contentType?: InsightContentType;
+  @IsString()
+  @MaxLength(100)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  contentType?: string;
 
   @ApiPropertyOptional({ enum: InsightFileType })
   @IsOptional()
