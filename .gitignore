@@ -34,8 +34,6 @@ lerna-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
-.env
-.env.*
 
 
 # temp directory
@@ -58,3 +56,4 @@ temp_interactive_push.bat
 branch_structure.json
 
 test/
+config.bat
