@@ -16,7 +16,7 @@ model Insight {
   allowComments Boolean           @default(false)
   allowDownload Boolean           @default(false)
 
-  contentType InsightContentType @default(ARTICLE)
+  contentType String @default("ARTICLE")
   fileType    InsightFileType?
   fileUrl     String?
 
