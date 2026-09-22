@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IndustryTarget,
-  InsightContentType,
   InsightStatus,
   InsightVisibility,
 } from '@prisma/client';
@@ -39,10 +38,14 @@ export class QueryInsightDto {
   @IsEnum(InsightVisibility)
   visibility?: InsightVisibility;
 
-  @ApiPropertyOptional({ enum: InsightContentType })
+  @ApiPropertyOptional({
+    example: 'ARTICLE',
+    description: 'Filter by dynamic content type code (e.g. ARTICLE, PODCAST, WEBINAR)',
+  })
   @IsOptional()
-  @IsEnum(InsightContentType)
-  contentType?: InsightContentType;
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  contentType?: string;
 
   @ApiPropertyOptional({ enum: IndustryTarget })
   @IsOptional()

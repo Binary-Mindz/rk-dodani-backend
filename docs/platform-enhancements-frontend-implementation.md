@@ -154,6 +154,16 @@ Authorization: Bearer <user_jwt_token>
 ```
 The query parameter `contentTypeCode` accepts any string matching an active content type.
 
+### 2.4 Insights Dynamic Content Type Integration
+The `/v1/admin/insights` endpoints now support dynamic content type codes instead of being locked to the legacy static enum:
+
+- **Create Insight (`POST /v1/admin/insights`)**:
+  Accepts any dynamic content type code in `contentType` (e.g., `"contentType": "WEBINAR"`). Defaults to `"ARTICLE"`. Input is automatically trimmed and converted to uppercase.
+- **Update Insight (`PATCH /v1/admin/insights/:id`)**:
+  Supports updating `contentType` to any dynamic content type code.
+- **Query Insights (`GET /v1/admin/insights?contentType=WEBINAR`)**:
+  Filter insights by any dynamic content type code.
+
 ---
 
 ## 3. Enterprise Team Member Role Separation
